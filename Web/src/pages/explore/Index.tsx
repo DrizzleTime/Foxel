@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card, Button, Space, Modal, message, Typography,
-  Row, Col, Image, Form, Input, Avatar,
+  Row, Col, Form, Input, Avatar,
   Tag, Tooltip, Spin, Empty, Statistic,
   Select, Grid
 } from 'antd';
@@ -17,6 +17,7 @@ import {
   type FaceClusterResponse, type UpdateClusterRequest
 } from '../../api';
 import type { PictureResponse } from '../../api/pictureApi';
+import ImageGrid from '../../components/image/ImageGrid/ImageGrid';
 
 const { Title, Text, Paragraph } = Typography;
 const { confirm } = Modal;
@@ -69,7 +70,7 @@ const FaceExplore: React.FC = () => {
   const fetchClusterPictures = useCallback(async (clusterId: number) => {
     setPicturesLoading(true);
     try {
-      const response = await getMyPicturesByCluster(clusterId, 1, 50);
+      const response = await getMyPicturesByCluster(clusterId, 1, 100); // 增加获取数量
       if (response.success) {
         const actualData = response.data?.data || response.data;
         setClusterPictures(Array.isArray(actualData) ? actualData : []);
@@ -443,72 +444,27 @@ const FaceExplore: React.FC = () => {
         open={isPictureModalVisible}
         onCancel={() => setIsPictureModalVisible(false)}
         footer={null}
-        width={800}
+        width="90vw"
+        style={{ maxWidth: 1200 }}
         destroyOnClose
       >
-        <Spin spinning={picturesLoading}>
-          {clusterPictures.length > 0 ? (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-              gap: 16,
-              maxHeight: 500,
-              overflowY: 'auto',
-              padding: '8px'
-            }}>
-              {clusterPictures.map(picture => (
-                <div key={picture.id} style={{ textAlign: 'center' }}>
-                  <Avatar
-                    size={100}
-                    src={picture.thumbnailPath || picture.path}
-                    style={{
-                      border: '2px solid #f0f0f0',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      marginBottom: 8
-                    }}
-                  />
-                  <div style={{
-                    fontSize: '11px',
-                    color: '#666',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    maxWidth: '120px'
-                  }}>
-                    {picture.name || `图片${picture.id}`}
-                  </div>
-                  <div style={{ marginTop: 4 }}>
-                    <Image
-                      width={0}
-                      height={0}
-                      src={picture.path}
-                      style={{ display: 'none' }}
-                      preview={{
-                        src: picture.path,
-                        mask: (
-                          <div style={{
-                            fontSize: '10px',
-                            color: '#fff',
-                            background: 'rgba(0,0,0,0.6)',
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            cursor: 'pointer'
-                          }}>
-                            查看大图
-                          </div>
-                        )
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Empty description="暂无图片" />
-          )}
-        </Spin>
+        <div style={{ 
+          maxHeight: '70vh', 
+          overflowY: 'auto',
+          padding: '16px 0'
+        }}>
+          <ImageGrid
+            dataSource={clusterPictures}
+            loading={picturesLoading}
+            emptyText="该聚类中暂无图片"
+            showPagination={false}
+            pageSize={50}
+            selectable={false}
+            queryParams={{}}
+          />
+        </div>
       </Modal>
+
     </div>
   );
 };

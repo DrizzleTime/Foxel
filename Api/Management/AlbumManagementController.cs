@@ -1,4 +1,3 @@
-using Foxel.Controllers;
 using Foxel.Models;
 using Foxel.Models.Request.Album;
 using Foxel.Models.Response.Album;

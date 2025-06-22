@@ -1,11 +1,11 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Foxel.Models;
 using Foxel.Models.Request.Album;
 using Foxel.Models.Response.Album;
 using Foxel.Services.Media;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-namespace Foxel.Controllers;
+namespace Foxel.Api;
 
 [Authorize]
 [Route("api/album")]

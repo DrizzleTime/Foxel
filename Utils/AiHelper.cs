@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-
 namespace Foxel.Utils;
 
 public static class AiHelper
@@ -10,17 +8,15 @@ public static class AiHelper
     /// <param name="aiResponse">AI生成的响应文本</param>
     /// <param name="logger">日志记录器</param>
     /// <returns>包含标题和描述的元组</returns>
-    public static (string title, string description) ExtractTitleAndDescription(string aiResponse, ILogger? logger = null)
+    public static (string title, string description) ExtractTitleAndDescription(string aiResponse,
+        ILogger? logger = null)
     {
         string title = "AI生成的标题";
         string description = "AI生成的描述";
-
         try
         {
-            // 尝试解析JSON响应
             if (aiResponse.Contains("{") && aiResponse.Contains("}"))
             {
-                // 提取JSON部分
                 int jsonStartIndex = aiResponse.IndexOf('{');
                 int jsonEndIndex = aiResponse.LastIndexOf('}') + 1;
 
@@ -34,7 +30,8 @@ public static class AiHelper
 
                     try
                     {
-                        var result = System.Text.Json.JsonSerializer.Deserialize<ImageAnalysisResult>(jsonPart, options);
+                        var result =
+                            System.Text.Json.JsonSerializer.Deserialize<ImageAnalysisResult>(jsonPart, options);
                         if (result != null)
                         {
                             if (!string.IsNullOrWhiteSpace(result.Title))
@@ -93,15 +90,14 @@ public static class AiHelper
         return (title, description);
     }
 
-    // 用于解析JSON的类
     public class ImageAnalysisResult
     {
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
+        public string Title { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
     }
 
     public class TagsResult
     {
-        public string[] Tags { get; set; } = Array.Empty<string>();
+        public string[] Tags { get; init; } = [];
     }
 }

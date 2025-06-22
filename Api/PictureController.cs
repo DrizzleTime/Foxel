@@ -1,4 +1,3 @@
-using Foxel.Controllers;
 using Foxel.Models;
 using Foxel.Models.DataBase;
 using Foxel.Models.Request.Picture;

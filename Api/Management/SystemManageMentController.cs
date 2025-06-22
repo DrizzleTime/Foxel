@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Foxel.Controllers;
 using Foxel.Models;
-using Foxel.Services.VectorDB;
+using Foxel.Services.VectorDb;
 
 namespace Foxel.Api.Management;
 

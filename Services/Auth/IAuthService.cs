@@ -3,6 +3,16 @@ using Foxel.Models.Request.Auth;
 
 namespace Foxel.Services.Auth;
 
+public enum OAuthResult
+{
+    Success,
+    UserNotBound,
+    InvalidCode,
+    TokenRequestFailed,
+    UserInfoFailed,
+    InvalidUserId
+}
+
 public interface IAuthService
 {
     Task<(bool success, string message, User? user)> RegisterUserAsync(RegisterRequest request);
@@ -14,7 +24,7 @@ public interface IAuthService
     Task<(bool success, string message, User? user)> UpdateUserInfoAsync(int userId, UpdateUserRequest request);
     string GetGitHubLoginUrl();
     string GetLinuxDoLoginUrl();
-    Task<(GitHubAuthResult result, string message, string? data)> ProcessGitHubCallbackAsync(string code);
-    Task<(LinuxDoAuthResult result, string message, string? data)> ProcessLinuxDoCallbackAsync(string code);
+    Task<(OAuthResult result, string message, string? data)> ProcessGitHubCallbackAsync(string code);
+    Task<(OAuthResult result, string message, string? data)> ProcessLinuxDoCallbackAsync(string code);
     Task<(bool success, string message, User? user)> BindAccountAsync(BindAccountRequest request);
 }

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Foxel.Services.Attributes;
+using Foxel.Services.Storage;
 
 namespace Foxel.Models.DataBase;
 

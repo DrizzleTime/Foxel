@@ -5,7 +5,7 @@ using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.Qdrant;
 using Qdrant.Client;
 
-namespace Foxel.Services.VectorDB;
+namespace Foxel.Services.VectorDb;
 
 public class QdrantVectorDbService(IDbContextFactory<MyDbContext> contextFactory, IConfigService configService)
     : IVectorDbService

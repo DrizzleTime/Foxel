@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-using Foxel.Services.Attributes; // For StorageType enum
+using Foxel.Services.Storage;
+
+// For StorageType enum
 
 namespace Foxel.Models.Request.Storage;
 

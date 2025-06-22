@@ -1,4 +1,3 @@
-using Foxel.Services.Attributes;
 using Foxel.Services.Configuration;
 using Microsoft.Extensions.Logging;
 

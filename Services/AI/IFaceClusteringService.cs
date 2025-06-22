@@ -1,5 +1,7 @@
 using Foxel.Models.DataBase;
 
+namespace Foxel.Services.AI;
+
 public interface IFaceClusteringService
 {
     /// <summary>

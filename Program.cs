@@ -1,6 +1,6 @@
 using Foxel.Extensions;
 using Foxel.Services.Initializer;
-using Foxel.Services.VectorDB;
+using Foxel.Services.VectorDb;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);

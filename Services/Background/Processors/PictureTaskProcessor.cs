@@ -85,7 +85,7 @@ namespace Foxel.Services.Background.Processors
                 using var scope = serviceProvider.CreateScope();
                 var storageService = scope.ServiceProvider.GetRequiredService<IStorageService>();
 
-                if (picture.StorageMode.StorageType == Attributes.StorageType.Local)
+                if (picture.StorageMode.StorageType == StorageType.Local)
                 {
                     logger.LogInformation(
                         "Picture {PictureId} is Local. Attempting to download via StorageService for consistency.",

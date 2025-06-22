@@ -10,7 +10,10 @@ using static Foxel.Utils.AuthHelper;
 
 namespace Foxel.Services.Auth;
 
-public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfigService configuration, ILogger<AuthService> logger)
+public class AuthService(
+    IDbContextFactory<MyDbContext> dbContextFactory,
+    IConfigService configuration,
+    ILogger<AuthService> logger)
     : IAuthService
 {
     public async Task<(bool success, string message, User? user)> RegisterUserAsync(RegisterRequest request)
@@ -196,11 +199,11 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
             $"https://github.com/login/oauth/authorize?client_id={Uri.EscapeDataString(githubClientId)}&redirect_uri={Uri.EscapeDataString(githubCallback)}";
     }
 
-    public async Task<(GitHubAuthResult result, string message, string? data)> ProcessGitHubCallbackAsync(string code)
+    public async Task<(OAuthResult result, string message, string? data)> ProcessGitHubCallbackAsync(string code)
     {
         if (string.IsNullOrEmpty(code))
         {
-            return (GitHubAuthResult.InvalidCode, "GitHub授权码无效", null);
+            return (OAuthResult.InvalidCode, "GitHub授权码无效", null);
         }
 
         string githubClientId = configuration["Authentication:GitHubClientId"];
@@ -219,7 +222,7 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
         {
             var errorContent = await tokenResponse.Content.ReadAsStringAsync();
             logger.LogError("获取GitHub访问令牌失败: {StatusCode}, {ErrorContent}", tokenResponse.StatusCode, errorContent);
-            return (GitHubAuthResult.TokenRequestFailed, $"获取GitHub访问令牌失败: {errorContent}", null);
+            return (OAuthResult.TokenRequestFailed, $"获取GitHub访问令牌失败: {errorContent}", null);
         }
 
         var tokenResponseContent = await tokenResponse.Content.ReadAsStringAsync();
@@ -229,7 +232,7 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
             accessTokenElement.GetString() == null)
         {
             logger.LogError("GitHub响应中未找到access_token: {TokenResponseContent}", tokenResponseContent);
-            return (GitHubAuthResult.TokenRequestFailed, "获取GitHub访问令牌失败，响应中未包含令牌。", null);
+            return (OAuthResult.TokenRequestFailed, "获取GitHub访问令牌失败，响应中未包含令牌。", null);
         }
 
         var accessToken = accessTokenElement.GetString();
@@ -242,7 +245,7 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
         {
             var errorContent = await userResponse.Content.ReadAsStringAsync();
             logger.LogError("获取GitHub用户信息失败: {StatusCode}, {ErrorContent}", userResponse.StatusCode, errorContent);
-            return (GitHubAuthResult.UserInfoFailed, $"获取GitHub用户信息失败: {errorContent}", null);
+            return (OAuthResult.UserInfoFailed, $"获取GitHub用户信息失败: {errorContent}", null);
         }
 
         var userContent = await userResponse.Content.ReadAsStringAsync();
@@ -275,34 +278,34 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
 
         if (string.IsNullOrEmpty(githubUserId))
         {
-            return (GitHubAuthResult.InvalidUserId, "无法从GitHub获取用户ID", null);
+            return (OAuthResult.InvalidUserId, "无法从GitHub获取用户ID", null);
         }
 
         var (isSuccess, message, user) = await FindGitHubUserAsync(githubUserId);
 
         if (!isSuccess || user == null)
         {
-            return (GitHubAuthResult.UserNotBound, "GitHub用户未绑定到系统账户", githubUserId);
+            return (OAuthResult.UserNotBound, "GitHub用户未绑定到系统账户", githubUserId);
         }
 
         var jwtToken = await GenerateJwtTokenAsync(user);
-        return (GitHubAuthResult.Success, "GitHub授权成功", jwtToken);
+        return (OAuthResult.Success, "GitHub授权成功", jwtToken);
     }
 
     public string GetLinuxDoLoginUrl()
     {
         string linuxdoClientId = configuration["Authentication:LinuxDoClientId"];
         string linuxdoCallback = configuration["Authentication:LinuxDoCallbackUrl"];
-        string state = Guid.NewGuid().ToString(); 
+        string state = Guid.NewGuid().ToString();
         return
             $"https://connect.linux.do/oauth2/authorize?response_type=code&client_id={Uri.EscapeDataString(linuxdoClientId)}&redirect_uri={Uri.EscapeDataString(linuxdoCallback)}&state={Uri.EscapeDataString(state)}";
     }
 
-    public async Task<(LinuxDoAuthResult result, string message, string? data)> ProcessLinuxDoCallbackAsync(string code)
+    public async Task<(OAuthResult result, string message, string? data)> ProcessLinuxDoCallbackAsync(string code)
     {
         if (string.IsNullOrEmpty(code))
         {
-            return (LinuxDoAuthResult.InvalidCode, "LinuxDo授权码无效", null);
+            return (OAuthResult.InvalidCode, "LinuxDo授权码无效", null);
         }
 
         string linuxdoClientId = configuration["Authentication:LinuxDoClientId"];
@@ -331,7 +334,7 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
         {
             var errorContent = await tokenResponse.Content.ReadAsStringAsync();
             logger.LogError("获取LinuxDo访问令牌失败: {StatusCode}, {ErrorContent}", tokenResponse.StatusCode, errorContent);
-            return (LinuxDoAuthResult.TokenRequestFailed, $"获取LinuxDo访问令牌失败: {errorContent}", null);
+            return (OAuthResult.TokenRequestFailed, $"获取LinuxDo访问令牌失败: {errorContent}", null);
         }
 
         var tokenResponseContent = await tokenResponse.Content.ReadAsStringAsync();
@@ -341,7 +344,7 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
             accessTokenElement.GetString() == null)
         {
             logger.LogError("LinuxDo响应中未找到access_token: {TokenResponseContent}", tokenResponseContent);
-            return (LinuxDoAuthResult.TokenRequestFailed, "获取LinuxDo访问令牌失败，响应中未包含令牌。", null);
+            return (OAuthResult.TokenRequestFailed, "获取LinuxDo访问令牌失败，响应中未包含令牌。", null);
         }
 
         var accessToken = accessTokenElement.GetString();
@@ -355,7 +358,7 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
         {
             var errorContent = await userResponse.Content.ReadAsStringAsync();
             logger.LogError("获取LinuxDo用户信息失败: {StatusCode}, {ErrorContent}", userResponse.StatusCode, errorContent);
-            return (LinuxDoAuthResult.UserInfoFailed, $"获取LinuxDo用户信息失败: {errorContent}", null);
+            return (OAuthResult.UserInfoFailed, $"获取LinuxDo用户信息失败: {errorContent}", null);
         }
 
         var userContent = await userResponse.Content.ReadAsStringAsync();
@@ -382,18 +385,18 @@ public class AuthService(IDbContextFactory<MyDbContext> dbContextFactory, IConfi
 
         if (string.IsNullOrEmpty(linuxdoUserId))
         {
-            return (LinuxDoAuthResult.InvalidUserId, "无法从LinuxDo获取用户ID", null);
+            return (OAuthResult.InvalidUserId, "无法从LinuxDo获取用户ID", null);
         }
 
         var (isSuccess, message, user) = await FindLinuxDoUserAsync(linuxdoUserId);
 
         if (!isSuccess || user == null)
         {
-            return (LinuxDoAuthResult.UserNotBound, "LinuxDo用户未绑定到系统账户", linuxdoUserId);
+            return (OAuthResult.UserNotBound, "LinuxDo用户未绑定到系统账户", linuxdoUserId);
         }
 
         var jwtToken = await GenerateJwtTokenAsync(user);
-        return (LinuxDoAuthResult.Success, "LinuxDo授权成功", jwtToken);
+        return (OAuthResult.Success, "LinuxDo授权成功", jwtToken);
     }
 
     public async Task<(bool success, string message, User? user)> BindAccountAsync(BindAccountRequest request)

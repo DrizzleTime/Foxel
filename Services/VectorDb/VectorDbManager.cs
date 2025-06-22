@@ -2,7 +2,7 @@ using Foxel.Models.Vector;
 using Foxel.Services.Configuration;
 using Microsoft.EntityFrameworkCore;
 
-namespace Foxel.Services.VectorDB;
+namespace Foxel.Services.VectorDb;
 
 public class VectorDbManager(IServiceProvider serviceProvider, IConfigService configService)
     : IVectorDbService

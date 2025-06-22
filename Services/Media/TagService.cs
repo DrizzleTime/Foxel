@@ -1,11 +1,9 @@
-using Microsoft.EntityFrameworkCore;
 using Foxel.Models;
 using Foxel.Models.DataBase;
 using Foxel.Models.Response.Tag;
-using Foxel.Services.Media;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
-namespace Foxel.Services;
+namespace Foxel.Services.Media;
 
 public class TagService(IDbContextFactory<MyDbContext> contextFactory, ILogger<TagService> logger) : ITagService
 {

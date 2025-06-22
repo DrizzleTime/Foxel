@@ -1,11 +1,11 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Foxel.Models;
 using Foxel.Models.Request.Tag;
 using Foxel.Models.Response.Tag;
 using Foxel.Services.Media;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-namespace Foxel.Controllers;
+namespace Foxel.Api;
 
 [Route("api/tag")]
 public class TagController(ITagService tagService) : BaseApiController

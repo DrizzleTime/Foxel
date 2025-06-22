@@ -1,6 +1,6 @@
 using Foxel.Models.Vector;
 
-namespace Foxel.Services.VectorDB;
+namespace Foxel.Services.VectorDb;
 
 public interface IVectorDbService
 {

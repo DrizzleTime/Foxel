@@ -7,8 +7,8 @@ using Foxel.Services.AI;
 using Foxel.Services.Background;
 using Foxel.Services.Configuration;
 using Foxel.Services.Storage;
-using Foxel.Services.VectorDB;
 using Foxel.Services.Mapping;
+using Foxel.Services.VectorDb;
 using Foxel.Utils;
 using Microsoft.EntityFrameworkCore;
 

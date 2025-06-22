@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Foxel.Services.Attributes;
 using Foxel.Services.Configuration;
 using System.Net;
 

@@ -1,6 +1,5 @@
 using System.Net.Http.Headers;
 using System.Text;
-using Foxel.Services.Attributes;
 using Foxel.Services.Configuration;
 
 namespace Foxel.Services.Storage.Providers;

@@ -1,12 +1,12 @@
 using Foxel.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Foxel.Models.Request.Auth;
 using Foxel.Models.Response.Auth;
 using Foxel.Services.Auth;
 using Foxel.Services.Configuration;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-namespace Foxel.Controllers;
+namespace Foxel.Api;
 
 [Route("api/auth")]
 public class AuthController(IAuthService authService, IConfigService configuration) : BaseApiController
@@ -119,15 +119,15 @@ public class AuthController(IAuthService authService, IConfigService configurati
 
         switch (result)
         {
-            case GitHubAuthResult.Success:
+            case OAuthResult.Success:
                 return Redirect($"/login?token={Uri.EscapeDataString(data!)}");
 
-            case GitHubAuthResult.UserNotBound:
+            case OAuthResult.UserNotBound:
                 return Redirect($"/bind?githubId={data}");
-            case GitHubAuthResult.InvalidCode:
-            case GitHubAuthResult.TokenRequestFailed:
-            case GitHubAuthResult.UserInfoFailed:
-            case GitHubAuthResult.InvalidUserId:
+            case OAuthResult.InvalidCode:
+            case OAuthResult.TokenRequestFailed:
+            case OAuthResult.UserInfoFailed:
+            case OAuthResult.InvalidUserId:
             default:
                 return Redirect($"/login?error=github_auth_failed&message={Uri.EscapeDataString(message)}");
         }
@@ -147,15 +147,15 @@ public class AuthController(IAuthService authService, IConfigService configurati
 
         switch (result)
         {
-            case LinuxDoAuthResult.Success:
+            case OAuthResult.Success:
                 return Redirect($"/login?token={Uri.EscapeDataString(data!)}");
 
-            case LinuxDoAuthResult.UserNotBound:
+            case OAuthResult.UserNotBound:
                 return Redirect($"/bind?linuxdoId={data}");
-            case LinuxDoAuthResult.InvalidCode:
-            case LinuxDoAuthResult.TokenRequestFailed:
-            case LinuxDoAuthResult.UserInfoFailed:
-            case LinuxDoAuthResult.InvalidUserId:
+            case OAuthResult.InvalidCode:
+            case OAuthResult.TokenRequestFailed:
+            case OAuthResult.UserInfoFailed:
+            case OAuthResult.InvalidUserId:
             default:
                 return Redirect($"/login?error=linuxdo_auth_failed&message={Uri.EscapeDataString(message)}");
         }

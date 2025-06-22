@@ -4,7 +4,6 @@ using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using System.Globalization;
 using Foxel.Models;
 using Foxel.Models.Enums;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Foxel.Utils;
 
@@ -13,21 +12,6 @@ namespace Foxel.Utils;
 /// </summary>
 public static class ImageHelper
 {
-    /// <summary>
-    /// 获取完整URL路径
-    /// </summary>
-    /// <param name="serverUrl">服务器URL</param>
-    /// <param name="relativePath">相对路径</param>
-    /// <returns>完整URL路径</returns>
-    public static string GetFullPath(string serverUrl, string relativePath)
-    {
-        if (string.IsNullOrEmpty(relativePath))
-            return string.Empty;
-        if (relativePath.StartsWith("https://"))
-            return relativePath;
-        return $"{serverUrl.TrimEnd('/')}{relativePath}";
-    }
-
     /// <summary>
     /// 创建缩略图
     /// </summary>
@@ -74,58 +58,6 @@ public static class ImageHelper
         thumbnailFileInfo = new FileInfo(webpThumbnailPath);
 
         return thumbnailFileInfo.Length;
-    }
-
-    /// <summary>
-    /// 检查图像是否包含透明像素
-    /// </summary>
-    /// <param name="image">要检查的图像</param>
-    /// <returns>如果图像包含透明像素则返回true</returns>
-    private static bool HasTransparency(Image image)
-    {
-        // 检查图像格式是否支持透明度
-        if (image.PixelType.AlphaRepresentation == PixelAlphaRepresentation.None)
-        {
-            return false; // 图像格式不支持透明度
-        }
-
-        // 对于小图片，逐像素检查是否有透明度
-        if (image.Width * image.Height <= 1000 * 1000) // 对于不超过1000x1000的图片
-        {
-            using var imageWithAlpha = image.CloneAs<Rgba32>();
-
-            for (int y = 0; y < imageWithAlpha.Height; y++)
-            {
-                for (int x = 0; x < imageWithAlpha.Width; x++)
-                {
-                    if (imageWithAlpha[x, y].A < 255)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-        else
-        {
-            using var imageWithAlpha = image.CloneAs<Rgba32>();
-            int sampleSize = Math.Max(image.Width, image.Height) / 100;
-            sampleSize = Math.Max(1, sampleSize);
-
-            for (int y = 0; y < imageWithAlpha.Height; y += sampleSize)
-            {
-                for (int x = 0; x < imageWithAlpha.Width; x += sampleSize)
-                {
-                    if (imageWithAlpha[x, y].A < 255)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
     }
 
     /// <summary>

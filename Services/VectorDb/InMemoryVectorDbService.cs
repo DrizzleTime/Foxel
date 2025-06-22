@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.InMemory;
 
-namespace Foxel.Services.VectorDB;
+namespace Foxel.Services.VectorDb;
 
 public class InMemoryVectorDbService : IVectorDbService
 {

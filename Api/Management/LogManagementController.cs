@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Foxel.Models;
 using Foxel.Models.Response.Log;
 using Foxel.Models.Request.Log;
-using Foxel.Controllers;
 using Foxel.Services.Management;
 
 namespace Foxel.Api.Management;

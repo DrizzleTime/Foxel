@@ -12,9 +12,9 @@ using Foxel.Services.Initializer;
 using Foxel.Services.Management;
 using Foxel.Services.Media;
 using Foxel.Services.Storage;
-using Foxel.Services.VectorDB;
 using Foxel.Services.Background.Processors;
 using Foxel.Services.Mapping;
+using Foxel.Services.VectorDb;
 
 namespace Foxel.Extensions;
 

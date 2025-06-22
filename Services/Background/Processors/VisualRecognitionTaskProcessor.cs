@@ -1,10 +1,10 @@
 using Foxel.Models.DataBase;
 using Foxel.Services.AI;
 using Foxel.Services.Storage;
-using Foxel.Services.VectorDB;
 using Foxel.Utils;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using Foxel.Services.VectorDb;
 // using Foxel.Services.Attributes; // StorageType enum might not be directly needed here anymore
 using Microsoft.Extensions.DependencyInjection; // For CreateScope
 using Microsoft.AspNetCore.Hosting; // For IWebHostEnvironment
@@ -117,7 +117,7 @@ namespace Foxel.Services.Background.Processors
                 string actualThumbnailPathForAI;
 
                 // Check the StorageType of the associated StorageMode
-                if (picture.StorageMode.StorageType == Attributes.StorageType.Local)
+                if (picture.StorageMode.StorageType == StorageType.Local)
                 {
                     // As with PictureTaskProcessor, safer to use DownloadFileAsync for consistency
                     _logger.LogInformation("Picture {PictureId} thumbnail is Local. Attempting to download via StorageService for AI.", pictureId);

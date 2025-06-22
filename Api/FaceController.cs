@@ -1,7 +1,7 @@
-using Foxel.Controllers;
 using Foxel.Models;
 using Foxel.Models.Response.Face;
 using Foxel.Models.Response.Picture;
+using Foxel.Services.AI;
 using Foxel.Services.Management;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -1,6 +1,4 @@
-using Foxel.Models.DataBase;
-
-namespace Foxel.Services.Attributes;
+namespace Foxel.Services.Storage;
 
 public enum StorageType
 {

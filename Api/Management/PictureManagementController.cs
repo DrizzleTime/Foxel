@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Foxel.Models;
 using Foxel.Models.Response.Picture;
-using Foxel.Controllers;
 using Foxel.Services.Management;
 
 namespace Foxel.Api.Management;

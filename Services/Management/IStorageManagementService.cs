@@ -1,7 +1,9 @@
 using Foxel.Models; // For PaginatedResult
 using Foxel.Models.Request.Storage;
 using Foxel.Models.Response.Storage;
-using Foxel.Services.Attributes; // For StorageType
+using Foxel.Services.Storage;
+
+// For StorageType
 
 namespace Foxel.Services.Management;
 

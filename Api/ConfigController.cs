@@ -1,11 +1,11 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Foxel.Models;
 using Foxel.Models.DataBase;
 using Foxel.Models.Request.Config;
 using Foxel.Services.Configuration;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-namespace Foxel.Controllers;
+namespace Foxel.Api;
 
 [Authorize(Roles = "Administrator")]
 [Route("api/config")]

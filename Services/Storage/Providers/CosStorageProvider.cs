@@ -4,7 +4,6 @@ using COSXML.CosException;
 using COSXML.Model.Object;
 using COSXML.Model.Tag;
 using COSXML.Transfer;
-using Foxel.Services.Attributes;
 using Foxel.Services.Configuration;
 using Microsoft.Extensions.Logging;
 

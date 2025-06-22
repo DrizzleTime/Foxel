@@ -1,11 +1,9 @@
-using Microsoft.AspNetCore.Mvc;
-using Foxel.Models;
-using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using System.Security.Claims;
+using Foxel.Models;
+using Microsoft.AspNetCore.Mvc;
 
-namespace Foxel.Controllers
+namespace Foxel.Api
 {
     [ApiController]
     [Route("api/[controller]")]

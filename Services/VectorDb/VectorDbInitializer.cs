@@ -1,6 +1,6 @@
 using Foxel.Services.Configuration;
 
-namespace Foxel.Services.VectorDB;
+namespace Foxel.Services.VectorDb;
 
 public class VectorDbInitializer : IHostedService
 {

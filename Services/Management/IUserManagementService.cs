@@ -13,10 +13,3 @@ public interface IUserManagementService
     Task<bool> DeleteUserAsync(int id);
     Task<BatchDeleteResult> BatchDeleteUsersAsync(List<int> ids);
 }
-
-public class BatchDeleteResult
-{
-    public int SuccessCount { get; set; }
-    public int FailedCount { get; set; }
-    public List<int> FailedIds { get; set; } = new();
-}

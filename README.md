@@ -1,3 +1,35 @@
+
+<div align="right">
+  <details>
+    <summary >🌐 Language</summary>
+    <div>
+      <div align="center">
+        <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=en">English</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=zh-CN">简体中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=zh-TW">繁體中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=ja">日本語</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=ko">한국어</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=hi">हिन्दी</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=th">ไทย</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=fr">Français</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=de">Deutsch</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=es">Español</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=it">Italiano</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=ru">Русский</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=pt">Português</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=nl">Nederlands</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=pl">Polski</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=ar">العربية</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=fa">فارسی</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=tr">Türkçe</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=vi">Tiếng Việt</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=id">Bahasa Indonesia</a>
+        | <a href="https://openaitx.github.io/view.html?user=DrizzleTime&project=Foxel&lang=as">অসমীয়া</
+      </div>
+    </div>
+  </details>
+</div>
+
 <p align="center">
     <img src="Web/public/logo.png" alt="Foxel Logo" width="150"><br>
     <strong>Foxel - 智能图像检索与管理系统</strong>

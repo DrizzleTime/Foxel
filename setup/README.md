@@ -101,3 +101,95 @@ bash <(curl -sL "https://raw.githubusercontent.com/DrizzleTime/Foxel/main/setup/
 [信息] 脚本执行完毕。
 root@debian:~# 
 ```
+
+## 🌍 再次运行 示例
+```yaml
+=================================================
+[信息] 欢迎使用 Foxel 一键安装与管理脚本 (版本: 1.7)
+=================================================
+
+[信息] 正在检查所需依赖...
+[信息] 所有基础依赖均已满足。
+[信息] Docker 环境检测通过。
+[信息] 检测到 Docker Compose 命令: docker-compose
+
+[信息] 检测到 Foxel 已安装。
+[信息] Foxel 安装目录位于: /opt/docker/Foxel
+
+--- Foxel 管理菜单 ---
+1. 更新
+2. 卸载
+3. 重新安装
+4. 服务管理 (启动/停止/重启/日志)
+5. 退出
+请选择操作 [1-5]: 1
+[警告] 更新前，强烈建议您备份 '/opt/docker/Foxel/data' 目录！
+您确定要继续更新吗？ (y/n): y
+[信息] 正在拉取最新镜像...
+[+] Pulling 1/1
+ ✔ foxel Pulled                                                                              1.5s 
+[信息] 正在使用新镜像重新部署...
+[+] Running 1/1
+ ✔ foxel Pulled                                                                              1.2s 
+[+] Running 1/0
+ ✔ Container foxel  Running                                                                  0.0s 
+[信息] Foxel 更新成功！
+
+--- Foxel 管理菜单 ---
+1. 更新
+2. 卸载
+3. 重新安装
+4. 服务管理 (启动/停止/重启/日志)
+5. 退出
+请选择操作 [1-5]: 4
+
+--- 服务管理 ---
+1. 启动 Foxel
+2. 停止 Foxel
+3. 重启 Foxel
+4. 查看日志
+5. 返回上级菜单
+请选择操作 [1-5]: 4   
+[信息] 正在显示日志 (按 Ctrl+C 退出)...
+foxel  | 开始数据库迁移检查...
+foxel  | 数据库未在 'data/db/db.sqlite3' 找到。无需迁移。
+foxel  | [2025-09-03 00:13:20 +0800] [1] [INFO] Starting gunicorn 23.0.0
+foxel  | [2025-09-03 00:13:20 +0800] [1] [INFO] Listening at: http://0.0.0.0:8000 (1)
+foxel  | [2025-09-03 00:13:20 +0800] [1] [INFO] Using worker: uvicorn.workers.UvicornWorker
+foxel  | [2025-09-03 00:13:20 +0800] [13] [INFO] Booting worker with pid: 13
+foxel  | [2025-09-03 00:13:20 +0800] [14] [INFO] Booting worker with pid: 14
+foxel  | [2025-09-03 00:13:20 +0800] [15] [INFO] Booting worker with pid: 15
+foxel  | [2025-09-03 00:13:20 +0800] [16] [INFO] Booting worker with pid: 16
+foxel  | [2025-09-03 00:13:21 +0800] [13] [INFO] Started server process [13]
+foxel  | [2025-09-03 00:13:21 +0800] [13] [INFO] Waiting for application startup.
+foxel  | [2025-09-03 00:13:21 +0800] [14] [INFO] Started server process [14]
+foxel  | [2025-09-03 00:13:21 +0800] [14] [INFO] Waiting for application startup.
+foxel  | [2025-09-03 00:13:21 +0800] [13] [INFO] Application startup complete.
+foxel  | [2025-09-03 00:13:21 +0800] [15] [INFO] Started server process [15]
+foxel  | [2025-09-03 00:13:21 +0800] [15] [INFO] Waiting for application startup.
+foxel  | [2025-09-03 00:13:21 +0800] [14] [INFO] Application startup complete.
+foxel  | [2025-09-03 00:13:21 +0800] [15] [INFO] Application startup complete.
+foxel  | [2025-09-03 00:13:21 +0800] [16] [INFO] Started server process [16]
+foxel  | [2025-09-03 00:13:21 +0800] [16] [INFO] Waiting for application startup.
+foxel  | [2025-09-03 00:13:21 +0800] [16] [INFO] Application startup complete.
+^Ccanceled
+
+--- 服务管理 ---
+1. 启动 Foxel
+2. 停止 Foxel
+3. 重启 Foxel
+4. 查看日志
+5. 返回上级菜单
+请选择操作 [1-5]: 3
+[信息] 正在重启...
+[+] Restarting 1/1
+ ✔ Container foxel  Started                                                                  0.7s 
+
+--- 服务管理 ---
+1. 启动 Foxel
+2. 停止 Foxel
+3. 重启 Foxel
+4. 查看日志
+5. 返回上级菜单
+请选择操作 [1-5]: 
+```

@@ -1,6 +1,6 @@
 import { memo, useState, useEffect } from 'react';
-import { Modal, Radio, message, Button, Typography, Input } from 'antd';
-import { CopyOutlined } from '@ant-design/icons';
+import { Modal, Radio, message, Button, Typography, Input, Space } from 'antd';
+import { CopyOutlined, FileMarkdownOutlined } from '@ant-design/icons';
 import type { VfsEntry } from '../../../../api/client';
 import { vfsApi } from '../../../../api/client';
 
@@ -10,6 +10,21 @@ interface DirectLinkModalProps {
   open: boolean;
   onCancel: () => void;
 }
+
+// Helper function to check if a file is an image
+const isImageFile = (fileName: string): boolean => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'].includes(ext);
+};
+
+// Helper function to generate Markdown formatted link
+const generateMarkdownLink = (fileName: string, url: string): string => {
+  if (isImageFile(fileName)) {
+    return `![${fileName}](${url})`;
+  } else {
+    return `[${fileName}](${url})`;
+  }
+};
 
 export const DirectLinkModal = memo(function DirectLinkModal({ entry, path, open, onCancel }: DirectLinkModalProps) {
   const [loading, setLoading] = useState(false);
@@ -41,6 +56,13 @@ export const DirectLinkModal = memo(function DirectLinkModal({ entry, path, open
     navigator.clipboard.writeText(text);
     message.success('已复制到剪贴板');
   };
+
+  const handleCopyMarkdown = () => {
+    if (!entry || !link) return;
+    const markdownText = generateMarkdownLink(entry.name, link);
+    navigator.clipboard.writeText(markdownText);
+    message.success('Markdown 格式已复制到剪贴板');
+  };
   
   const handleExpiresChange = (e: any) => {
     setExpiresIn(e.target.value);
@@ -69,9 +91,14 @@ export const DirectLinkModal = memo(function DirectLinkModal({ entry, path, open
       
       <div style={{ display: 'flex', gap: 8 }}>
         <Input readOnly value={link} disabled={loading} placeholder={loading ? "正在生成链接..." : "链接将显示在这里"} />
-        <Button icon={<CopyOutlined />} onClick={() => handleCopy(link)} disabled={!link || loading}>
-          复制
-        </Button>
+        <Space.Compact>
+          <Button icon={<CopyOutlined />} onClick={() => handleCopy(link)} disabled={!link || loading}>
+            复制
+          </Button>
+          <Button icon={<FileMarkdownOutlined />} onClick={handleCopyMarkdown} disabled={!link || loading}>
+            复制 Markdown
+          </Button>
+        </Space.Compact>
       </div>
     </Modal>
   );

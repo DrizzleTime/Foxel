@@ -1,51 +1,65 @@
-name: Build and Push Docker image
+name: Docker
 
 on:
   push:
+    branches:
+      - "master" # 当推送到 master 分支时触发
     tags:
-      - 'v*.*.*'
-  workflow_dispatch:
+      - 'v*.*.*' # 当创建如 v1.0.0 这样的版本标签时触发
+  pull_request:
+    branches: [ "master" ] # PR 到 master 时构建，但不推送
+  workflow_dispatch: # 允许手动从 GitHub Actions 界面触发
 
 jobs:
-  build-and-push:
+  build-and-push: # 修改 job 名称以更好地反映其功能
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+
+    # 只有在推送到 master 分支或创建标签时才进行登录和推送
+    # PR 构建不进行推送
+    if: github.event_name != 'pull_request'
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
 
-      - name: Lowercase repo name
-        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
-
-      - name: Set up Docker tags
-        id: meta
-        run: |
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-            echo "DOCKER_TAGS=ghcr.io/${REPO_LC}:${VERSION},ghcr.io/${REPO_LC}:latest" >> $GITHUB_ENV
-          else
-            echo "DOCKER_TAGS=ghcr.io/${REPO_LC}:dev" >> $GITHUB_ENV
-          fi
-
-      - name: Log in to GitHub Container Registry
+      - name: Login to Docker Hub
+        # 只有在推送到 master 或标签时才登录
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: your-docker-username/foxel # <-- 替换为你的 Docker Hub 用户名和镜像名
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr # 对于 PR 构建，也会生成标签
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            # 当推送到 master 分支或创建版本标签时，也打上 'latest' 标签
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build and push multi-arch Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ env.DOCKER_TAGS }}
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          # 只有在推送到 master 或标签时才进行推送
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

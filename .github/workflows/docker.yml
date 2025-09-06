@@ -1,25 +1,28 @@
 name: Build and Push Docker image
-
 on:
   push:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
-
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # GitHub Actions 的默认 runner 是 x86_64 (amd64)
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 步骤 1: 设置 QEMU 以支持跨平台构建
+      # 这允许 Docker Buildx 在 amd64 机器上模拟 arm64 架构
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
+          # 使用 'docker-container' 驱动，它是多平台构建所必需的
           driver: docker-container
 
       - name: Lowercase repo name
@@ -46,6 +49,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64
+          # 关键更改：指定多个平台，用逗号分隔
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.DOCKER_TAGS }}

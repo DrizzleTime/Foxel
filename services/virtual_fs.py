@@ -59,7 +59,7 @@ async def _ensure_method(adapter: Any, method: str):
     return func
 
 
-async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50) -> Dict:
+async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Dict:
     norm = (path if path.startswith('/') else '/' + path).rstrip('/') or '/'
     adapters = await StorageAdapter.filter(enabled=True)
 
@@ -100,7 +100,29 @@ async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50) ->
     if adapter_model and adapter_instance:
         list_dir = await _ensure_method(adapter_instance, "list_dir")
         try:
-            adapter_entries, adapter_total = await list_dir(effective_root, rel, page_num, page_size)
+            # Try with new signature first (supports sorting)
+            try:
+                adapter_entries, adapter_total = await list_dir(effective_root, rel, page_num, page_size, sort_by, sort_order)
+            except TypeError:
+                # Fallback to old signature for adapters that don't support sorting yet
+                adapter_entries, adapter_total = await list_dir(effective_root, rel, page_num, page_size)
+                # Apply sorting after getting the data
+                def sort_key(x):
+                    if sort_by == "name":
+                        return x["name"].lower()
+                    elif sort_by == "size":
+                        return x["size"]
+                    elif sort_by == "mtime":
+                        return x.get("mtime", 0)
+                    elif sort_by == "ctime":
+                        return x.get("ctime", x.get("mtime", 0))
+                    else:
+                        return x["name"].lower()
+                
+                # Sort the entries
+                reverse_order = sort_order == "desc"
+                adapter_entries.sort(key=lambda x: (not x.get("is_dir", False), sort_key(x)), reverse=reverse_order)
+                
         except NotADirectoryError:
             raise HTTPException(400, detail="Not a directory")
 

@@ -52,7 +52,7 @@ class S3Adapter:
     def _get_client(self):
         return self.session.client("s3", endpoint_url=self.endpoint_url)
 
-    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50) -> Tuple[List[Dict], int]:
+    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Tuple[List[Dict], int]:
         prefix = self._get_s3_key(rel)
         if prefix and not prefix.endswith("/"):
             prefix += "/"
@@ -72,6 +72,7 @@ class S3Adapter:
                             "is_dir": True,
                             "size": 0,
                             "mtime": 0,
+                            "ctime": 0,
                             "type": "dir",
                         })
 
@@ -87,11 +88,24 @@ class S3Adapter:
                             "is_dir": False,
                             "size": content.get("Size", 0),
                             "mtime": int(content.get("LastModified", datetime.now()).timestamp()),
+                            "ctime": int(content.get("LastModified", datetime.now()).timestamp()),  # S3 doesn't have creation time
                             "type": "file",
                         })
 
-        # 在内存中排序和分页
-        all_items.sort(key=lambda x: (not x["is_dir"], x["name"].lower()))
+        # 实现排序功能
+        def sort_key(x):
+            if sort_by == "name":
+                return x["name"].lower()
+            elif sort_by == "size":
+                return x["size"]
+            elif sort_by in ["mtime", "ctime"]:
+                return x["mtime"]  # S3 uses mtime for both
+            else:
+                return x["name"].lower()
+        
+        # 按目录优先，然后按指定字段排序
+        reverse_order = sort_order == "desc"
+        all_items.sort(key=lambda x: (not x["is_dir"], sort_key(x)), reverse=reverse_order)
         total_count = len(all_items)
         start_idx = (page_num - 1) * page_size
         end_idx = start_idx + page_size

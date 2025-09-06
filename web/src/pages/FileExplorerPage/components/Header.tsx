@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Flex, Typography, Divider, Button, Space, Tooltip, Segmented, Breadcrumb, Input, theme } from 'antd';
-import { ArrowUpOutlined, ReloadOutlined, PlusOutlined, UploadOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Flex, Typography, Divider, Button, Space, Tooltip, Segmented, Breadcrumb, Input, theme, Select } from 'antd';
+import { ArrowUpOutlined, ReloadOutlined, PlusOutlined, UploadOutlined, AppstoreOutlined, UnorderedListOutlined, SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons';
 import type { ViewMode } from '../types';
 
 interface HeaderProps {
@@ -8,24 +8,30 @@ interface HeaderProps {
   path: string;
   loading: boolean;
   viewMode: ViewMode;
+  sortBy: string;
+  sortOrder: string;
   onGoUp: () => void;
   onNavigate: (path: string) => void;
   onRefresh: () => void;
   onCreateDir: () => void;
   onUpload: () => void;
   onSetViewMode: (mode: ViewMode) => void;
+  onSortChange: (sortBy: string, sortOrder: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   path,
   loading,
   viewMode,
+  sortBy,
+  sortOrder,
   onGoUp,
   onNavigate,
   onRefresh,
   onCreateDir,
   onUpload,
   onSetViewMode,
+  onSortChange,
 }) => {
   const { token } = theme.useToken();
   const [editingPath, setEditingPath] = useState(false);
@@ -97,6 +103,25 @@ export const Header: React.FC<HeaderProps> = ({
         {renderBreadcrumb()}
       </Flex>
       <Space size={8} wrap>
+        <Select
+          size="small"
+          value={sortBy}
+          style={{ width: 120 }}
+          onChange={(value) => onSortChange(value, sortOrder)}
+          options={[
+            { label: '名称', value: 'name' },
+            { label: '大小', value: 'size' },
+            { label: '修改时间', value: 'mtime' },
+            { label: '创建时间', value: 'ctime' }
+          ]}
+        />
+        <Button
+          size="small"
+          icon={sortOrder === 'asc' ? <SortAscendingOutlined /> : <SortDescendingOutlined />}
+          onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
+          title={sortOrder === 'asc' ? '升序' : '降序'}
+        />
+        <Divider type="vertical" />
         <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>刷新</Button>
         <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir}>新建目录</Button>
         <Button size="small" icon={<UploadOutlined />} onClick={onUpload}>上传</Button>

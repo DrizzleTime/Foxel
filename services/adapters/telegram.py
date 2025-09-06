@@ -62,7 +62,7 @@ class TelegramAdapter:
     def get_effective_root(self, sub_path: str | None) -> str:
         return ""
 
-    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50) -> Tuple[List[Dict], int]:
+    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Tuple[List[Dict], int]:
         if rel:
             return [], 0
 
@@ -107,11 +107,27 @@ class TelegramAdapter:
                     "is_dir": False,
                     "size": size,
                     "mtime": int(message.date.timestamp()),
+                    "ctime": int(message.date.timestamp()),  # Telegram uses message date for both
                     "type": "file",
                 })
         finally:
             if client.is_connected():
                 await client.disconnect()
+
+        # 实现排序功能
+        def sort_key(x):
+            if sort_by == "name":
+                return x["name"].lower()
+            elif sort_by == "size":
+                return x["size"]
+            elif sort_by in ["mtime", "ctime"]:
+                return x["mtime"]  # Telegram uses mtime for both
+            else:
+                return x["name"].lower()
+        
+        # 排序（Telegram 只有文件，没有目录）
+        reverse_order = sort_order == "desc"
+        entries.sort(key=sort_key, reverse=reverse_order)
 
         return entries, len(entries)
 

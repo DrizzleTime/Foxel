@@ -27,12 +27,14 @@ export interface SearchResultItem {
 }
 
 export const vfsApi = {
-  list: (path: string, page: number = 1, pageSize: number = 50) => {
+  list: (path: string, page: number = 1, pageSize: number = 50, sortBy: string = 'name', sortOrder: string = 'asc') => {
     const cleaned = path.replace(/\\/g, '/');
     const trimmed = cleaned === '/' ? '' : cleaned.replace(/^\/+/, '');
     const params = new URLSearchParams({
       page: page.toString(),
-      page_size: pageSize.toString()
+      page_size: pageSize.toString(),
+      sort_by: sortBy,
+      sort_order: sortOrder
     });
     return request<DirListing>(`/fs/${encodeURI(trimmed)}?${params}`);
   },

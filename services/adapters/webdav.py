@@ -39,7 +39,7 @@ class WebDAVAdapter:
         rel = rel.strip('/')
         return self.base_url if not rel else urljoin(self.base_url, quote(rel) + ('/' if rel.endswith('/') else ''))
 
-    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50) -> Tuple[List[Dict], int]:
+    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Tuple[List[Dict], int]:
         raw_url = self._build_url(rel)
         url = raw_url if raw_url.endswith('/') else raw_url + '/'
         depth = "1"
@@ -97,11 +97,24 @@ class WebDAVAdapter:
                 "is_dir": is_dir,
                 "size": 0 if is_dir else size,
                 "mtime": 0,
+                "ctime": 0,  # WebDAV doesn't typically provide creation time
                 "type": "dir" if is_dir else "file",
             })
 
-        # 排序所有条目
-        all_entries.sort(key=lambda x: (not x["is_dir"], x["name"].lower()))
+        # 实现排序功能
+        def sort_key(x):
+            if sort_by == "name":
+                return x["name"].lower()
+            elif sort_by == "size":
+                return x["size"]
+            elif sort_by in ["mtime", "ctime"]:
+                return x["mtime"]  # WebDAV uses mtime for both
+            else:
+                return x["name"].lower()
+        
+        # 按目录优先，然后按指定字段排序
+        reverse_order = sort_order == "desc"
+        all_entries.sort(key=lambda x: (not x["is_dir"], sort_key(x)), reverse=reverse_order)
         total_count = len(all_entries)
 
         # 应用分页

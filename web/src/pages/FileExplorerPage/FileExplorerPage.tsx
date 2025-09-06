@@ -34,7 +34,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const dragCounter = useRef(0);
 
   // --- Hooks ---
-  const { path, entries, loading, pagination, processorTypes, load, navigateTo, goUp, handlePaginationChange, refresh } = useFileExplorer(navKey);
+  const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange } = useFileExplorer(navKey);
   const { selectedEntries, handleSelect, handleSelectRange, clearSelection, setSelectedEntries } = useFileSelection();
   const { doCreateDir, doDelete, doRename, doDownload, doShare, doGetDirectLink } = useFileActions({ path, refresh, clearSelection, onShare: (entries) => setSharingEntries(entries), onGetDirectLink: (entry) => setDirectLinkEntry(entry) });
   const { appWindows, openFileWithDefaultApp, confirmOpenWithApp, closeWindow, toggleMax, bringToFront, updateWindow } = useAppWindows(path);
@@ -136,12 +136,15 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         path={path}
         loading={loading}
         viewMode={viewMode}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
         onGoUp={goUp}
         onNavigate={navigateTo}
         onRefresh={refresh}
         onCreateDir={() => setCreatingDir(true)}
         onUpload={uploader.openModal}
         onSetViewMode={setViewMode}
+        onSortChange={handleSortChange}
       />
 
       <input ref={uploader.fileInputRef} type="file" style={{ display: 'none' }} multiple onChange={uploader.handleFileChange} />

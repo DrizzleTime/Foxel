@@ -107,15 +107,22 @@ class OneDriveAdapter:
         :return: 格式化后的字典。
         """
         is_dir = "folder" in item
+        mtime = int(datetime.fromisoformat(item["lastModifiedDateTime"].replace("Z", "+00:00")).timestamp())
+        # OneDrive 使用 createdDateTime，如果不存在就用 lastModifiedDateTime
+        ctime = mtime
+        if "createdDateTime" in item:
+            ctime = int(datetime.fromisoformat(item["createdDateTime"].replace("Z", "+00:00")).timestamp())
+        
         return {
             "name": item["name"],
             "is_dir": is_dir,
             "size": 0 if is_dir else item.get("size", 0),
-            "mtime": int(datetime.fromisoformat(item["lastModifiedDateTime"].replace("Z", "+00:00")).timestamp()),
+            "mtime": mtime,
+            "ctime": ctime,
             "type": "dir" if is_dir else "file",
         }
 
-    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50) -> Tuple[List[Dict], int]:
+    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Tuple[List[Dict], int]:
         """
         列出目录内容。
         :param root: 根路径 (在此适配器中未使用，通过配置的 root 确定)。
@@ -155,9 +162,23 @@ class OneDriveAdapter:
             resp = await self._request("GET", full_url=next_link)
 
         formatted_items = [self._format_item(item) for item in all_items]
-        # 排序：文件夹在前，然后按名称排序
-        formatted_items.sort(key=lambda x: (
-            not x["is_dir"], x["name"].lower()))
+        
+        # 实现排序功能
+        def sort_key(x):
+            if sort_by == "name":
+                return x["name"].lower()
+            elif sort_by == "size":
+                return x["size"]
+            elif sort_by == "mtime":
+                return x["mtime"]
+            elif sort_by == "ctime":
+                return x["ctime"]
+            else:
+                return x["name"].lower()
+        
+        # 按目录优先，然后按指定字段排序
+        reverse_order = sort_order == "desc"
+        formatted_items.sort(key=lambda x: (not x["is_dir"], sort_key(x)), reverse=reverse_order)
 
         total_count = len(formatted_items)
         start_idx = (page_num - 1) * page_size

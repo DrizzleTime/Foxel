@@ -12,6 +12,8 @@ export function useFileExplorer(navKey: string) {
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<VfsEntry[]>([]);
   const [processorTypes, setProcessorTypes] = useState<ProcessorTypeMeta[]>([]);
+  const [sortBy, setSortBy] = useState<string>("name");
+  const [sortOrder, setSortOrder] = useState<string>("asc");
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 50,
@@ -28,7 +30,7 @@ export function useFileExplorer(navKey: string) {
     try {
       // Load entries and processor types concurrently
       const [res, processors] = await Promise.all([
-        vfsApi.list(canonical === '/' ? '' : canonical, page, pageSize),
+        vfsApi.list(canonical === '/' ? '' : canonical, page, pageSize, sortBy, sortOrder),
         processorsApi.list()
       ]);
       setEntries(res.entries);
@@ -45,7 +47,7 @@ export function useFileExplorer(navKey: string) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortBy, sortOrder]);
 
   const navigateTo = useCallback((p: string) => {
     const canonical = p === '' || p === '/' ? '/' : (p.startsWith('/') ? p : '/' + p);
@@ -67,16 +69,25 @@ export function useFileExplorer(navKey: string) {
     load(path, pagination.current, pagination.pageSize);
   }
 
+  const handleSortChange = (newSortBy: string, newSortOrder: string) => {
+    setSortBy(newSortBy);
+    setSortOrder(newSortOrder);
+    load(path, 1, pagination.pageSize); // Reset to first page when sorting changes
+  }
+
   return {
     path,
     entries,
     loading,
     pagination,
     processorTypes,
+    sortBy,
+    sortOrder,
     load,
     navigateTo,
     goUp,
     handlePaginationChange,
     refresh,
+    handleSortChange,
   };
 }

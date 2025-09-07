@@ -1,7 +1,7 @@
 services:
   foxel:
-    image: ghcr.io/drizzletime/foxel:latest
-    #image: ghcr.nju.edu.cn/drizzletime/foxel:latest #国内用户可以用此镜像命令
+    image: ghcr.io/fqbin/foxel:dev
+    #arm64
     container_name: foxel
     restart: unless-stopped
     ports:

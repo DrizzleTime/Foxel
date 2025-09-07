@@ -1,0 +1,21 @@
+services:
+  foxel:
+    image: ghcr.io/drizzletime/foxel:latest
+    #image: ghcr.nju.edu.cn/drizzletime/foxel:latest  # 国内用户可以用此镜像命令
+    container_name: foxel
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    environment:
+      - TZ=Asia/Shanghai
+      - SECRET_KEY=EnsRhL9NFPxgFVc+7t96/y70DIOR+9SpntcIqQa90TU=
+      - TEMP_LINK_SECRET_KEY=EnsRhL9NFPxgFVc+7t96/y70DIOR+9SpntcIqQa90TU=
+    volumes:
+      - ./data:/app/data
+    pull_policy: always
+    networks:
+      - foxel-network
+
+networks:
+  foxel-network:
+    driver: bridge

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authApi } from '../api/auth';
+import { authApi, type MeResponse } from '../api/auth';
 
 interface AuthContextType {
     token: string | null;
@@ -7,12 +7,15 @@ interface AuthContextType {
     login: (username: string, password: string) => Promise<void>;
     logout: () => void;
     register: (username: string, password: string, email?: string, full_name?: string) => Promise<void>;
+    user: MeResponse | null;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as any);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
+    const [user, setUser] = useState<MeResponse | null>(null);
     const isAuthenticated = !!token;
 
     useEffect(() => {
@@ -22,20 +25,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = async (username: string, password: string) => {
         const res = await authApi.login({ username, password });
-        if (res)
+        if (res) {
             setToken(res.access_token);
+            try { await refreshUser(); } catch (_) {}
+        }
     };
 
     const logout = () => {
         setToken(null);
+        setUser(null);
     };
 
     const register = async (username: string, password: string, email?: string, full_name?: string) => {
         await authApi.register(username, password, email, full_name);
     };
 
+    const refreshUser = async () => {
+        if (!localStorage.getItem('token')) { setUser(null); return; }
+        const me = await authApi.me();
+        setUser(me);
+    };
+
+    useEffect(() => {
+        if (token) {
+            refreshUser().catch(() => setUser(null));
+        } else {
+            setUser(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token]);
+
     return (
-        <AuthContext.Provider value={{ token, isAuthenticated, login, logout, register }}>
+        <AuthContext.Provider value={{ token, isAuthenticated, login, logout, register, user, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

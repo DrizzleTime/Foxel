@@ -1,11 +1,13 @@
-import { Layout, Button, Dropdown, theme, Flex } from 'antd';
-import { SearchOutlined, UserOutlined, MenuUnfoldOutlined, LogoutOutlined } from '@ant-design/icons';
+import { Layout, Button, Dropdown, theme, Flex, Avatar, Typography } from 'antd';
+import { SearchOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { memo, useState } from 'react';
 import SearchDialog from './SearchDialog.tsx';
 import { authApi } from '../api/auth.ts';
 import { useNavigate } from 'react-router';
 import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useAuth } from '../contexts/AuthContext';
+import ProfileModal from '../components/ProfileModal';
 
 const { Header } = Layout;
 
@@ -19,11 +21,15 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle }: TopHeaderProp
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
   const { t } = useI18n();
+  const { user } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const handleLogout = () => {
     authApi.logout();
     navigate('/login', { replace: true });
   };
+
+  const openProfile = () => setProfileOpen(true);
 
   return (
     <Header style={{ background: token.colorBgContainer, borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', alignItems: 'center', gap: 16, backdropFilter: 'saturate(180%) blur(8px)' }}>
@@ -48,12 +54,23 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle }: TopHeaderProp
         <Dropdown
           menu={{
             items: [
+              { key: 'profile', label: t('Profile'), icon: <UserOutlined />, onClick: openProfile },
               { key: 'logout', label: t('Log Out'), icon: <LogoutOutlined />, onClick: handleLogout }
             ]
           }}
         >
-          <Button icon={<UserOutlined />}>{t('Admin')}</Button>
+          <Button type="text" style={{ paddingInline: 8, height: 40 }}>
+            <Flex align="center" gap={8}>
+              <Avatar size={28} src={user?.gravatar_url}>
+                {(user?.full_name || user?.username || 'A').charAt(0).toUpperCase()}
+              </Avatar>
+              <Typography.Text style={{ maxWidth: 160 }} ellipsis>
+                {user?.full_name || user?.username || t('Admin')}
+              </Typography.Text>
+            </Flex>
+          </Button>
         </Dropdown>
+        <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
       </Flex>
     </Header>
   );

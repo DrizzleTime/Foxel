@@ -1,5 +1,6 @@
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, Depends, Form
+import hashlib
 from fastapi.security import OAuth2PasswordRequestForm
 from services.auth import (
     authenticate_user_db,
@@ -7,10 +8,14 @@ from services.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     register_user,
     Token,
+    get_current_active_user,
+    User,
 )
 from pydantic import BaseModel
 from datetime import timedelta
 from api.response import success
+from models.database import UserAccount
+from services.auth import verify_password, get_password_hash
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -20,6 +25,7 @@ class RegisterRequest(BaseModel):
     password: str
     email: str | None = None
     full_name: str | None = None
+
 
 @router.post("/register", summary="注册第一个管理员用户")
 async def register(data: RegisterRequest):
@@ -51,3 +57,66 @@ async def login_for_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return Token(access_token=access_token, token_type="bearer")
+
+
+@router.get("/me", summary="获取当前登录用户信息")
+async def get_me(current_user: Annotated[User, Depends(get_current_active_user)]):
+    """
+    返回当前登录用户的基本信息，并附带 gravatar 头像链接。
+    """
+    email = (current_user.email or "").strip().lower()
+    md5_hash = hashlib.md5(email.encode("utf-8")).hexdigest()
+    gravatar_url = f"https://www.gravatar.com/avatar/{md5_hash}?s=64&d=identicon"
+    return success({
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "gravatar_url": gravatar_url,
+    })
+
+
+class UpdateMeRequest(BaseModel):
+    email: str | None = None
+    full_name: str | None = None
+    old_password: str | None = None
+    new_password: str | None = None
+
+
+@router.put("/me", summary="更新当前登录用户信息")
+async def update_me(
+    payload: UpdateMeRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    db_user = await UserAccount.get_or_none(id=current_user.id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    if payload.email is not None:
+        exists = await UserAccount.filter(email=payload.email).exclude(id=db_user.id).exists()
+        if exists:
+            raise HTTPException(status_code=400, detail="邮箱已被占用")
+        db_user.email = payload.email
+
+    if payload.full_name is not None:
+        db_user.full_name = payload.full_name
+
+    if payload.new_password:
+        if not payload.old_password:
+            raise HTTPException(status_code=400, detail="请提供原密码")
+        if not verify_password(payload.old_password, db_user.hashed_password):
+            raise HTTPException(status_code=400, detail="原密码错误")
+        db_user.hashed_password = get_password_hash(payload.new_password)
+
+    await db_user.save()
+
+    email = (db_user.email or "").strip().lower()
+    md5_hash = hashlib.md5(email.encode("utf-8")).hexdigest()
+    gravatar_url = f"https://cn.cravatar.com/avatar/{md5_hash}?s=64&d=identicon"
+    return success({
+        "id": db_user.id,
+        "username": db_user.username,
+        "email": db_user.email,
+        "full_name": db_user.full_name,
+        "gravatar_url": gravatar_url,
+    })

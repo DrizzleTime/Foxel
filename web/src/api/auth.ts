@@ -17,6 +17,21 @@ export interface AuthResponse {
   token_type: string;
 }
 
+export interface MeResponse {
+  id: number;
+  username: string;
+  email?: string | null;
+  full_name?: string | null;
+  gravatar_url: string;
+}
+
+export interface UpdateMePayload {
+  email?: string | null;
+  full_name?: string | null;
+  old_password?: string;
+  new_password?: string;
+}
+
 export const authApi = {
   register: async (username: string, password: string, email?: string, full_name?: string): Promise<any> => {
     return request('/auth/register', {
@@ -41,5 +56,16 @@ export const authApi = {
   },
   logout: () => {
     localStorage.removeItem('token');
+  },
+  me: async () => {
+    return await request<MeResponse>('/auth/me', {
+      method: 'GET',
+    });
+  },
+  updateMe: async (payload: UpdateMePayload) => {
+    return await request<MeResponse>('/auth/me', {
+      method: 'PUT',
+      json: payload,
+    });
   },
 };

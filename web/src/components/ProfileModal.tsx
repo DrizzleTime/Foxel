@@ -18,6 +18,7 @@ const ProfileModal = memo(function ProfileModal({ open, onClose }: ProfileModalP
   useEffect(() => {
     if (open && user) {
       form.setFieldsValue({
+        username: user.username || '',
         full_name: user.full_name || '',
         email: user.email || '',
         old_password: '',
@@ -63,6 +64,9 @@ const ProfileModal = memo(function ProfileModal({ open, onClose }: ProfileModalP
       cancelText={t('Cancel')}
     >
       <Form form={form} layout="vertical">
+        <Form.Item name="username" label={t('Username')}>
+          <Input disabled />
+        </Form.Item>
         <Form.Item name="full_name" label={t('Full Name')}>
           <Input placeholder={t('Full Name')} />
         </Form.Item>

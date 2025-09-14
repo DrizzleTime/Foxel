@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import enUS from 'antd/locale/en_US';
 import type { ThemeConfig } from 'antd/es/config-provider/context';
 import { getAllConfig } from '../api/config';
 import { useAuth } from './AuthContext';
 import baseTheme from '../theme';
+import { useI18n } from '../i18n';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -101,6 +103,7 @@ function buildThemeConfig(state: ThemeState, systemDark: boolean): ThemeConfig {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
+  const { lang } = useI18n();
   const systemDark = useSystemDarkPreferred();
   const [state, setState] = useState<ThemeState>({ mode: 'light' });
   const styleTagRef = useRef<HTMLStyleElement | null>(null);
@@ -163,6 +166,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const themeConfig = useMemo(() => buildThemeConfig(state, systemDark), [state, systemDark]);
   const resolvedMode: ThemeMode = useMemo(() => (state.mode === 'system' ? (systemDark ? 'dark' : 'light') : state.mode), [state.mode, systemDark]);
+  const locale = useMemo(() => (lang === 'zh' ? zhCN : enUS), [lang]);
 
   const ctxValue = useMemo<ThemeContextType>(() => ({
     refreshTheme,
@@ -173,7 +177,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider value={ctxValue}>
-      <ConfigProvider theme={{ ...themeConfig, cssVar: true }} locale={zhCN}>
+      <ConfigProvider theme={{ ...themeConfig, cssVar: true }} locale={locale}>
         {children}
       </ConfigProvider>
     </Ctx.Provider>

@@ -91,6 +91,16 @@ class ShareService:
         await share.delete()
 
     @staticmethod
+    async def delete_expired_shares(user: UserAccount) -> int:
+        """
+        删除当前用户所有已过期的分享链接，返回删除数量。
+        条件：expires_at 非空 且 小于等于当前时间（UTC）。
+        """
+        now = datetime.now(timezone.utc)
+        deleted_count = await ShareLink.filter(user=user, expires_at__lte=now).delete()
+        return deleted_count
+
+    @staticmethod
     async def get_shared_item_details(share: ShareLink, sub_path: str = ""):
         """
         获取分享链接中特定路径下的文件/目录详情。

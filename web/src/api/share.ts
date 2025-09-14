@@ -23,10 +23,15 @@ export interface ShareCreatePayload {
   password?: string;
 }
 
+export interface ClearExpiredResult {
+  deleted_count: number;
+}
+
 export const shareApi = {
   create: (payload: ShareCreatePayload) => request<ShareInfoWithPassword>('/shares', { method: 'POST', json: payload }),
   list: () => request<ShareInfo[]>('/shares'),
   remove: (shareId: number) => request<void>(`/shares/${shareId}`, { method: 'DELETE' }),
+  clearExpired: () => request<ClearExpiredResult>(`/shares/expired`, { method: 'DELETE' }),
   get: (token: string) => request<ShareInfo>(`/s/${token}`),
   verifyPassword: (token: string, password: string) => request<void>(`/s/${token}/verify`, { method: 'POST', json: { password } }),
   listDir: (token: string, path: string = '/', password?: string) => {

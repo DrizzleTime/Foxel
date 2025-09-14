@@ -83,6 +83,18 @@ async def get_my_shares(current_user: User = Depends(get_current_active_user)):
     return [ShareInfo.from_orm(s) for s in shares]
 
 
+@router.delete("/expired")
+async def delete_expired_shares(
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    删除当前用户的所有已过期分享。
+    """
+    user_account = await UserAccount.get(id=current_user.id)
+    deleted_count = await share_service.delete_expired_shares(user=user_account)
+    return success({"deleted_count": deleted_count})
+
+
 @router.delete("/{share_id}")
 async def delete_share(
     share_id: int,

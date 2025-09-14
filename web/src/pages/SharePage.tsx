@@ -44,6 +44,16 @@ const SharePage = memo(function SharePage() {
     }
   };
 
+  const handleClearExpired = async () => {
+    try {
+      const res = await shareApi.clearExpired();
+      message.success(t('Cleared {count} expired shares', { count: String(res.deleted_count) }));
+      fetchList();
+    } catch (e: any) {
+      message.error(e.message || t('Clear failed'));
+    }
+  };
+
   const columns = [
     { 
       title: t('Share Name'), 
@@ -100,7 +110,14 @@ const SharePage = memo(function SharePage() {
   return (
     <PageCard
       title={t('My Shares')}
-      extra={<Button onClick={fetchList} loading={loading}>{t('Refresh')}</Button>}
+      extra={
+        <Space>
+          <Button onClick={fetchList} loading={loading}>{t('Refresh')}</Button>
+          <Popconfirm title={t('Confirm clear expired shares?')} onConfirm={handleClearExpired}>
+            <Button danger>{t('Clear expired shares')}</Button>
+          </Popconfirm>
+        </Space>
+      }
     >
       <Table
         rowKey="id"

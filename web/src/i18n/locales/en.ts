@@ -53,6 +53,9 @@ export const en = {
   'Cancel failed': 'Cancel failed',
   'Load failed': 'Load failed',
   'Are you sure to cancel share?': 'Are you sure to cancel share?',
+  'Clear expired shares': 'Clear expired shares',
+  'Confirm clear expired shares?': 'Confirm clear expired shares?',
+  'Cleared {count} expired shares': 'Cleared {count} expired shares',
 
   'Share Name': 'Share Name',
   'Share Content': 'Share Content',

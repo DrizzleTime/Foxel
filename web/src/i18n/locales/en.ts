@@ -312,6 +312,16 @@ export const en = {
   'Processing finished': 'Processing finished',
   'Processing failed': 'Processing failed',
 
+  // Path selector
+  'Select File': 'Select File',
+  'Select Path': 'Select Path',
+  'Select Folder': 'Select Folder',
+  'Select': 'Select',
+  'Current': 'Current',
+  'Up': 'Up',
+  'Select Current Folder': 'Select Current Folder',
+  'Please select a file': 'Please select a file',
+
   // Plugins page
   'Installed successfully': 'Installed successfully',
   'Plugin': 'Plugin',

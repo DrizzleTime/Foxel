@@ -314,6 +314,16 @@ export const zh = {
   'Processing finished': '处理完成',
   'Processing failed': '处理失败',
 
+  // Path selector
+  'Select File': '选择文件',
+  'Select Path': '选择路径',
+  'Select Folder': '选择目录',
+  'Select': '选择',
+  'Current': '当前',
+  'Up': '上一级',
+  'Select Current Folder': '选择当前目录',
+  'Please select a file': '请选择一个文件',
+
   // Plugins page
   'Installed successfully': '安装成功',
   'Plugin': '插件',

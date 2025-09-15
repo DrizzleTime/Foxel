@@ -5,6 +5,7 @@ import { tasksApi, type AutomationTask, type QueuedTask } from '../api/tasks';
 import { processorsApi, type ProcessorTypeMeta } from '../api/processors';
 import { ProcessorConfigForm } from '../components/ProcessorConfigForm';
 import { useI18n } from '../i18n';
+import PathSelectorModal from '../components/PathSelectorModal';
 
 const TasksPage = memo(function TasksPage() {
   const [loading, setLoading] = useState(false);
@@ -17,6 +18,7 @@ const TasksPage = memo(function TasksPage() {
   const [queuedTasks, setQueuedTasks] = useState<QueuedTask[]>([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const { t } = useI18n();
+  const [pathPickerOpen, setPathPickerOpen] = useState(false);
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -151,6 +153,7 @@ const TasksPage = memo(function TasksPage() {
 
   const selectedProcessor = Form.useWatch('processor_type', form);
   const currentProcessorMeta = availableProcessors.find(p => p.type === selectedProcessor);
+  const watchedPathPattern = Form.useWatch('path_pattern', form);
 
 
   return (
@@ -197,7 +200,10 @@ const TasksPage = memo(function TasksPage() {
           </Form.Item>
           <Typography.Title level={5} style={{ marginTop: 8, fontSize: 14 }}>{t('Matching Rules')}</Typography.Title>
           <Form.Item name="path_pattern" label={t('Path Prefix (optional)')}>
-            <Input placeholder="/images/screenshots" />
+            <Input
+              placeholder="/images/screenshots"
+              addonAfter={<Button size="small" onClick={() => setPathPickerOpen(true)}>{t('Select')}</Button>}
+            />
           </Form.Item>
           <Form.Item name="filename_regex" label={t('Filename Regex (optional)')}>
             <Input placeholder=".*\.png$" />
@@ -219,6 +225,13 @@ const TasksPage = memo(function TasksPage() {
           />
         </Form>
       </Drawer>
+      <PathSelectorModal
+        open={pathPickerOpen}
+        mode="directory"
+        initialPath={watchedPathPattern || '/'}
+        onCancel={() => setPathPickerOpen(false)}
+        onOk={(p) => { form.setFieldsValue({ path_pattern: p }); setPathPickerOpen(false); }}
+      />
       <Modal
         title={t('Current Task Queue')}
         open={queueModalOpen}

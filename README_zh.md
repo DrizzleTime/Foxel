@@ -74,7 +74,7 @@ chmod 777 data/db data/mount
 
 我们非常欢迎来自社区的贡献！无论是提交 Bug、建议新功能还是直接贡献代码。
 
-在开始之前，请先阅读我们的 [`CONTRIBUTING.md`](CONTRIBUTING.md) 文件，它会指导你如何设置开发环境以及提交流程。
+在开始之前，请先阅读我们的 [`CONTRIBUTING_zh.md`](CONTRIBUTING_zh.md) 文件，它会指导你如何设置开发环境以及提交流程。
 
 ## 🌐 社区
 

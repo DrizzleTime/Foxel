@@ -73,7 +73,7 @@ chmod 777 data/db data/mount
 
 We welcome contributions from the community! Whether it's submitting bugs, suggesting new features, or contributing code directly.
 
-Before you start, please read our [`CONTRIBUTING.md`](CONTRIBUTING.md) file, which will guide you on how to set up your development environment and the submission process.
+Before you start, please read our [`CONTRIBUTING.md`](CONTRIBUTING.md) file, which explains the development environment and submission process. A Simplified Chinese translation is available in [`CONTRIBUTING_zh.md`](CONTRIBUTING_zh.md).
 
 ## 🌐 Community
 

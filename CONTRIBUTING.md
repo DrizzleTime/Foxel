@@ -1,76 +1,76 @@
+<div align="right">
+  <b>English</b> | <a href="./CONTRIBUTING_zh.md">简体中文</a>
+</div>
+
 # Contributing to Foxel
 
-🎉 首先，非常感谢您愿意花时间为 Foxel 做出贡献！
+We appreciate every minute you spend helping Foxel improve. This guide explains the contribution workflow so you can get started quickly.
 
-我们热烈欢迎各种形式的贡献。无论是报告 Bug、提出新功能建议、完善文档，还是直接提交代码，都将对项目产生积极的影响。
+## Table of Contents
 
-本指南将帮助您顺利地参与到项目中来。
-
-## 目录
-
-- [如何贡献](#如何贡献)
-  - [🐛 报告 Bug](#-报告-bug)
-  - [✨ 提交功能建议](#-提交功能建议)
-  - [🛠️ 贡献代码](#️-贡献代码)
-- [开发环境搭建](#开发环境搭建)
-  - [依赖准备](#依赖准备)
-  - [后端 (FastAPI)](#后端-fastapi)
-  - [前端 (React + Vite)](#前端-react--vite)
-- [代码贡献指南](#代码贡献指南)
-  - [贡献存储适配器 (Adapter)](#贡献存储适配器-adapter)
-  - [贡献前端应用 (App)](#贡献前端应用-app)
-- [提交规范](#提交规范)
-  - [Git 分支管理](#git-分支管理)
-  - [Commit Message 格式](#commit-message-格式)
-  - [Pull Request 流程](#pull-request-流程)
+- [How to Contribute](#how-to-contribute)
+  - [🐛 Report Bugs](#-report-bugs)
+  - [✨ Suggest Features](#-suggest-features)
+  - [🛠️ Contribute Code](#️-contribute-code)
+- [Development Environment](#development-environment)
+  - [Prerequisites](#prerequisites)
+  - [Backend (FastAPI)](#backend-fastapi)
+  - [Frontend (React + Vite)](#frontend-react--vite)
+- [Contribution Guidelines](#contribution-guidelines)
+  - [Storage Adapters](#storage-adapters)
+  - [Frontend Apps](#frontend-apps)
+- [Submission Rules](#submission-rules)
+  - [Git Branching](#git-branching)
+  - [Commit Message Format](#commit-message-format)
+  - [Pull Request Flow](#pull-request-flow)
 
 ---
 
-## 如何贡献
+## How to Contribute
 
-### 🐛 报告 Bug
+### 🐛 Report Bugs
 
-如果您在使用的过程中发现了 Bug，请通过 [GitHub Issues](https://github.com/DrizzleTime/Foxel/issues) 来报告。请在报告中提供以下信息：
+If you discover a bug, open a ticket via [GitHub Issues](https://github.com/DrizzleTime/Foxel/issues) and include:
 
-- **清晰的标题**：简明扼要地描述问题。
-- **复现步骤**：详细说明如何一步步重现该 Bug。
-- **期望行为** vs **实际行为**：描述您预期的结果和实际发生的情况。
-- **环境信息**：例如操作系统、浏览器版本、Foxel 版本等。
+- **A clear title** that summarises the problem.
+- **Reproduction steps** with enough detail to trigger the bug.
+- **Expected vs actual behaviour** to highlight the gap.
+- **Environment details** such as operating system, browser version, and the Foxel build you used.
 
-### ✨ 提交功能建议
+### ✨ Suggest Features
 
-我们欢迎任何关于新功能或改进的建议。请通过 [GitHub Issues](https://github.com/DrizzleTime/Foxel/issues) 创建一个 "Feature Request"，并详细阐述您的想法：
+To propose a new capability or an improvement, create an Issue and choose the "Feature Request" template. Document:
 
-- **问题描述**：说明该功能要解决什么问题。
-- **方案设想**：描述您希望该功能如何工作。
-- **相关信息**：提供任何有助于理解您想法的截图、链接或参考。
+- **Problem statement** – what pain point will the feature solve?
+- **Proposed solution** – how you expect it to work.
+- **Supporting material** – screenshots, references, or related links if helpful.
 
-### 🛠️ 贡献代码
+### 🛠️ Contribute Code
 
-如果您希望直接贡献代码，请参考下面的开发和提交流程。
+Follow the development setup below before opening a pull request. Keep changes focused and small so they are easier to review.
 
-## 开发环境搭建
+## Development Environment
 
-### 依赖准备
+### Prerequisites
 
-- **Git**: 用于版本控制。
-- **Python**: >= 3.13
-- **Bun**: 用于前端包管理和脚本运行。
+Install the following tooling first:
 
-### 后端 (FastAPI)
+- **Git** for version control
+- **Python** 3.13 or newer
+- **Bun** for frontend package management and scripts
 
-后端 API 服务基于 Python 和 FastAPI 构建。
+### Backend (FastAPI)
 
-1. **克隆仓库**
+1. **Clone the repository**
 
     ```bash
     git clone https://github.com/DrizzleTime/foxel.git
     cd Foxel
     ```
 
-2. **创建并激活 Python 虚拟环境**
+2. **Create and activate a virtual environment**
 
-    我们推荐使用 `uv` 来管理虚拟环境，以获得最佳性能。
+    `uv` is recommended for performance and reproducibility:
 
     ```bash
     uv venv
@@ -78,91 +78,85 @@
     # On Windows: .venv\Scripts\activate
     ```
 
-3. **安装依赖**
+3. **Install dependencies**
 
     ```bash
     uv sync
     ```
 
-4. **初始化环境**
+4. **Prepare local resources**
 
-    在启动服务前，请进行以下准备：
+    - Create the data directory:
 
-    - **创建数据目录**:
-      在项目根目录执行 `mkdir -p data/db`。这将创建用于存放数据库等文件的目录。
-      > [!IMPORTANT]
-      > 请确保应用拥有对 `data/db` 目录的读写权限。
+      ```bash
+      mkdir -p data/db
+      ```
 
-    - **创建 `.env` 配置文件**:
-      在项目根目录创建名为 `.env` 的文件，并填入以下内容。这些密钥用于保障应用安全，您可以按需修改。
+      Ensure the application user can read and write to `data/db`.
+
+    - Create an `.env` file in the project root and provide the required secrets. Replace the sample values with your own random strings:
 
       ```dotenv
       SECRET_KEY=EnsRhL9NFPxgFVc+7t96/y70DIOR+9SpntcIqQa90TU=
       TEMP_LINK_SECRET_KEY=EnsRhL9NFPxgFVc+7t96/y70DIOR+9SpntcIqQa90TU=
       ```
 
-5. **启动开发服务器**
+5. **Start the development server**
 
     ```bash
     uvicorn main:app --reload --host 0.0.0.0 --port 8000
     ```
 
-    API 服务将在 `http://localhost:8000` 上运行，您可以通过 `http://localhost:8000/docs` 访问自动生成的 API 文档。
+    The API is available at `http://localhost:8000`, and the interactive docs live at `http://localhost:8000/docs`.
 
-### 前端 (React + Vite)
+### Frontend (React + Vite)
 
-前端应用使用 React, Vite, 和 TypeScript 构建。
-
-1. **进入前端目录**
+1. **Enter the frontend directory**
 
     ```bash
     cd web
     ```
 
-2. **安装依赖**
+2. **Install dependencies**
 
     ```bash
     bun install
     ```
 
-3. **启动开发服务器**
+3. **Run the dev server**
 
     ```bash
     bun run dev
     ```
 
-    前端开发服务器将在 `http://localhost:5173` 运行。它已经配置了代理，会自动将 `/api` 请求转发到后端服务。
+    The Vite dev server runs at `http://localhost:5173` and proxies `/api` requests to the backend.
 
-## 代码贡献指南
+## Contribution Guidelines
 
-### 贡献存储适配器 (Adapter)
+### Storage Adapters
 
-存储适配器是 Foxel 的核心扩展点，用于接入不同的存储后端 (如 S3, FTP, Alist 等)。
+Storage adapters integrate new storage providers (for example S3, FTP, or Alist).
 
-1. **创建适配器文件**: 在 [`services/adapters/`](services/adapters/) 目录下，创建一个新文件，例如 `my_new_adapter.py`。
-2. **实现适配器类**:
-    - 创建一个类，继承自 [`services.adapters.base.BaseAdapter`](services/adapters/base.py)。
-    - 实现 `BaseAdapter` 中定义的所有抽象方法，如 `list_dir`, `get_meta`, `upload`, `download` 等。请仔细阅读基类中的文档注释以理解每个方法的作用和参数。
+1. Create a new module under [`services/adapters/`](services/adapters/) (for example `my_new_adapter.py`).
+2. Implement a class that inherits from [`services.adapters.base.BaseAdapter`](services/adapters/base.py) and provide concrete implementations for the abstract methods such as `list_dir`, `get_meta`, `upload`, and `download`.
 
-### 贡献前端应用 (App)
+### Frontend Apps
 
-前端应用允许用户在浏览器中直接预览或编辑特定类型的文件。
+Frontend apps enable in-browser previews or editors for specific file types.
 
-1. **创建应用组件**: 在 [`web/src/apps/`](web/src/apps/) 目录下，为您的应用创建一个新的文件夹，并在其中创建 React 组件。
-2. **定义应用类型**: 您的应用需要实现 [`web/src/apps/types.ts`](web/src/apps/types.ts) 中定义的 `FoxelApp` 接口。
-3. **注册应用**: 在 [`web/src/apps/registry.ts`](web/src/apps/registry.ts) 中，导入您的应用组件，并将其添加到 `APP_REGISTRY`。在注册时，您需要指定该应用可以处理的文件类型（通过 MIME Type 或文件扩展名）。
+1. Add a new folder in [`web/src/apps/`](web/src/apps/) for your app and expose a React component.
+2. Implement the `FoxelApp` interface defined in [`web/src/apps/types.ts`](web/src/apps/types.ts).
+3. Register the app in [`web/src/apps/registry.ts`](web/src/apps/registry.ts) and declare the MIME types or extensions it supports.
 
-## 提交规范
+## Submission Rules
 
-### Git 分支管理
+### Git Branching
 
-- 从最新的 `main` 分支创建您的特性分支。
+Start your work from the latest `main` branch and push feature changes on a dedicated branch.
 
-### Commit Message 格式
+### Commit Message Format
 
-我们遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范。这有助于自动化生成更新日志和版本管理。
-
-Commit Message 格式如下:
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification to drive release tooling.
 
 ```
 <type>(<scope>): <subject>
@@ -172,27 +166,27 @@ Commit Message 格式如下:
 <footer>
 ```
 
-- **type**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore` 等。
-- **scope**: (可选) 本次提交影响的范围，例如 `adapter`, `ui`, `api`。
-- **subject**: 简明扼要的描述。
+- **type**: e.g. `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
+- **scope** (optional): the area impacted by the change, such as `adapter`, `ui`, or `api`.
+- **subject**: a concise summary written in the imperative mood.
 
-**示例:**
-
-```
-feat(adapter): Add support for Alist storage
-```
+**Examples:**
 
 ```
-fix(ui): Correct display issue in file list view
+feat(adapter): add support for Alist storage
 ```
 
-### Pull Request 流程
+```
+fix(ui): correct display issue in file list view
+```
 
-1. Fork 仓库并克隆到本地。
-2. 创建并切换到您的特性分支。
-3. 完成代码编写和测试。
-4. 将您的分支推送到您的 Fork 仓库。
-5. 在 Foxel 主仓库创建一个 Pull Request，目标分支为 `main`。
-6. 在 PR 描述中清晰地说明您的更改内容、目的和任何相关的 Issue 编号。
+### Pull Request Flow
 
-项目维护者会尽快审查您的 PR。感谢您的耐心和贡献！
+1. Fork the repository and clone it locally.
+2. Create and switch to your feature branch.
+3. Implement the change and run relevant checks.
+4. Push the branch to your fork.
+5. Open a pull request against `main` in the Foxel repository.
+6. Explain the change set, its motivation, and reference related Issues in the PR description.
+
+Maintainers will review your pull request as soon as possible.

@@ -100,6 +100,8 @@ export const en = {
   'Open': 'Open',
   'Open With': 'Open With',
   'Default': 'Default',
+  'Processor': 'Processor',
+  'Share': 'Share',
   'Rename': 'Rename',
   'Delete': 'Delete',
   'Details': 'Details',

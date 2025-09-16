@@ -101,6 +101,8 @@ export const zh = {
   'Open': '打开',
   'Open With': '打开方式',
   'Default': '默认',
+  'Processor': '处理器',
+  'Share': '分享',
   'Rename': '重命名',
   'Delete': '删除',
   'Details': '详情',

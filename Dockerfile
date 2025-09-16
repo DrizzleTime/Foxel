@@ -27,6 +27,9 @@ COPY . .
 
 COPY nginx.conf /etc/nginx/nginx.conf
 
+RUN mkdir -p data/db data/mount && \
+    chmod 777 data/db data/mount
+    
 EXPOSE 80
 
 COPY entrypoint.sh /entrypoint.sh

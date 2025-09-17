@@ -1,6 +1,9 @@
 from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
 
 
+DEFAULT_VECTOR_DIMENSION = 4096
+
+
 class VectorDBService:
     _instance = None
 
@@ -13,15 +16,21 @@ class VectorDBService:
         if not hasattr(self, 'client'):
             self.client = MilvusClient("data/db/milvus.db")
 
-    def ensure_collection(self, collection_name, vector: bool = True):
+    def ensure_collection(self, collection_name, vector: bool = True, dim: int = DEFAULT_VECTOR_DIMENSION):
         if self.client.has_collection(collection_name):
             return
         if vector:
+            try:
+                vector_dim = int(dim)
+            except (TypeError, ValueError):
+                vector_dim = DEFAULT_VECTOR_DIMENSION
+            if vector_dim <= 0:
+                vector_dim = DEFAULT_VECTOR_DIMENSION
             fields = [
                 FieldSchema(name="path", dtype=DataType.VARCHAR,
                             max_length=512, is_primary=True, auto_id=False),
                 FieldSchema(name="embedding",
-                            dtype=DataType.FLOAT_VECTOR, dim=4096)
+                            dtype=DataType.FLOAT_VECTOR, dim=vector_dim)
             ]
             schema = CollectionSchema(
                 fields, description="Image vector collection")

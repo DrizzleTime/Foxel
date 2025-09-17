@@ -2,8 +2,9 @@ from typing import Dict, Any
 from fastapi.responses import Response
 import base64
 from services.ai import describe_image_base64, get_text_embedding
-from services.vector_db import VectorDBService
+from services.vector_db import VectorDBService, DEFAULT_VECTOR_DIMENSION
 from services.logging import LogService
+from services.config import ConfigCenter
 
 
 class VectorIndexProcessor:
@@ -71,7 +72,15 @@ class VectorIndexProcessor:
         if embedding is None:
             return Response(content="不支持的文件类型", status_code=400)
 
-        vector_db.ensure_collection(collection_name, vector=True)
+        raw_dim = await ConfigCenter.get('AI_EMBED_DIM', DEFAULT_VECTOR_DIMENSION)
+        try:
+            vector_dim = int(raw_dim)
+        except (TypeError, ValueError):
+            vector_dim = DEFAULT_VECTOR_DIMENSION
+        if vector_dim <= 0:
+            vector_dim = DEFAULT_VECTOR_DIMENSION
+
+        vector_db.ensure_collection(collection_name, vector=True, dim=vector_dim)
         vector_db.upsert_vector(
             collection_name, {'path': path, 'embedding': embedding})
         

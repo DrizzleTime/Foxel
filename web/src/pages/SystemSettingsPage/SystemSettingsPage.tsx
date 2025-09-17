@@ -21,13 +21,16 @@ const VISION_CONFIG_KEYS = [
   { key: 'AI_VISION_API_KEY', label: 'Vision API Key' },
 ];
 
+const DEFAULT_EMBED_DIMENSION = 4096;
+const EMBED_DIM_KEY = 'AI_EMBED_DIM';
+
 const EMBED_CONFIG_KEYS = [
   { key: 'AI_EMBED_API_URL', label: 'Embedding API URL' },
   { key: 'AI_EMBED_MODEL', label: 'Embedding Model', default: 'Qwen/Qwen3-Embedding-8B' },
   { key: 'AI_EMBED_API_KEY', label: 'Embedding API Key' },
 ];
 
-const ALL_AI_KEYS = [...VISION_CONFIG_KEYS, ...EMBED_CONFIG_KEYS];
+const ALL_AI_KEYS = [...VISION_CONFIG_KEYS, ...EMBED_CONFIG_KEYS, { key: EMBED_DIM_KEY, default: DEFAULT_EMBED_DIMENSION }];
 
 // Theme related config keys
 const THEME_KEYS = {
@@ -213,9 +216,27 @@ export default function SystemSettingsPage() {
                 <Form
                   layout="vertical"
                   initialValues={{
-                    ...Object.fromEntries(ALL_AI_KEYS.map(({ key, default: def }) => [key, config[key] ?? def ?? ''])),
+                    ...Object.fromEntries(ALL_AI_KEYS.map(({ key, default: def }) => [key, key === EMBED_DIM_KEY
+                      ? Number(config[key] ?? def ?? DEFAULT_EMBED_DIMENSION)
+                      : config[key] ?? def ?? ''])),
                   }}
-                  onFinish={handleSave}
+                  onFinish={async (vals) => {
+                    const currentDim = Number(config[EMBED_DIM_KEY] ?? DEFAULT_EMBED_DIMENSION);
+                    const nextDim = Number(vals[EMBED_DIM_KEY] ?? DEFAULT_EMBED_DIMENSION);
+                    if (currentDim !== nextDim) {
+                      Modal.confirm({
+                        title: t('Confirm embedding dimension change'),
+                        content: t('Changing the embedding dimension will clear the vector database automatically. You will need to rebuild indexes afterwards. Continue?'),
+                        okText: t('Confirm'),
+                        cancelText: t('Cancel'),
+                        onOk: async () => {
+                          await handleSave(vals);
+                        },
+                      });
+                      return;
+                    }
+                    await handleSave(vals);
+                  }}
                   style={{ marginTop: 24 }}
                   key={JSON.stringify(config)}
                 >
@@ -232,6 +253,9 @@ export default function SystemSettingsPage() {
                         <Input size="large" />
                       </Form.Item>
                     ))}
+                    <Form.Item name={EMBED_DIM_KEY} label={t('Embedding Dimension')}>
+                      <InputNumber min={1} max={32768} style={{ width: '100%' }} />
+                    </Form.Item>
                   </Card>
                   <Form.Item style={{ marginTop: 24 }}>
                     <Button type="primary" htmlType="submit" loading={loading} block>

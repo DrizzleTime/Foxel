@@ -34,7 +34,7 @@ class VectorIndexProcessor:
         vector_db = VectorDBService()
         collection_name = "vector_collection"
         if action == "destroy":
-            vector_db.delete_vector(collection_name, path)
+            await vector_db.delete_vector(collection_name, path)
             await LogService.info(
                 "processor:vector_index",
                 f"Destroyed {index_type} index for {path}",
@@ -43,8 +43,8 @@ class VectorIndexProcessor:
             return Response(content=f"文件 {path} 的 {index_type} 索引已销毁", media_type="text/plain")
 
         if index_type == 'simple':
-            vector_db.ensure_collection(collection_name, vector=False)
-            vector_db.upsert_vector(collection_name, {'path': path})
+            await vector_db.ensure_collection(collection_name, vector=False)
+            await vector_db.upsert_vector(collection_name, {'path': path})
             await LogService.info(
                 "processor:vector_index",
                 f"Created simple index for {path}",
@@ -80,8 +80,8 @@ class VectorIndexProcessor:
         if vector_dim <= 0:
             vector_dim = DEFAULT_VECTOR_DIMENSION
 
-        vector_db.ensure_collection(collection_name, vector=True, dim=vector_dim)
-        vector_db.upsert_vector(
+        await vector_db.ensure_collection(collection_name, vector=True, dim=vector_dim)
+        await vector_db.upsert_vector(
             collection_name, {'path': path, 'embedding': embedding})
         
         await LogService.info(

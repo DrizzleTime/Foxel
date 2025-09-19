@@ -40,7 +40,7 @@ async def set_config(
     if key == "AI_EMBED_DIM" and str(original_value) != value_to_save:
         try:
             service = VectorDBService()
-            service.clear_all_data()
+            await service.clear_all_data()
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to clear vector database: {exc}")
 

@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 async def search_files_by_vector(q: str, top_k: int):
     embedding = await get_text_embedding(q)
     vector_db = VectorDBService()
-    results = vector_db.search_vectors("vector_collection", embedding, top_k)
+    results = await vector_db.search_vectors("vector_collection", embedding, top_k)
     items = [
         SearchResultItem(id=res["id"], path=res["entity"]["path"], score=res["distance"])
         for res in results[0]
@@ -18,7 +18,7 @@ async def search_files_by_vector(q: str, top_k: int):
 
 async def search_files_by_name(q: str, top_k: int):
     vector_db = VectorDBService()
-    results = vector_db.search_by_path("vector_collection", q, top_k)
+    results = await vector_db.search_by_path("vector_collection", q, top_k)
     items = [
         SearchResultItem(id=idx, path=res["entity"]["path"], score=res["distance"])
         for idx, res in enumerate(results[0])

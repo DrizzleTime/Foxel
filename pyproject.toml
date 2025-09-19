@@ -64,6 +64,7 @@ dependencies = [
     "python-multipart==0.0.20",
     "pytz==2025.2",
     "pyyaml==6.0.2",
+    "qdrant-client==1.15.1",
     "rawpy==0.25.1",
     "rich==14.1.0",
     "rich-toolkit==0.15.0",

@@ -8,7 +8,7 @@ export const zh = {
   'All Files': '全部文件',
   'Manage': '管理',
   'System': '系统',
-  'Automation': '自动化',
+  'Automation': '自动任务',
   'My Shares': '我的分享',
   'Offline Downloads': '离线下载',
   'Adapters': '存储挂载',

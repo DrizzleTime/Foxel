@@ -49,6 +49,18 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, lo
     const toHex = (v: number) => v.toString(16).padStart(2, '0');
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   };
+  const toRgba = (hex: string, alpha: number) => {
+    const s = hex.replace('#', '');
+    const normalized = s.length === 3 ? s.split('').map(c => c + c).join('') : s;
+    const num = parseInt(normalized, 16);
+    if (Number.isNaN(num) || normalized.length !== 6) {
+      return `rgba(22, 119, 255, ${alpha})`;
+    }
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
   const containerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const startRef = useRef<{ x: number, y: number } | null>(null);
@@ -168,7 +180,7 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, lo
             width: rect.width,
             height: rect.height,
             border: '1px dashed var(--ant-color-border, rgba(0,0,0,0.4))',
-            background: 'var(--ant-color-primary-bg, rgba(0, 120, 212, 0.08))',
+            background: toRgba(String(token.colorPrimary || '#1677ff'), 0.16),
             zIndex: 999
           }}
         />

@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Any, Union, AsyncIterator
+from typing import Dict, Tuple, Any, Union, AsyncIterator, List
 from fastapi import HTTPException
 import mimetypes
 from fastapi.responses import Response
@@ -57,6 +57,24 @@ async def _ensure_method(adapter: Any, method: str):
     if not callable(func):
         raise HTTPException(501, detail=f"Adapter does not implement {method}")
     return func
+
+
+async def path_is_directory(path: str) -> bool:
+    """判断给定路径是否为目录。"""
+    adapter_instance, _, root, rel = await resolve_adapter_and_rel(path)
+    rel = rel.rstrip('/')
+    if rel == '':
+        return True
+    stat_func = getattr(adapter_instance, "stat_file", None)
+    if not callable(stat_func):
+        raise HTTPException(501, detail="Adapter does not implement stat_file")
+    try:
+        info = await stat_func(root, rel)
+    except FileNotFoundError:
+        raise HTTPException(404, detail="Path not found")
+    if isinstance(info, dict):
+        return bool(info.get("is_dir"))
+    return False
 
 
 async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Dict:
@@ -476,28 +494,110 @@ async def copy_path(src: str, dst: str, overwrite: bool = False, return_debug: b
     return debug_info if return_debug else None
 
 
-async def process_file(path: str, processor_type: str, config: dict, save_to: str = None):
-    """
-    使用指定处理器处理文件，并可选择保存到新路径
-    :param path: 源文件路径
-    :param processor_type: 处理器类型
-    :param config: 处理器配置
-    :param save_to: 保存路径（可选），不指定则只返回处理结果
-    :return: 处理后的文件内容或保存结果
-    """
-    data = await read_file(path)
+async def process_file(
+    path: str,
+    processor_type: str,
+    config: dict,
+    save_to: str | None = None,
+    overwrite: bool = False,
+) -> Any:
+    """处理指定路径（文件或目录）。目录会递归处理其下所有文件。"""
+
     processor = get_processor(processor_type)
     if not processor:
-        raise HTTPException(
-            400, detail=f"Processor {processor_type} not found")
-    result = await processor.process(data, path, config)
-    if save_to and getattr(processor, "produces_file", False):
+        raise HTTPException(400, detail=f"Processor {processor_type} not found")
+
+    actual_is_dir = await path_is_directory(path)
+
+    supported_exts = getattr(processor, "supported_exts", None) or []
+    allowed_exts = {
+        str(ext).lower().lstrip('.')
+        for ext in supported_exts
+        if isinstance(ext, str)
+    }
+
+    def matches_extension(rel_path: str) -> bool:
+        if not allowed_exts:
+            return True
+        if '.' not in rel_path:
+            return '' in allowed_exts
+        ext = rel_path.rsplit('.', 1)[-1].lower()
+        return ext in allowed_exts or f'.{ext}' in allowed_exts
+
+    def coerce_result_bytes(result: Any) -> bytes:
         if isinstance(result, Response):
-            result_bytes = result.body
-        else:
-            result_bytes = result
-        await write_file(save_to, result_bytes)
-        return {"saved_to": save_to}
+            return result.body
+        if isinstance(result, (bytes, bytearray)):
+            return bytes(result)
+        if isinstance(result, str):
+            return result.encode('utf-8')
+        raise HTTPException(500, detail="Processor must return bytes/Response when produces_file=True")
+
+    def build_absolute_path(mount_path: str, rel_path: str) -> str:
+        rel_norm = rel_path.lstrip('/')
+        mount_norm = mount_path.rstrip('/')
+        if not mount_norm:
+            return '/' + rel_norm if rel_norm else '/'
+        return f"{mount_norm}/{rel_norm}" if rel_norm else mount_norm
+
+    if actual_is_dir:
+        if save_to:
+            raise HTTPException(400, detail="Directory processing does not support custom save_to path")
+        if not overwrite:
+            raise HTTPException(400, detail="Directory processing requires overwrite")
+
+        adapter_instance, adapter_model, root, rel = await resolve_adapter_and_rel(path)
+        rel = rel.rstrip('/')
+        list_dir = await _ensure_method(adapter_instance, "list_dir")
+        processed_count = 0
+        stack: List[str] = [rel]
+        page_size = 200
+
+        while stack:
+            current = stack.pop()
+            page = 1
+            while True:
+                entries, total = await list_dir(root, current, page, page_size, "name", "asc")
+                if not entries and (total or 0) == 0:
+                    break
+
+                for entry in entries:
+                    name = entry.get("name")
+                    if not name:
+                        continue
+                    child_rel = f"{current}/{name}" if current else name
+                    if entry.get("is_dir"):
+                        stack.append(child_rel)
+                        continue
+                    if not matches_extension(child_rel):
+                        continue
+                    absolute_path = build_absolute_path(adapter_model.path, child_rel)
+                    data = await read_file(absolute_path)
+                    result = await processor.process(data, absolute_path, config)
+                    if getattr(processor, "produces_file", False):
+                        result_bytes = coerce_result_bytes(result)
+                        await write_file(absolute_path, result_bytes)
+                    processed_count += 1
+
+                if total is None or page * page_size >= total:
+                    break
+                page += 1
+
+        return {"processed_files": processed_count}
+
+    # 单文件处理
+    data = await read_file(path)
+    result = await processor.process(data, path, config)
+
+    target_path = save_to
+    if overwrite and not target_path:
+        target_path = path
+
+    if target_path and getattr(processor, "produces_file", False):
+        result_bytes = coerce_result_bytes(result)
+        await write_file(target_path, result_bytes)
+        return {"saved_to": target_path}
+
     return result
 
 

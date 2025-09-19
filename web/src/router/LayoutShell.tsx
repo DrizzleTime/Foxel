@@ -7,6 +7,7 @@ import FileExplorerPage from '../pages/FileExplorerPage/FileExplorerPage.tsx';
 import AdaptersPage from '../pages/AdaptersPage.tsx';
 import SharePage from '../pages/SharePage.tsx';
 import TasksPage from '../pages/TasksPage.tsx';
+import ProcessorsPage from '../pages/ProcessorsPage.tsx';
 import OfflineDownloadPage from '../pages/OfflineDownloadPage.tsx';
 import SystemSettingsPage from '../pages/SystemSettingsPage/SystemSettingsPage.tsx';
 import LogsPage from '../pages/LogsPage.tsx';
@@ -37,6 +38,7 @@ const ShellBody = memo(function ShellBody() {
               {navKey === 'files' && <FileExplorerPage />}
               {navKey === 'share' && <SharePage />}
               {navKey === 'tasks' && <TasksPage />}
+              {navKey === 'processors' && <ProcessorsPage />}
               {navKey === 'offline' && <OfflineDownloadPage />}
               {navKey === 'plugins' && <PluginsPage />}
               {navKey === 'settings' && <SystemSettingsPage />}

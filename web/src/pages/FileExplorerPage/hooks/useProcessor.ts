@@ -49,8 +49,8 @@ export function useProcessor({ path, processorTypes, refresh }: ProcessorParams)
         overwrite: overwrite ? true : undefined,
       };
 
-      await processorsApi.process(params);
-      message.success(t('Processing finished'));
+      const resp = await processorsApi.process(params);
+      message.success(`${t('Task submitted')}: ${resp.task_id}`);
       setModal({ entry: null, visible: false });
       if (overwrite || savingPath) refresh();
     } catch (e: any) {

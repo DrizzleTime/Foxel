@@ -9,6 +9,7 @@ import {
   BugOutlined,
   DatabaseOutlined,
   AppstoreOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import type { ReactNode } from 'react';
 
@@ -27,6 +28,7 @@ export const navGroups: NavGroup[] = [
     key: 'manage',
     title: 'Manage',
     children: [
+      { key: 'processors', icon: React.createElement(CodeOutlined), label: 'Processors' },
       { key: 'tasks', icon: React.createElement(RobotOutlined), label: 'Automation' },
       { key: 'share', icon: React.createElement(ShareAltOutlined), label: 'My Shares' },
       { key: 'offline', icon: React.createElement(CloudDownloadOutlined), label: 'Offline Downloads' },

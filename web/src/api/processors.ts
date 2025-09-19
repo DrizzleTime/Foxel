@@ -15,7 +15,8 @@ export interface ProcessorTypeMeta {
   name: string;
   supported_exts: string[];
   config_schema: ProcessorTypeField[];
-  produces_file:boolean;
+  produces_file: boolean;
+  module_path?: string | null;
 }
 
 export const processorsApi = {
@@ -29,11 +30,21 @@ export const processorsApi = {
     save_to?: string;
     overwrite?: boolean;
   }) =>
-    request<any>('/processors/process', {
+    request<{ task_id: string }>('/processors/process', {
       method: 'POST',
-      body: JSON.stringify(params),
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      json: params,
+    }),
+  getSource: (type: string) =>
+    request<{ source: string; module_path: string }>('/processors/source/' + encodeURIComponent(type), {
+      method: 'GET',
+    }),
+  updateSource: (type: string, source: string) =>
+    request<boolean>('/processors/source/' + encodeURIComponent(type), {
+      method: 'PUT',
+      json: { source },
+    }),
+  reload: () =>
+    request<boolean>('/processors/reload', {
+      method: 'POST',
     }),
 };

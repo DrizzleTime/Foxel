@@ -54,7 +54,8 @@ class TaskQueueService:
                     path=params["path"],
                     processor_type=params["processor_type"],
                     config=params["config"],
-                    save_to=params["save_to"]
+                    save_to=params.get("save_to"),
+                    overwrite=params.get("overwrite", False),
                 )
                 task.result = result
             elif task.name == "automation_task":

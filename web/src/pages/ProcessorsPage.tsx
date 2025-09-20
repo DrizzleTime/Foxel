@@ -17,7 +17,6 @@ import {
   theme,
 } from 'antd';
 import Editor from '@monaco-editor/react';
-import PageCard from '../components/PageCard';
 import { ProcessorConfigForm } from '../components/ProcessorConfigForm';
 import PathSelectorModal, { type PathSelectorMode } from '../components/PathSelectorModal';
 import { processorsApi, type ProcessorTypeMeta } from '../api/processors';
@@ -30,6 +29,7 @@ type TabKey = 'editor' | 'runner';
 const ProcessorsPage = memo(function ProcessorsPage() {
   const { t } = useI18n();
   const { token } = theme.useToken();
+  const [messageApi, contextHolder] = message.useMessage();
   const [processors, setProcessors] = useState<ProcessorTypeMeta[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [selectedType, setSelectedType] = useState<string>('');
@@ -60,11 +60,11 @@ const ProcessorsPage = memo(function ProcessorsPage() {
       const list = await processorsApi.list();
       setProcessors(list);
     } catch (err: any) {
-      message.error(err?.message || t('Load failed'));
+      messageApi.error(err?.message || t('Load failed'));
     } finally {
       setLoadingList(false);
     }
-  }, [t]);
+  }, [messageApi, t]);
 
   useEffect(() => {
     loadList();
@@ -103,7 +103,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
       })
       .catch((err: any) => {
         if (controller.signal.aborted) return;
-        message.error(err?.message || t('Load failed'));
+        messageApi.error(err?.message || t('Load failed'));
         setSource('');
         setInitialSource('');
         setModulePath('');
@@ -114,19 +114,24 @@ const ProcessorsPage = memo(function ProcessorsPage() {
         }
       });
     return () => controller.abort();
-  }, [selectedType, t]);
+  }, [messageApi, selectedType, t]);
 
   useEffect(() => {
+    if (!selectedProcessorMeta) {
+      form.resetFields();
+      setIsDirectory(false);
+      return;
+    }
     form.resetFields();
     const defaults: Record<string, any> = {};
-    selectedProcessorMeta?.config_schema?.forEach(field => {
+    selectedProcessorMeta.config_schema?.forEach(field => {
       if (field.default !== undefined) {
         defaults[field.key] = field.default;
       }
     });
     form.setFieldsValue({
       path: '',
-      overwrite: !!selectedProcessorMeta?.produces_file,
+      overwrite: !!selectedProcessorMeta.produces_file,
       save_to: undefined,
       config: defaults,
     });
@@ -172,26 +177,26 @@ const ProcessorsPage = memo(function ProcessorsPage() {
       setSavingSource(true);
       await processorsApi.updateSource(selectedType, source);
       setInitialSource(source);
-      message.success(t('Source saved'));
+      messageApi.success(t('Source saved'));
     } catch (err: any) {
-      message.error(err?.message || t('Operation failed'));
+      messageApi.error(err?.message || t('Operation failed'));
     } finally {
       setSavingSource(false);
     }
-  }, [selectedType, source, t]);
+  }, [messageApi, selectedType, source, t]);
 
   const handleReloadProcessors = useCallback(async () => {
     try {
       setReloading(true);
       await processorsApi.reload();
-      message.success(t('Processors reloaded'));
+      messageApi.success(t('Processors reloaded'));
       await loadList();
     } catch (err: any) {
-      message.error(err?.message || t('Operation failed'));
+      messageApi.error(err?.message || t('Operation failed'));
     } finally {
       setReloading(false);
     }
-  }, [loadList, t]);
+  }, [loadList, messageApi, t]);
 
   const openPathSelector = useCallback((field: 'path' | 'save_to', mode: PathSelectorMode) => {
     setPathModalField(field);
@@ -211,7 +216,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
 
   const handleRun = useCallback(async () => {
     if (!selectedType) {
-      message.warning(t('Please select a processor'));
+      messageApi.warning(t('Please select a processor'));
       return;
     }
     try {
@@ -237,20 +242,20 @@ const ProcessorsPage = memo(function ProcessorsPage() {
         payload.save_to = values.save_to;
       }
       const resp = await processorsApi.process(payload);
-      message.success(`${t('Task submitted')}: ${resp.task_id}`);
+      messageApi.success(`${t('Task submitted')}: ${resp.task_id}`);
     } catch (err: any) {
       if (err?.errorFields) {
         return;
       }
-      message.error(err?.message || t('Operation failed'));
+      messageApi.error(err?.message || t('Operation failed'));
     } finally {
       setRunning(false);
     }
-  }, [form, selectedProcessorMeta, selectedType, t]);
+  }, [form, messageApi, selectedProcessorMeta, selectedType, t]);
 
   const selectedConfigPath = pathModalField === 'path'
-    ? form.getFieldValue('path') || '/'
-    : form.getFieldValue('save_to') || '/';
+    ? (selectedType ? form.getFieldValue('path') : undefined) || '/'
+    : (selectedType ? form.getFieldValue('save_to') : undefined) || '/';
 
   const renderProcessorList = () => {
     if (loadingList) {
@@ -369,66 +374,80 @@ const ProcessorsPage = memo(function ProcessorsPage() {
     {
       key: 'runner',
       label: t('Run Processor'),
-      children: selectedType ? (
+      forceRender: true,
+      children: (
         <Form form={form} layout="vertical" disabled={!selectedType} style={{ padding: '12px 0' }}>
-          {isDirectory && (
-            <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-              {t('Directory processing always overwrites original files')}
-            </Text>
+          {selectedType ? (
+            <>
+              {isDirectory && (
+                <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                  {t('Directory processing always overwrites original files')}
+                </Text>
+              )}
+              <Form.Item
+                label={t('Target Path')}
+                required
+              >
+                <Flex gap={8} align="center">
+                  <div style={{ flex: 1 }}>
+                    <Form.Item
+                      name="path"
+                      rules={[{ required: true, message: t('Please select a path') }]}
+                      noStyle
+                    >
+                      <Input placeholder={t('Select a path')} />
+                    </Form.Item>
+                  </div>
+                  <Button onClick={() => openPathSelector('path', 'file')}>{t('Select File')}</Button>
+                  <Button onClick={() => openPathSelector('path', 'directory')}>{t('Select Directory')}</Button>
+                </Flex>
+              </Form.Item>
+
+              <Form.Item
+                name="overwrite"
+                label={t('Overwrite original')}
+                valuePropName="checked"
+              >
+                <Switch disabled={isDirectory} />
+              </Form.Item>
+
+              {selectedProcessorMeta?.produces_file && !overwriteValue && (
+                <Form.Item label={t('Save To')}>
+                  <Flex gap={8} align="center">
+                    <div style={{ flex: 1 }}>
+                      <Form.Item name="save_to" noStyle>
+                        <Input placeholder={t('Optional output path')} />
+                      </Form.Item>
+                    </div>
+                    <Button onClick={() => openPathSelector('save_to', 'any')}>{t('Select')}</Button>
+                  </Flex>
+                </Form.Item>
+              )}
+
+              <ProcessorConfigForm
+                processorMeta={selectedProcessorMeta}
+                form={form}
+                configPath={['config']}
+              />
+
+              <Form.Item>
+                <Button type="primary" onClick={handleRun} loading={running} disabled={!selectedType}>
+                  {t('Run')}
+                </Button>
+              </Form.Item>
+            </>
+          ) : (
+            <Empty style={{ marginTop: 64 }} description={t('Select a processor')} />
           )}
-          <Form.Item
-            name="path"
-            label={t('Target Path')}
-            rules={[{ required: true, message: t('Please select a path') }]}
-          >
-            <Flex gap={8} align="center">
-              <Input placeholder={t('Select a path')} style={{ flex: 1 }} />
-              <Button onClick={() => openPathSelector('path', 'file')}>{t('Select File')}</Button>
-              <Button onClick={() => openPathSelector('path', 'directory')}>{t('Select Directory')}</Button>
-            </Flex>
-          </Form.Item>
-
-          <Form.Item
-            name="overwrite"
-            label={t('Overwrite original')}
-            valuePropName="checked"
-          >
-            <Switch disabled={isDirectory} />
-          </Form.Item>
-
-          {selectedProcessorMeta?.produces_file && !overwriteValue && (
-            <Form.Item
-              name="save_to"
-              label={t('Save To')}
-            >
-              <Flex gap={8} align="center">
-                <Input placeholder={t('Optional output path')} style={{ flex: 1 }} />
-                <Button onClick={() => openPathSelector('save_to', 'any')}>{t('Select')}</Button>
-              </Flex>
-            </Form.Item>
-          )}
-
-          <ProcessorConfigForm
-            processorMeta={selectedProcessorMeta}
-            form={form}
-            configPath={['config']}
-          />
-
-          <Form.Item>
-            <Button type="primary" onClick={handleRun} loading={running} disabled={!selectedType}>
-              {t('Run')}
-            </Button>
-          </Form.Item>
         </Form>
-      ) : (
-        <Empty style={{ marginTop: 64 }} description={t('Select a processor')} />
       ),
     },
   ];
 
   return (
-    <PageCard title={t('Processors')}>
-      <Flex gap={16} style={{ height: '100%' }}>
+    <>
+      {contextHolder}
+      <Flex gap={16} style={{ height: 'calc(100vh - 88px)' }}>
         <Card
           style={{ flex: '0 0 320px', minWidth: 280, display: 'flex', flexDirection: 'column' }}
           title={t('Processor List')}
@@ -475,7 +494,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
         onOk={handlePathSelected}
         onCancel={() => setPathModalOpen(false)}
       />
-    </PageCard>
+    </>
   );
 });
 

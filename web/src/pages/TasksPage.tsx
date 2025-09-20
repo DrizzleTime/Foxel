@@ -180,7 +180,7 @@ const TasksPage = memo(function TasksPage() {
         width={480}
         open={open}
         onClose={() => { setOpen(false); setEditing(null); }}
-        destroyOnClose
+        destroyOnHidden
         extra={
           <Space>
             <Button onClick={() => { setOpen(false); setEditing(null); }}>{t('Cancel')}</Button>

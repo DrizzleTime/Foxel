@@ -58,7 +58,7 @@ export const ProcessorModal: React.FC<ProcessorModalProps> = (props) => {
       onCancel={onCancel}
       onOk={onOk}
       confirmLoading={loading}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onValuesChange={handleFormValuesChange}>
         <Form.Item name="processor_type" label={t('Processor')} required>

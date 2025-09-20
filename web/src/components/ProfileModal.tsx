@@ -62,6 +62,7 @@ const ProfileModal = memo(function ProfileModal({ open, onClose }: ProfileModalP
       confirmLoading={loading}
       okText={t('Save')}
       cancelText={t('Cancel')}
+      forceRender
     >
       <Form form={form} layout="vertical">
         <Form.Item name="username" label={t('Username')}>

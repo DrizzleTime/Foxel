@@ -29,7 +29,7 @@ export const CreateDirModal: React.FC<CreateDirModalProps> = ({ open, onOk, onCa
       onOk={handleOk}
       onCancel={onCancel}
       okButtonProps={{ disabled: !name.trim() }}
-      destroyOnClose
+      destroyOnHidden
     >
       <Input
         placeholder={t('Folder Name')}

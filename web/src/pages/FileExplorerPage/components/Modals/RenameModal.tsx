@@ -32,7 +32,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({ entry, onOk, onCancel 
       onOk={handleOk}
       onCancel={onCancel}
       okButtonProps={{ disabled: !name.trim() || name.trim() === entry?.name }}
-      destroyOnClose
+      destroyOnHidden
     >
       <Input
         placeholder={t('New Name')}

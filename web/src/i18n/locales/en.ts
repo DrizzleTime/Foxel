@@ -179,6 +179,24 @@ export const en = {
   'Copy Markdown': 'Copy Markdown',
   'Close': 'Close',
 
+  // Task queue
+  'Task Queue': 'Task Queue',
+  'Last updated at {time}': 'Last updated at {time}',
+  'Total Tasks': 'Total Tasks',
+  'Running Tasks': 'Running Tasks',
+  'Waiting Tasks': 'Waiting Tasks',
+  'Failed Tasks': 'Failed Tasks',
+  'Active Workers': 'Active Workers',
+  'Task Type': 'Task Type',
+  'Search by name or ID': 'Search by name or ID',
+  'Filter by status': 'Filter by status',
+  'Queue Concurrency': 'Queue Concurrency',
+  'Settings saved': 'Settings saved',
+  'Expand': 'Expand',
+  'Adjust worker concurrency immediately': 'Adjust worker concurrency immediately',
+  'Auto': 'Auto',
+  'Manual': 'Manual',
+
   // File detail
   'Camera Make': 'Camera Make',
   'Camera Model': 'Camera Model',
@@ -307,7 +325,6 @@ export const en = {
 
   // Tasks
   'Automation Tasks': 'Automation Tasks',
-  'Running Tasks': 'Running Tasks',
   'Create Task': 'Create Task',
   'Edit Task': 'Edit Task',
   'Create Automation Task': 'Create Automation Task',

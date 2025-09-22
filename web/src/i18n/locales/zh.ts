@@ -181,6 +181,22 @@ export const zh = {
   'Copy Markdown': '复制 Markdown',
   'Close': '关闭',
 
+  // Task queue
+  'Task Queue': '任务队列',
+  'Last updated at {time}': '上次刷新时间 {time}',
+  'Total Tasks': '任务总数',
+  'Waiting Tasks': '等待中的任务',
+  'Failed Tasks': '失败的任务',
+  'Active Workers': '活跃 Worker 数',
+  'Task Type': '任务类型',
+  'Search by name or ID': '按名称或 ID 搜索',
+  'Filter by status': '按状态筛选',
+  'Queue Concurrency': '队列并发数',
+  'Settings saved': '设置已保存',
+  'Expand': '展开',
+  'Adjust worker concurrency immediately': '立即调整任务并发数',
+  'Auto': '自动',
+  'Manual': '手动',
   // File detail
   'Camera Make': '设备品牌',
   'Camera Model': '设备型号',

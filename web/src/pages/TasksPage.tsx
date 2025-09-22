@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useCallback } from 'react';
-import { Table, Button, Space, Drawer, Form, Input, Switch, message, Typography, Popconfirm, Select, Modal, Tag } from 'antd';
+import { Table, Button, Space, Drawer, Form, Input, Switch, message, Typography, Popconfirm, Select } from 'antd';
 import PageCard from '../components/PageCard';
-import { tasksApi, type AutomationTask, type QueuedTask } from '../api/tasks';
+import { tasksApi, type AutomationTask } from '../api/tasks';
 import { processorsApi, type ProcessorTypeMeta } from '../api/processors';
 import { ProcessorConfigForm } from '../components/ProcessorConfigForm';
 import { useI18n } from '../i18n';
@@ -14,9 +14,6 @@ const TasksPage = memo(function TasksPage() {
   const [editing, setEditing] = useState<AutomationTask | null>(null);
   const [form] = Form.useForm();
   const [availableProcessors, setAvailableProcessors] = useState<ProcessorTypeMeta[]>([]);
-  const [queueModalOpen, setQueueModalOpen] = useState(false);
-  const [queuedTasks, setQueuedTasks] = useState<QueuedTask[]>([]);
-  const [queueLoading, setQueueLoading] = useState(false);
   const { t } = useI18n();
   const [pathPickerOpen, setPathPickerOpen] = useState(false);
 
@@ -93,23 +90,6 @@ const TasksPage = memo(function TasksPage() {
     }
   };
 
-  const fetchQueue = async () => {
-    setQueueLoading(true);
-    try {
-      const tasks = await tasksApi.getQueue();
-      setQueuedTasks(tasks);
-    } catch (e: any) {
-      message.error(e.message || '加载队列失败');
-    } finally {
-      setQueueLoading(false);
-    }
-  };
-
-  const openQueueModal = () => {
-    setQueueModalOpen(true);
-    fetchQueue();
-  };
-
   const toggleEnabled = async (rec: AutomationTask, enabled: boolean) => {
     setEditing(rec);
     setLoading(true);
@@ -162,7 +142,6 @@ const TasksPage = memo(function TasksPage() {
       extra={
         <Space>
           <Button onClick={fetchList} loading={loading}>{t('Refresh')}</Button>
-          <Button onClick={openQueueModal}>{t('Running Tasks')}</Button>
           <Button type="primary" onClick={openCreate}>{t('Create Task')}</Button>
         </Space>
       }
@@ -232,40 +211,6 @@ const TasksPage = memo(function TasksPage() {
         onCancel={() => setPathPickerOpen(false)}
         onOk={(p) => { form.setFieldsValue({ path_pattern: p }); setPathPickerOpen(false); }}
       />
-      <Modal
-        title={t('Current Task Queue')}
-        open={queueModalOpen}
-        onCancel={() => setQueueModalOpen(false)}
-        width={800}
-        footer={[
-          <Button key="refresh" onClick={fetchQueue} loading={queueLoading}>{t('Refresh')}</Button>,
-          <Button key="close" onClick={() => setQueueModalOpen(false)}>{t('Close')}</Button>
-        ]}
-      >
-        <Table
-          size="small"
-          rowKey="id"
-          dataSource={queuedTasks}
-          loading={queueLoading}
-          pagination={false}
-          columns={[
-            { title: 'ID', dataIndex: 'id', width: 120, render: (id) => <Typography.Text style={{ fontSize: 12 }} copyable={{ text: id }}>{id.slice(0, 8)}</Typography.Text> },
-            { title: t('Task Name'), dataIndex: 'name' },
-            { title: t('Params'), dataIndex: 'task_info', render: (info) => <Typography.Text type="secondary" style={{ fontSize: 12 }}>{JSON.stringify(info)}</Typography.Text> },
-            {
-              title: t('Status'), dataIndex: 'status', width: 100, render: (status: QueuedTask['status']) => {
-                const colorMap = {
-                  pending: 'default',
-                  running: 'processing',
-                  success: 'success',
-                  failed: 'error'
-                };
-                return <Tag color={colorMap[status]}>{status}</Tag>;
-              }
-            },
-          ]}
-        />
-      </Modal>
     </PageCard>
   );
 });

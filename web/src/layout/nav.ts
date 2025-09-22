@@ -10,6 +10,7 @@ import {
   DatabaseOutlined,
   AppstoreOutlined,
   CodeOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import type { ReactNode } from 'react';
 
@@ -30,6 +31,7 @@ export const navGroups: NavGroup[] = [
     children: [
       { key: 'processors', icon: React.createElement(CodeOutlined), label: 'Processors' },
       { key: 'tasks', icon: React.createElement(RobotOutlined), label: 'Automation' },
+      { key: 'task-queue', icon: React.createElement(ClockCircleOutlined), label: 'Task Queue' },
       { key: 'share', icon: React.createElement(ShareAltOutlined), label: 'My Shares' },
       { key: 'offline', icon: React.createElement(CloudDownloadOutlined), label: 'Offline Downloads' },
       { key: 'adapters', icon: React.createElement(ApiOutlined), label: 'Adapters' },

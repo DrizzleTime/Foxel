@@ -25,7 +25,7 @@ class TaskService:
 
     async def execute(self, task: AutomationTask, path: str):
         await task_queue_service.add_task(
-            "automation_task",
+            task.processor_type,
             {
                 "task_id": task.id,
                 "path": path,

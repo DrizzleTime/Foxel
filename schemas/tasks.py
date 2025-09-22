@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
 
@@ -29,3 +29,11 @@ class AutomationTaskRead(AutomationTaskBase):
 
     class Config:
         from_attributes = True
+
+
+class TaskQueueSettings(BaseModel):
+    concurrency: int = Field(..., ge=1, description="Desired number of concurrent task workers")
+
+
+class TaskQueueSettingsResponse(TaskQueueSettings):
+    active_workers: int = Field(..., ge=0, description="Currently running worker count")

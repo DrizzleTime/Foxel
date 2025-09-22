@@ -2,11 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Annotated
 
 from models.database import AutomationTask
-from schemas.tasks import AutomationTaskCreate, AutomationTaskUpdate
+from schemas.tasks import (
+    AutomationTaskCreate,
+    AutomationTaskUpdate,
+    TaskQueueSettings,
+    TaskQueueSettingsResponse,
+)
 from api.response import success
 from services.auth import get_current_active_user, User
 from services.logging import LogService
 from services.task_queue import task_queue_service
+from services.config import ConfigCenter
 
 router = APIRouter(
     prefix="/api/tasks",
@@ -22,6 +28,37 @@ async def get_task_queue_status(
 ):
     tasks = task_queue_service.get_all_tasks()
     return success([task.dict() for task in tasks])
+
+
+@router.get("/queue/settings")
+async def get_task_queue_settings(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    payload = TaskQueueSettingsResponse(
+        concurrency=task_queue_service.get_concurrency(),
+        active_workers=task_queue_service.get_active_worker_count(),
+    )
+    return success(payload.model_dump())
+
+
+@router.post("/queue/settings")
+async def update_task_queue_settings(
+    settings: TaskQueueSettings,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    await task_queue_service.set_concurrency(settings.concurrency)
+    await ConfigCenter.set("TASK_QUEUE_CONCURRENCY", str(task_queue_service.get_concurrency()))
+    await LogService.action(
+        "route:tasks",
+        "Updated task queue settings",
+        details={"concurrency": settings.concurrency},
+        user_id=getattr(current_user, "id", None),
+    )
+    payload = TaskQueueSettingsResponse(
+        concurrency=task_queue_service.get_concurrency(),
+        active_workers=task_queue_service.get_active_worker_count(),
+    )
+    return success(payload.model_dump())
 
 
 @router.get("/queue/{task_id}")

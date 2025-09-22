@@ -1,4 +1,5 @@
 import request from './client';
+import type { TaskProgress } from './offlineDownloads';
 
 export interface AutomationTask {
   id: number;
@@ -21,6 +22,8 @@ export interface QueuedTask {
   result?: any;
   error?: string;
   task_info: Record<string, any>;
+  progress?: TaskProgress | null;
+  meta?: Record<string, any> | null;
 }
 
 export const tasksApi = {

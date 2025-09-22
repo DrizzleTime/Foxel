@@ -13,6 +13,14 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
 
 
+class TaskProgress(BaseModel):
+    stage: str | None = None
+    percent: float | None = None
+    bytes_total: int | None = None
+    bytes_done: int | None = None
+    detail: str | None = None
+
+
 class Task(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     name: str
@@ -20,6 +28,8 @@ class Task(BaseModel):
     result: Any = None
     error: str | None = None
     task_info: Dict[str, Any] = {}
+    progress: TaskProgress | None = None
+    meta: Dict[str, Any] | None = None
 
 
 class TaskQueueService:
@@ -40,6 +50,21 @@ class TaskQueueService:
 
     def get_all_tasks(self) -> list[Task]:
         return list(self._tasks.values())
+
+    async def update_progress(self, task_id: str, progress: TaskProgress | Dict[str, Any]):
+        task = self._tasks.get(task_id)
+        if not task:
+            return
+        if isinstance(progress, TaskProgress):
+            task.progress = progress
+        else:
+            task.progress = TaskProgress(**progress)
+
+    async def update_meta(self, task_id: str, meta: Dict[str, Any]):
+        task = self._tasks.get(task_id)
+        if not task:
+            return
+        task.meta = (task.meta or {}) | meta
 
     async def _execute_task(self, task: Task):
         from services.virtual_fs import process_file
@@ -78,6 +103,11 @@ class TaskQueueService:
                 if save_to and getattr(processor, "produces_file", False):
                     await write_file(save_to, result)
                 task.result = "Automation task completed"
+            elif task.name == "offline_http_download":
+                from services.offline_download import run_http_download
+
+                result_path = await run_http_download(task)
+                task.result = {"path": result_path}
             else:
                 raise ValueError(f"Unknown task name: {task.name}")
             

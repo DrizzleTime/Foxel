@@ -117,6 +117,15 @@ export const zh = {
   'Grid': '网格',
   'List': '列表',
   'Mount Point': '挂载点',
+  'Move': '移动',
+  'Move to': '移动到',
+  'Copy to': '复制到',
+  'Destination path': '目标路径',
+  'Move task queued': '移动任务已排队',
+  'Move completed': '移动完成',
+  'Copy task queued': '复制任务已排队',
+  'Copy completed': '复制完成',
+  'Please input destination path': '请输入目标路径',
 
   // Context menu
   'Upload File': '上传文件',

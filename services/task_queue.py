@@ -108,6 +108,11 @@ class TaskQueueService:
 
                 result_path = await run_http_download(task)
                 task.result = {"path": result_path}
+            elif task.name == "cross_mount_transfer":
+                from services.virtual_fs import run_cross_mount_transfer_task
+
+                result = await run_cross_mount_transfer_task(task)
+                task.result = result
             else:
                 raise ValueError(f"Unknown task name: {task.name}")
             

@@ -50,7 +50,18 @@ export const vfsApi = {
   },
   mkdir: (path: string) => request('/fs/mkdir', { method: 'POST', json: { path } }),
   deletePath: (path: string) => request(`/fs/${encodeURI(path.replace(/^\/+/, ''))}`, { method: 'DELETE' }),
-  move: (src: string, dst: string) => request('/fs/move', { method: 'POST', json: { src, dst } }),
+  move: (src: string, dst: string, options?: { overwrite?: boolean }) => {
+    const params = new URLSearchParams();
+    if (options?.overwrite !== undefined) params.set('overwrite', String(options.overwrite));
+    const query = params.toString();
+    return request(`/fs/move${query ? `?${query}` : ''}`, { method: 'POST', json: { src, dst } });
+  },
+  copy: (src: string, dst: string, options?: { overwrite?: boolean }) => {
+    const params = new URLSearchParams();
+    if (options?.overwrite !== undefined) params.set('overwrite', String(options.overwrite));
+    const query = params.toString();
+    return request(`/fs/copy${query ? `?${query}` : ''}`, { method: 'POST', json: { src, dst } });
+  },
   rename: (src: string, dst: string) => request('/fs/rename', { method: 'POST', json: { src, dst } }),
   thumb: (path: string, w=256, h=256, fit='cover') =>
     request<ArrayBuffer>(`/fs/thumb/${encodeURI(path.replace(/^\/+/, ''))}?w=${w}&h=${h}&fit=${fit}`),

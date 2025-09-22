@@ -5,7 +5,8 @@ import { getAppsForEntry, getDefaultAppForEntry } from '../../../apps/registry';
 import { useI18n } from '../../../i18n';
 import {
   FolderFilled, AppstoreOutlined, AppstoreAddOutlined, DownloadOutlined,
-  EditOutlined, DeleteOutlined, InfoCircleOutlined, UploadOutlined, PlusOutlined, ShareAltOutlined, LinkOutlined
+  EditOutlined, DeleteOutlined, InfoCircleOutlined, UploadOutlined, PlusOutlined,
+  ShareAltOutlined, LinkOutlined, CopyOutlined, SwapOutlined
 } from '@ant-design/icons';
 
 interface ContextMenuProps {
@@ -27,6 +28,8 @@ interface ContextMenuProps {
   onCreateDir: () => void;
   onShare: (entries: VfsEntry[]) => void;
   onGetDirectLink: (entry: VfsEntry) => void;
+  onMove: (entry: VfsEntry) => void;
+  onCopy: (entry: VfsEntry) => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
@@ -109,6 +112,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         icon: <EditOutlined />,
         disabled: targetEntries.length !== 1 || targetEntries[0].type === 'mount',
         onClick: () => actions.onRename(targetEntries[0]),
+      },
+      {
+        key: 'move',
+        label: t('Move'),
+        icon: <SwapOutlined />,
+        disabled: targetEntries.length !== 1 || targetEntries[0].type === 'mount',
+        onClick: () => actions.onMove(targetEntries[0]),
+      },
+      {
+        key: 'copy',
+        label: t('Copy'),
+        icon: <CopyOutlined />,
+        disabled: targetEntries.length !== 1 || targetEntries[0].type === 'mount',
+        onClick: () => actions.onCopy(targetEntries[0]),
       },
       {
         key: 'delete',

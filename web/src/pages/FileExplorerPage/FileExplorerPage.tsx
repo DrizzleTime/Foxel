@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { theme, Pagination } from 'antd';
 import { useFileExplorer } from './hooks/useFileExplorer';
@@ -22,6 +22,7 @@ import UploadModal from './components/Modals/UploadModal';
 import { ShareModal } from './components/Modals/ShareModal';
 import { DirectLinkModal } from './components/Modals/DirectLinkModal';
 import { FileDetailModal } from './components/FileDetailModal';
+import { MoveCopyModal } from './components/Modals/MoveCopyModal';
 import type { ViewMode } from './types';
 import { vfsApi, type VfsEntry } from '../../api/client';
 
@@ -35,7 +36,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   // --- Hooks ---
   const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange } = useFileExplorer(navKey);
   const { selectedEntries, handleSelect, handleSelectRange, clearSelection, setSelectedEntries } = useFileSelection();
-  const { doCreateDir, doDelete, doRename, doDownload, doShare, doGetDirectLink } = useFileActions({ path, refresh, clearSelection, onShare: (entries) => setSharingEntries(entries), onGetDirectLink: (entry) => setDirectLinkEntry(entry) });
+  const { doCreateDir, doDelete, doRename, doDownload, doShare, doGetDirectLink, doMove, doCopy } = useFileActions({ path, refresh, clearSelection, onShare: (entries) => setSharingEntries(entries), onGetDirectLink: (entry) => setDirectLinkEntry(entry) });
   const { openFileWithDefaultApp, confirmOpenWithApp } = useAppWindows();
   const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, closeContextMenus } = useContextMenu();
   const uploader = useUploader(path, refresh);
@@ -51,6 +52,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [directLinkEntry, setDirectLinkEntry] = useState<VfsEntry | null>(null);
   const [detailData, setDetailData] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [movingEntry, setMovingEntry] = useState<VfsEntry | null>(null);
+  const [copyingEntry, setCopyingEntry] = useState<VfsEntry | null>(null);
 
   // --- Effects ---
   useEffect(() => {
@@ -81,6 +84,17 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       setDetailLoading(false);
     }
   };
+
+  const buildDefaultDestination = useCallback((entry: VfsEntry | null) => {
+    if (!entry) return '';
+    const base = path === '/' ? '' : path;
+    const segments = [base, entry.name].filter(Boolean);
+    const joined = segments.join('/');
+    if (!joined) {
+      return '/';
+    }
+    return joined.startsWith('/') ? joined : `/${joined}`;
+  }, [path]);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -189,6 +203,32 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       <CreateDirModal open={creatingDir} onOk={(name) => { doCreateDir(name); setCreatingDir(false); }} onCancel={() => setCreatingDir(false)} />
       <RenameModal entry={renaming} onOk={(entry, newName) => { doRename(entry, newName); setRenaming(null); }} onCancel={() => setRenaming(null)} />
       <FileDetailModal entry={detailEntry} loading={detailLoading} data={detailData} onClose={() => setDetailEntry(null)} />
+      <MoveCopyModal
+        mode="move"
+        entry={movingEntry}
+        open={!!movingEntry}
+        defaultPath={buildDefaultDestination(movingEntry)}
+        onOk={async (destination) => {
+          const target = movingEntry;
+          if (target) {
+            await doMove(target, destination);
+          }
+        }}
+        onCancel={() => setMovingEntry(null)}
+      />
+      <MoveCopyModal
+        mode="copy"
+        entry={copyingEntry}
+        open={!!copyingEntry}
+        defaultPath={buildDefaultDestination(copyingEntry)}
+        onOk={async (destination) => {
+          const target = copyingEntry;
+          if (target) {
+            await doCopy(target, destination);
+          }
+        }}
+        onCancel={() => setCopyingEntry(null)}
+      />
       {sharingEntries.length > 0 && (
         <ShareModal
           path={path}
@@ -244,6 +284,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           onCreateDir={() => setCreatingDir(true)}
           onShare={doShare}
           onGetDirectLink={doGetDirectLink}
+          onMove={(entryToMove) => setMovingEntry(entryToMove)}
+          onCopy={(entryToCopy) => setCopyingEntry(entryToCopy)}
         />
       )}
       <UploadModal

@@ -115,6 +115,15 @@ export const en = {
   'Grid': 'Grid',
   'List': 'List',
   'Mount Point': 'Mount Point',
+  'Move': 'Move',
+  'Move to': 'Move to',
+  'Copy to': 'Copy to',
+  'Destination path': 'Destination path',
+  'Move task queued': 'Move task queued',
+  'Move completed': 'Move completed',
+  'Copy task queued': 'Copy task queued',
+  'Copy completed': 'Copy completed',
+  'Please input destination path': 'Please input destination path',
 
   // Context menu
   'Upload File': 'Upload File',

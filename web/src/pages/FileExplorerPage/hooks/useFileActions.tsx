@@ -13,6 +13,17 @@ interface FileActionsParams {
 
 export function useFileActions({ path, refresh, clearSelection, onShare, onGetDirectLink }: FileActionsParams) {
   const { t } = useI18n();
+  const normalizeFullPath = useCallback((name: string) => {
+    const base = path === '/' ? '' : path;
+    return `${base}/${name}`.replace(/\/{2,}/g, '/');
+  }, [path]);
+
+  const normalizeDestination = useCallback((dest: string) => {
+    const trimmed = dest.trim();
+    if (!trimmed) return '';
+    const normalized = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return normalized.replace(/\/{2,}/g, '/');
+  }, []);
   const doCreateDir = useCallback(async (name: string) => {
     if (!name.trim()) {
       message.warning(t('Please input name'));
@@ -56,6 +67,49 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
       message.error(e.message);
     }
   }, [path, refresh]);
+
+  const doMove = useCallback(async (entry: VfsEntry, destination: string, overwrite: boolean = false) => {
+    const normalized = normalizeDestination(destination);
+    if (!normalized) {
+      message.warning(t('Please input destination path'));
+      return;
+    }
+    const src = normalizeFullPath(entry.name);
+    try {
+      const result = await vfsApi.move(src, normalized, { overwrite });
+      if (result?.queued) {
+        message.info(t('Move task queued'));
+      } else {
+        message.success(t('Move completed'));
+        refresh();
+      }
+      clearSelection();
+    } catch (e: any) {
+      message.error(e.message);
+      throw e;
+    }
+  }, [normalizeDestination, normalizeFullPath, t, refresh, clearSelection]);
+
+  const doCopy = useCallback(async (entry: VfsEntry, destination: string, overwrite: boolean = false) => {
+    const normalized = normalizeDestination(destination);
+    if (!normalized) {
+      message.warning(t('Please input destination path'));
+      return;
+    }
+    const src = normalizeFullPath(entry.name);
+    try {
+      const result = await vfsApi.copy(src, normalized, { overwrite });
+      if (result?.queued) {
+        message.info(t('Copy task queued'));
+      } else {
+        message.success(t('Copy completed'));
+        refresh();
+      }
+    } catch (e: any) {
+      message.error(e.message);
+      throw e;
+    }
+  }, [normalizeDestination, normalizeFullPath, t, refresh]);
 
   const doDownload = useCallback(async (entry: VfsEntry) => {
     if (entry.is_dir) {
@@ -101,5 +155,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     doDownload,
     doShare,
     doGetDirectLink,
+    doMove,
+    doCopy,
   };
 }

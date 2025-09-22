@@ -219,31 +219,41 @@ async def api_mkdir(
 @router.post("/move")
 async def api_move(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    body: MoveRequest
+    body: MoveRequest,
+    overwrite: bool = Query(False, description="是否允许覆盖已存在目标"),
 ):
     src = body.src if body.src.startswith('/') else '/' + body.src
     dst = body.dst if body.dst.startswith('/') else '/' + body.dst
-    await move_path(src, dst)
-    return success({"moved": True, "src": src, "dst": dst})
+    debug_info = await move_path(src, dst, overwrite=overwrite, return_debug=True, allow_cross=True)
+    queued = bool(debug_info.get("queued"))
+    response = {
+        "moved": not queued,
+        "queued": queued,
+        "src": src,
+        "dst": dst,
+        "overwrite": overwrite,
+    }
+    if queued:
+        response["task_id"] = debug_info.get("task_id")
+        response["task_name"] = debug_info.get("task_name")
+    return success(response)
 
 
 @router.post("/rename")
 async def api_rename(
     current_user: Annotated[User, Depends(get_current_active_user)],
     body: MoveRequest,
-    overwrite: bool = Query(False, description="是否允许覆盖已存在目标"),
-    debug: bool = Query(False, description="返回调试信息")
+    overwrite: bool = Query(False, description="是否允许覆盖已存在目标")
 ):
     src = body.src if body.src.startswith('/') else '/' + body.src
     dst = body.dst if body.dst.startswith('/') else '/' + body.dst
     from services.virtual_fs import rename_path
-    debug_info = await rename_path(src, dst, overwrite=overwrite, return_debug=debug)
+    await rename_path(src, dst, overwrite=overwrite, return_debug=False)
     return success({
         "renamed": True,
         "src": src,
         "dst": dst,
         "overwrite": overwrite,
-        **({"debug": debug_info} if debug else {})
     })
 
 
@@ -252,19 +262,23 @@ async def api_copy(
     current_user: Annotated[User, Depends(get_current_active_user)],
     body: MoveRequest,
     overwrite: bool = Query(False, description="是否覆盖已存在目标"),
-    debug: bool = Query(False, description="返回调试信息")
 ):
     from services.virtual_fs import copy_path
     src = body.src if body.src.startswith('/') else '/' + body.src
     dst = body.dst if body.dst.startswith('/') else '/' + body.dst
-    debug_info = await copy_path(src, dst, overwrite=overwrite, return_debug=debug)
-    return success({
-        "copied": True,
+    debug_info = await copy_path(src, dst, overwrite=overwrite, return_debug=True, allow_cross=True)
+    queued = bool(debug_info.get("queued"))
+    response = {
+        "copied": not queued,
+        "queued": queued,
         "src": src,
         "dst": dst,
         "overwrite": overwrite,
-        **({"debug": debug_info} if debug else {})
-    })
+    }
+    if queued:
+        response["task_id"] = debug_info.get("task_id")
+        response["task_name"] = debug_info.get("task_name")
+    return success(response)
 
 
 @router.post("/upload/{full_path:path}")

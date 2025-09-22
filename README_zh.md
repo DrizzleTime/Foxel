@@ -18,6 +18,7 @@
     <em><strong>数据之洋浩瀚无涯，当以洞察之目引航，然其脉络深隐，非表象所能尽窥。</strong></em><br>
     <em><strong>The ocean of data is boundless, let the eye of insight guide the voyage, yet its intricate connections lie deep, not fully discernible from the surface.</strong></em>
   </blockquote>
+  <img src="https://foxel.cc/image/ad-min.png" alt="UI Screenshot">
 </div>
 
 ## 👀 在线体验

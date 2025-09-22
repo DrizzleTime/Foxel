@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import { Layout, Spin, Button, Space, message } from 'antd';
-import MDEditor from '@uiw/react-md-editor';
-import Editor from '@monaco-editor/react';
 import type { AppComponentProps } from '../types';
 import { vfsApi } from '../../api/vfs';
 import request from '../../api/client';
+
+const MonacoEditor = React.lazy(() => import('@monaco-editor/react'));
+const MarkdownEditor = React.lazy(() => import('@uiw/react-md-editor'));
 
 const { Header, Content } = Layout;
 
@@ -143,26 +144,30 @@ export const TextEditorApp: React.FC<AppComponentProps> = ({ filePath, entry, on
           </div>
         ) : (
           isMarkdown ? (
-            <MDEditor
-              value={content}
-              onChange={(val) => setContent(val || '')}
-              height="100%"
-              preview={truncated ? 'preview' : 'live'}
-            />
+            <Suspense fallback={<Spin style={{ marginTop: 24 }} />}>
+              <MarkdownEditor
+                value={content}
+                onChange={(val) => setContent(val || '')}
+                height="100%"
+                preview={truncated ? 'preview' : 'live'}
+              />
+            </Suspense>
           ) : (
-            <Editor
-              value={content}
-              onChange={(val) => setContent(val || '')}
-              height="100%"
-              language={monacoLanguage}
-              options={{
-                readOnly: truncated,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                fontSize: 13,
-              }}
-            />
+            <Suspense fallback={<Spin style={{ marginTop: 24 }} />}>
+              <MonacoEditor
+                value={content}
+                onChange={(val) => setContent(val || '')}
+                height="100%"
+                language={monacoLanguage}
+                options={{
+                  readOnly: truncated,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                  fontSize: 13,
+                }}
+              />
+            </Suspense>
           )
         )}
       </Content>

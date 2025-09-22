@@ -68,48 +68,91 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     }
   }, [path, refresh]);
 
-  const doMove = useCallback(async (entry: VfsEntry, destination: string, overwrite: boolean = false) => {
-    const normalized = normalizeDestination(destination);
-    if (!normalized) {
-      message.warning(t('Please input destination path'));
-      return;
-    }
-    const src = normalizeFullPath(entry.name);
-    try {
-      const result = await vfsApi.move(src, normalized, { overwrite });
-      if (result?.queued) {
-        message.info(t('Move task queued'));
-      } else {
-        message.success(t('Move completed'));
-        refresh();
-      }
-      clearSelection();
-    } catch (e: any) {
-      message.error(e.message);
-      throw e;
-    }
-  }, [normalizeDestination, normalizeFullPath, t, refresh, clearSelection]);
+  const buildEntryDestination = useCallback((base: string, name: string) => {
+    const normalizedBase = base.replace(/\/+$/, '') || '/';
+    const prefix = normalizedBase === '/' ? '' : normalizedBase;
+    const combined = `${prefix}/${name}`.replace(/\/{2,}/g, '/');
+    return combined.startsWith('/') ? combined : `/${combined}`;
+  }, []);
 
-  const doCopy = useCallback(async (entry: VfsEntry, destination: string, overwrite: boolean = false) => {
+  const doMove = useCallback(async (entriesToMove: VfsEntry[], destination: string, overwrite: boolean = false) => {
+    if (!entriesToMove || entriesToMove.length === 0) return;
     const normalized = normalizeDestination(destination);
     if (!normalized) {
       message.warning(t('Please input destination path'));
       return;
     }
-    const src = normalizeFullPath(entry.name);
-    try {
-      const result = await vfsApi.copy(src, normalized, { overwrite });
-      if (result?.queued) {
-        message.info(t('Copy task queued'));
-      } else {
-        message.success(t('Copy completed'));
-        refresh();
+
+    const multiple = entriesToMove.length > 1;
+    const targetDir = multiple ? (normalized === '/' ? '/' : normalized.replace(/\/+$/, '') || '/') : normalized;
+    let completedCount = 0;
+    let queuedCount = 0;
+
+    for (const entry of entriesToMove) {
+      const src = normalizeFullPath(entry.name);
+      const dst = multiple ? buildEntryDestination(targetDir, entry.name) : normalized;
+      try {
+        const result = await vfsApi.move(src, dst, { overwrite });
+        if (result?.queued) {
+          queuedCount += 1;
+        } else {
+          completedCount += 1;
+        }
+      } catch (e: any) {
+        message.error(e.message);
+        throw e;
       }
-    } catch (e: any) {
-      message.error(e.message);
-      throw e;
     }
-  }, [normalizeDestination, normalizeFullPath, t, refresh]);
+
+    if (completedCount > 0) {
+      message.success(t('Move completed'));
+    }
+    if (queuedCount > 0) {
+      message.info(t('Move task queued'));
+    }
+
+    clearSelection();
+    refresh();
+  }, [normalizeDestination, normalizeFullPath, t, buildEntryDestination, clearSelection, refresh]);
+
+  const doCopy = useCallback(async (entriesToCopy: VfsEntry[], destination: string, overwrite: boolean = false) => {
+    if (!entriesToCopy || entriesToCopy.length === 0) return;
+    const normalized = normalizeDestination(destination);
+    if (!normalized) {
+      message.warning(t('Please input destination path'));
+      return;
+    }
+
+    const multiple = entriesToCopy.length > 1;
+    const targetDir = multiple ? (normalized === '/' ? '/' : normalized.replace(/\/+$/, '') || '/') : normalized;
+    let completedCount = 0;
+    let queuedCount = 0;
+
+    for (const entry of entriesToCopy) {
+      const src = normalizeFullPath(entry.name);
+      const dst = multiple ? buildEntryDestination(targetDir, entry.name) : normalized;
+      try {
+        const result = await vfsApi.copy(src, dst, { overwrite });
+        if (result?.queued) {
+          queuedCount += 1;
+        } else {
+          completedCount += 1;
+        }
+      } catch (e: any) {
+        message.error(e.message);
+        throw e;
+      }
+    }
+
+    if (completedCount > 0) {
+      message.success(t('Copy completed'));
+    }
+    if (queuedCount > 0) {
+      message.info(t('Copy task queued'));
+    }
+
+    refresh();
+  }, [normalizeDestination, normalizeFullPath, t, buildEntryDestination, refresh]);
 
   const doDownload = useCallback(async (entry: VfsEntry) => {
     if (entry.is_dir) {

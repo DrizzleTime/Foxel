@@ -52,8 +52,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [directLinkEntry, setDirectLinkEntry] = useState<VfsEntry | null>(null);
   const [detailData, setDetailData] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [movingEntry, setMovingEntry] = useState<VfsEntry | null>(null);
-  const [copyingEntry, setCopyingEntry] = useState<VfsEntry | null>(null);
+  const [movingEntries, setMovingEntries] = useState<VfsEntry[]>([]);
+  const [copyingEntries, setCopyingEntries] = useState<VfsEntry[]>([]);
 
   // --- Effects ---
   useEffect(() => {
@@ -85,8 +85,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     }
   };
 
-  const buildDefaultDestination = useCallback((entry: VfsEntry | null) => {
-    if (!entry) return '';
+  const buildDefaultDestination = useCallback((targetEntries: VfsEntry[]) => {
+    if (!targetEntries || targetEntries.length === 0) return '';
+    if (targetEntries.length > 1) {
+      return path || '/';
+    }
+    const entry = targetEntries[0];
     const base = path === '/' ? '' : path;
     const segments = [base, entry.name].filter(Boolean);
     const joined = segments.join('/');
@@ -205,29 +209,27 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       <FileDetailModal entry={detailEntry} loading={detailLoading} data={detailData} onClose={() => setDetailEntry(null)} />
       <MoveCopyModal
         mode="move"
-        entry={movingEntry}
-        open={!!movingEntry}
-        defaultPath={buildDefaultDestination(movingEntry)}
+        entries={movingEntries}
+        open={movingEntries.length > 0}
+        defaultPath={buildDefaultDestination(movingEntries)}
         onOk={async (destination) => {
-          const target = movingEntry;
-          if (target) {
-            await doMove(target, destination);
+          if (movingEntries.length > 0) {
+            await doMove(movingEntries, destination);
           }
         }}
-        onCancel={() => setMovingEntry(null)}
+        onCancel={() => setMovingEntries([])}
       />
       <MoveCopyModal
         mode="copy"
-        entry={copyingEntry}
-        open={!!copyingEntry}
-        defaultPath={buildDefaultDestination(copyingEntry)}
+        entries={copyingEntries}
+        open={copyingEntries.length > 0}
+        defaultPath={buildDefaultDestination(copyingEntries)}
         onOk={async (destination) => {
-          const target = copyingEntry;
-          if (target) {
-            await doCopy(target, destination);
+          if (copyingEntries.length > 0) {
+            await doCopy(copyingEntries, destination);
           }
         }}
-        onCancel={() => setCopyingEntry(null)}
+        onCancel={() => setCopyingEntries([])}
       />
       {sharingEntries.length > 0 && (
         <ShareModal
@@ -284,8 +286,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           onCreateDir={() => setCreatingDir(true)}
           onShare={doShare}
           onGetDirectLink={doGetDirectLink}
-          onMove={(entryToMove) => setMovingEntry(entryToMove)}
-          onCopy={(entryToCopy) => setCopyingEntry(entryToCopy)}
+          onMove={(entriesToMove) => setMovingEntries(entriesToMove)}
+          onCopy={(entriesToCopy) => setCopyingEntries(entriesToCopy)}
         />
       )}
       <UploadModal

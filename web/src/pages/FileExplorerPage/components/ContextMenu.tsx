@@ -28,8 +28,8 @@ interface ContextMenuProps {
   onCreateDir: () => void;
   onShare: (entries: VfsEntry[]) => void;
   onGetDirectLink: (entry: VfsEntry) => void;
-  onMove: (entry: VfsEntry) => void;
-  onCopy: (entry: VfsEntry) => void;
+  onMove: (entries: VfsEntry[]) => void;
+  onCopy: (entries: VfsEntry[]) => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
@@ -117,15 +117,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         key: 'move',
         label: t('Move'),
         icon: <SwapOutlined />,
-        disabled: targetEntries.length !== 1 || targetEntries[0].type === 'mount',
-        onClick: () => actions.onMove(targetEntries[0]),
+        disabled: targetEntries.length === 0 || targetEntries.some(t => t.type === 'mount'),
+        onClick: () => actions.onMove(targetEntries),
       },
       {
         key: 'copy',
         label: t('Copy'),
         icon: <CopyOutlined />,
-        disabled: targetEntries.length !== 1 || targetEntries[0].type === 'mount',
-        onClick: () => actions.onCopy(targetEntries[0]),
+        disabled: targetEntries.length === 0 || targetEntries.some(t => t.type === 'mount'),
+        onClick: () => actions.onCopy(targetEntries),
       },
       {
         key: 'delete',

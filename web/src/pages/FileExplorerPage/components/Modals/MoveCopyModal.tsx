@@ -6,20 +6,20 @@ import PathSelectorModal from '../../../../components/PathSelectorModal';
 
 interface MoveCopyModalProps {
   mode: 'move' | 'copy';
-  entry: VfsEntry | null;
+  entries: VfsEntry[];
   open: boolean;
   defaultPath: string;
   onOk: (destination: string) => Promise<void> | void;
   onCancel: () => void;
 }
 
-export function MoveCopyModal({ mode, entry, open, defaultPath, onOk, onCancel }: MoveCopyModalProps) {
+export function MoveCopyModal({ mode, entries, open, defaultPath, onOk, onCancel }: MoveCopyModalProps) {
   const { t } = useI18n();
   const [value, setValue] = useState(defaultPath);
   const [loading, setLoading] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
 
-  const entryName = useMemo(() => entry?.name ?? '', [entry]);
+  const entryName = useMemo(() => entries.length === 1 ? entries[0]?.name ?? '' : '', [entries]);
 
   useEffect(() => {
     if (open) {
@@ -91,7 +91,7 @@ export function MoveCopyModal({ mode, entry, open, defaultPath, onOk, onCancel }
   return (
     <Modal
       title={title}
-      open={open && !!entry}
+      open={open && entries.length > 0}
       onOk={handleOk}
       onCancel={onCancel}
       confirmLoading={loading}

@@ -2,6 +2,20 @@ import { useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { message } from 'antd';
 import { vfsApi, type VfsEntry } from '../../../api/client';
+
+type ExplorerSnapshot = {
+  path: string;
+  entries: VfsEntry[];
+  pagination?: {
+    total: number;
+    page: number;
+    page_size: number;
+    pages: number;
+  };
+  sortBy: string;
+  sortOrder: string;
+  timestamp: number;
+};
 import { processorsApi, type ProcessorTypeMeta } from '../../../api/processors';
 
 export function useFileExplorer(navKey: string) {
@@ -34,7 +48,8 @@ export function useFileExplorer(navKey: string) {
         processorsApi.list()
       ]);
       setEntries(res.entries);
-      setPath(res.path || canonical);
+      const resolvedPath = res.path || canonical;
+      setPath(resolvedPath);
       setPagination(prev => ({
         ...prev,
         current: res.pagination!.page,
@@ -42,8 +57,22 @@ export function useFileExplorer(navKey: string) {
         total: res.pagination!.total
       }));
       setProcessorTypes(processors);
-    } catch (e: any) {
-      message.error(e.message || 'Load failed');
+      if (typeof window !== 'undefined') {
+        const snapshot: ExplorerSnapshot = {
+          path: resolvedPath,
+          entries: res.entries,
+          pagination: res.pagination,
+          sortBy: sb,
+          sortOrder: so,
+          timestamp: Date.now(),
+        };
+        const explorerWindow = window as Window & { __FOXEL_LAST_EXPLORER_PAGE__?: ExplorerSnapshot };
+        explorerWindow.__FOXEL_LAST_EXPLORER_PAGE__ = snapshot;
+        window.dispatchEvent(new CustomEvent<ExplorerSnapshot>('foxel:file-explorer-page', { detail: snapshot }));
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Load failed';
+      message.error(msg);
     } finally {
       setLoading(false);
     }

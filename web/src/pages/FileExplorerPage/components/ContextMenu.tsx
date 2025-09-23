@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Menu, theme } from 'antd';
 import type { VfsEntry } from '../../../api/client';
 import { getAppsForEntry, getDefaultAppForEntry } from '../../../apps/registry';
@@ -36,6 +36,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
   const { token } = theme.useToken();
   const { t } = useI18n();
   const { x, y, entry, entries, selectedEntries, processorTypes, onClose, ...actions } = props;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: x, top: y });
+
+  useLayoutEffect(() => {
+    setPosition({ left: x, top: y });
+  }, [x, y]);
 
   const getContextMenuItems = () => {
     if (!entry) { // Blank context menu
@@ -154,9 +160,41 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
       }
     }));
 
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    const node = containerRef.current;
+    if (!node) return;
+
+    const margin = 8;
+    const { offsetWidth, offsetHeight } = node;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let nextLeft = position.left;
+    let nextTop = position.top;
+
+    if (nextLeft + offsetWidth + margin > viewportWidth) {
+      nextLeft = Math.max(margin, viewportWidth - offsetWidth - margin);
+    }
+    if (nextTop + offsetHeight + margin > viewportHeight) {
+      nextTop = Math.max(margin, viewportHeight - offsetHeight - margin);
+    }
+    if (nextLeft < margin) {
+      nextLeft = margin;
+    }
+    if (nextTop < margin) {
+      nextTop = margin;
+    }
+
+    if (nextLeft !== position.left || nextTop !== position.top) {
+      setPosition({ left: nextLeft, top: nextTop });
+    }
+  }, [position.left, position.top, items.length]);
+
   return (
     <div
-      style={{ position: 'fixed', top: y, left: x, zIndex: 9999, boxShadow: '0 4px 16px rgba(0,0,0,.15)', borderRadius: token.borderRadius, background: token.colorBgElevated }}
+      ref={containerRef}
+      style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 9999, boxShadow: '0 4px 16px rgba(0,0,0,.15)', borderRadius: token.borderRadius, background: token.colorBgElevated }}
       onContextMenu={(e) => e.preventDefault()}
       onClick={onClose} // Close on any click inside the menu area
     >

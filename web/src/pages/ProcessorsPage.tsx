@@ -1,13 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
+  Alert,
   Card,
   Empty,
   Flex,
   Form,
   Input,
+  InputNumber,
   message,
   Modal,
+  Segmented,
   Space,
   Spin,
   Switch,
@@ -134,23 +137,36 @@ const ProcessorsPage = memo(function ProcessorsPage() {
       overwrite: !!selectedProcessorMeta.produces_file,
       save_to: undefined,
       config: defaults,
+      directory_scope: 'current',
+      max_depth: undefined,
+      suffix: undefined,
     });
     setIsDirectory(false);
   }, [selectedProcessorMeta, form]);
 
-  const overwriteValue = Form.useWatch('overwrite', form) ?? false;
+  const producesFile = selectedProcessorMeta?.produces_file ?? false;
+  const overwriteWatch = Form.useWatch('overwrite', form);
+  const overwriteValue = producesFile ? !!overwriteWatch : false;
+  const directoryScope = Form.useWatch('directory_scope', form) ?? 'current';
 
   useEffect(() => {
     if (overwriteValue) {
-      form.setFieldsValue({ save_to: undefined });
+      form.setFieldsValue({ save_to: undefined, suffix: undefined });
     }
   }, [overwriteValue, form]);
 
   useEffect(() => {
     if (isDirectory) {
-      form.setFieldsValue({ overwrite: true, save_to: undefined });
+      form.setFieldsValue({
+        overwrite: producesFile ? true : false,
+        save_to: undefined,
+        directory_scope: 'current',
+        max_depth: undefined,
+      });
+    } else {
+      form.setFieldsValue({ suffix: undefined });
     }
-  }, [isDirectory, form]);
+  }, [isDirectory, form, producesFile]);
 
   const handleSelectProcessor = useCallback((type: string) => {
     if (type === selectedType) return;
@@ -232,17 +248,38 @@ const ProcessorsPage = memo(function ProcessorsPage() {
         }
       });
       setRunning(true);
-      const payload: any = {
-        path: values.path,
-        processor_type: selectedType,
-        config: finalConfig,
-        overwrite: !!values.overwrite,
-      };
-      if (values.save_to && !values.overwrite) {
-        payload.save_to = values.save_to;
+      const overwriteFlag = producesFile ? !!values.overwrite : false;
+      if (isDirectory) {
+        const scope: 'current' | 'recursive' = values.directory_scope || 'current';
+        let maxDepth: number | null = scope === 'current' ? 0 : null;
+        if (scope === 'recursive' && typeof values.max_depth === 'number') {
+          maxDepth = values.max_depth;
+        }
+        const suffixValue = producesFile && !overwriteFlag && typeof values.suffix === 'string'
+          ? values.suffix.trim() || null
+          : null;
+        const resp = await processorsApi.processDirectory({
+          path: values.path,
+          processor_type: selectedType,
+          config: finalConfig,
+          overwrite: overwriteFlag,
+          max_depth: maxDepth,
+          suffix: suffixValue,
+        });
+        messageApi.success(`${t('Task submitted')}: ${resp.scheduled}`);
+      } else {
+        const payload: any = {
+          path: values.path,
+          processor_type: selectedType,
+          config: finalConfig,
+          overwrite: overwriteFlag,
+        };
+        if (values.save_to && !overwriteFlag) {
+          payload.save_to = values.save_to;
+        }
+        const resp = await processorsApi.process(payload);
+        messageApi.success(`${t('Task submitted')}: ${resp.task_id}`);
       }
-      const resp = await processorsApi.process(payload);
-      messageApi.success(`${t('Task submitted')}: ${resp.task_id}`);
     } catch (err: any) {
       if (err?.errorFields) {
         return;
@@ -251,7 +288,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
     } finally {
       setRunning(false);
     }
-  }, [form, messageApi, selectedProcessorMeta, selectedType, t]);
+  }, [form, isDirectory, messageApi, producesFile, selectedProcessorMeta, selectedType, t]);
 
   const selectedConfigPath = pathModalField === 'path'
     ? (selectedType ? form.getFieldValue('path') : undefined) || '/'
@@ -379,11 +416,6 @@ const ProcessorsPage = memo(function ProcessorsPage() {
         <Form form={form} layout="vertical" disabled={!selectedType} style={{ padding: '12px 0' }}>
           {selectedType ? (
             <>
-              {isDirectory && (
-                <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-                  {t('Directory processing always overwrites original files')}
-                </Text>
-              )}
               <Form.Item
                 label={t('Target Path')}
                 required
@@ -402,16 +434,71 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                   <Button onClick={() => openPathSelector('path', 'directory')}>{t('Select Directory')}</Button>
                 </Flex>
               </Form.Item>
+              {isDirectory && (
+                <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
+                  <Alert
+                    type="info"
+                    showIcon
+                    message={t('Directory execution will enqueue one task per file')}
+                  />
+                  <Form.Item name="directory_scope" label={t('Directory scope')} initialValue="current">
+                    <Segmented
+                      options={[
+                        { label: t('Current level only'), value: 'current' },
+                        { label: t('Include subdirectories'), value: 'recursive' },
+                      ]}
+                    />
+                  </Form.Item>
+                  {directoryScope === 'recursive' && (
+                    <Form.Item
+                      name="max_depth"
+                      label={t('Max depth')}
+                      extra={t('Leave empty to traverse all subdirectories')}
+                      rules={[{
+                        validator: async (_: any, value: number | null) => {
+                          if (value === undefined || value === null) return;
+                          if (value < 0) throw new Error(t('Depth must be greater or equal to 0'));
+                        },
+                      }]}
+                    >
+                      <InputNumber min={0} placeholder={t('Unlimited')} style={{ width: '100%' }} />
+                    </Form.Item>
+                  )}
+                </Space>
+              )}
 
-              <Form.Item
-                name="overwrite"
-                label={t('Overwrite original')}
-                valuePropName="checked"
-              >
-                <Switch disabled={isDirectory} />
-              </Form.Item>
+              {producesFile && (
+                <Form.Item
+                  name="overwrite"
+                  label={t('Overwrite original')}
+                  valuePropName="checked"
+                >
+                  <Switch />
+                </Form.Item>
+              )}
 
-              {selectedProcessorMeta?.produces_file && !overwriteValue && (
+              {isDirectory && producesFile && !overwriteValue && (
+                <Form.Item
+                  name="suffix"
+                  label={t('Output suffix')}
+                  rules={[
+                    { required: true, message: t('Please input a suffix') },
+                    {
+                      validator: async (_: any, value: string) => {
+                        if (typeof value !== 'string') return;
+                        if (!value.trim()) {
+                          throw new Error(t('Suffix cannot be empty'));
+                        }
+                      },
+                    },
+                  ]}
+                  extra={t('Suffix will be inserted before the file extension, e.g. demo_processed.mp4')}
+                >
+                  <Input placeholder={t('Suffix such as _processed')} />
+                </Form.Item>
+              )}
+
+              {!isDirectory && producesFile && !overwriteValue && (
                 <Form.Item label={t('Save To')}>
                   <Flex gap={8} align="center">
                     <div style={{ flex: 1 }}>

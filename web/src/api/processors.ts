@@ -34,6 +34,18 @@ export const processorsApi = {
       method: 'POST',
       json: params,
     }),
+  processDirectory: (params: {
+    path: string;
+    processor_type: string;
+    config: any;
+    overwrite: boolean;
+    max_depth?: number | null;
+    suffix?: string | null;
+  }) =>
+    request<{ task_ids: string[]; scheduled: number }>('/processors/process-directory', {
+      method: 'POST',
+      json: params,
+    }),
   getSource: (type: string) =>
     request<{ source: string; module_path: string }>('/processors/source/' + encodeURIComponent(type), {
       method: 'GET',

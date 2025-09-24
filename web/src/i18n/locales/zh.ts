@@ -418,6 +418,17 @@ export const zh = {
   'Source Editor': '源码编辑',
   'Module Path': '模块路径',
   'Directory processing always overwrites original files': '选择目录时会强制覆盖原文件',
+  'Directory execution will enqueue one task per file': '目录模式会为每个文件单独创建任务',
+  'Directory scope': '目录范围',
+  'Current level only': '仅当前层级',
+  'Include subdirectories': '包含子目录',
+  'Max depth': '最大层级',
+  'Leave empty to traverse all subdirectories': '留空表示遍历所有子目录',
+  'Depth must be greater or equal to 0': '层级必须大于或等于 0',
+  'Output suffix': '输出后缀',
+  'Suffix will be inserted before the file extension, e.g. demo_processed.mp4': '后缀会插入到文件扩展名前，例如 demo_processed.mp4',
+  'Suffix such as _processed': '例如 _processed 的后缀',
+  'Suffix cannot be empty': '后缀不能为空',
   'No data': '暂无数据',
 
   // Path selector

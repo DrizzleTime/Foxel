@@ -13,7 +13,7 @@ export interface AdapterItem {
 export interface AdapterTypeField {
   key: string;
   label: string;
-  type: 'string' | 'password' | 'number';
+  type: 'string' | 'password' | 'number' | 'boolean';
   required?: boolean;
   placeholder?: string;
   default?: any;

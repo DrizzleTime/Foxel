@@ -185,14 +185,20 @@ const AdaptersPage = memo(function AdaptersPage() {
     return currentTypeMeta.config_schema.map(field => {
       const rules = field.required ? [{ required: true, message: t('Please input {label}', { label: field.label }) }] : [];
       let inputNode: any = <Input placeholder={field.placeholder} />;
+      let valuePropName: string | undefined;
       if (field.type === 'password') inputNode = <Input.Password placeholder={field.placeholder} />;
       if (field.type === 'number') inputNode = <Input type="number" placeholder={field.placeholder} />;
+      if (field.type === 'boolean') {
+        inputNode = <Switch />;
+        valuePropName = 'checked';
+      }
       return (
         <Form.Item
           key={field.key}
           name={['config', field.key]}
           label={t(field.label)}
           rules={rules}
+          valuePropName={valuePropName}
         >
           {inputNode}
         </Form.Item>

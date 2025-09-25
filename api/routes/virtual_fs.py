@@ -15,6 +15,7 @@ from services.virtual_fs import (
     stream_file,
     generate_temp_link_token,
     verify_temp_link_token,
+    maybe_redirect_download,
 )
 from services.thumbnail import is_image_filename, get_or_create_thumb, is_raw_filename
 from schemas import MkdirRequest, MoveRequest
@@ -49,6 +50,12 @@ async def get_file(
             raise HTTPException(404, detail="File not found")
         except Exception as e:
             raise HTTPException(500, detail=f"RAW file processing failed: {e}")
+
+    adapter_instance, adapter_model, root, rel = await resolve_adapter_and_rel(full_path)
+
+    redirect_response = await maybe_redirect_download(adapter_instance, adapter_model, root, rel)
+    if redirect_response is not None:
+        return redirect_response
 
     try:
         content = await read_file(full_path)

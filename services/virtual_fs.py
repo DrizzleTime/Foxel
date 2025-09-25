@@ -23,6 +23,7 @@ from services.config import ConfigCenter
 
 
 CROSS_TRANSFER_TEMP_ROOT = Path("data/tmp/cross_transfer")
+DIRECT_REDIRECT_CONFIG_KEY = "enable_direct_download_307"
 
 if TYPE_CHECKING:
     from services.task_queue import Task
@@ -85,6 +86,31 @@ async def resolve_adapter_and_rel(path: str):
             )
     effective_root = adapter_instance.get_effective_root(adapter_model.sub_path)
     return adapter_instance, adapter_model, effective_root, rel
+
+
+async def maybe_redirect_download(adapter_instance, adapter_model, root: str, rel: str):
+    """若适配器启用了 307 直链，尝试构造重定向响应。"""
+    if not rel or rel.endswith('/'):
+        return None
+
+    config = getattr(adapter_model, "config", {}) or {}
+    if not config.get(DIRECT_REDIRECT_CONFIG_KEY):
+        return None
+
+    handler = getattr(adapter_instance, "get_direct_download_response", None)
+    if not callable(handler):
+        return None
+
+    try:
+        response = await handler(root, rel)
+    except FileNotFoundError:
+        raise
+    except Exception:
+        return None
+
+    if isinstance(response, Response):
+        return response
+    return None
 
 
 async def _ensure_method(adapter: Any, method: str):
@@ -437,7 +463,7 @@ async def rename_path(src: str, dst: str, overwrite: bool = False, return_debug:
 
 
 async def stream_file(path: str, range_header: str | None):
-    adapter_instance, _, root, rel = await resolve_adapter_and_rel(path)
+    adapter_instance, adapter_model, root, rel = await resolve_adapter_and_rel(path)
     if not rel or rel.endswith('/'):
         raise HTTPException(400, detail="Path is a directory")
     if is_raw_filename(rel):
@@ -469,6 +495,10 @@ async def stream_file(path: str, range_header: str | None):
             return Response(content=content, media_type='image/jpeg')
         except Exception as e:
             raise HTTPException(500, detail=f"RAW file processing failed: {e}")
+
+    redirect_response = await maybe_redirect_download(adapter_instance, adapter_model, root, rel)
+    if redirect_response is not None:
+        return redirect_response
 
     stream_impl = getattr(adapter_instance, "stream_file", None)
     if callable(stream_impl):

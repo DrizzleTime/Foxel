@@ -34,8 +34,15 @@ class QuarkAdapter:
         cfg = record.config or {}
         self.cookie: str = cfg.get("cookie") or cfg.get("Cookie")
         self.root_fid: str = cfg.get("root_fid", "0")
-        self.use_transcoding_address: bool = bool(cfg.get("use_transcoding_address", False))
-        self.only_list_video_file: bool = bool(cfg.get("only_list_video_file", False))
+        def _as_bool(value: Any) -> bool:
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                return value.strip().lower() in {"1", "true", "yes", "on"}
+            return bool(value)
+
+        self.use_transcoding_address: bool = _as_bool(cfg.get("use_transcoding_address", False))
+        self.only_list_video_file: bool = _as_bool(cfg.get("only_list_video_file", False))
 
         if not self.cookie:
             raise ValueError("Quark 适配器需要 cookie 配置")
@@ -716,8 +723,8 @@ ADAPTER_TYPE = "Quark"
 CONFIG_SCHEMA = [
     {"key": "cookie", "label": "Cookie", "type": "password", "required": True, "placeholder": "从 pan.quark.cn 复制"},
     {"key": "root_fid", "label": "根 FID", "type": "string", "required": False, "default": "0"},
-    {"key": "use_transcoding_address", "label": "视频转码直链", "type": "checkbox", "required": False, "default": False},
-    {"key": "only_list_video_file", "label": "仅列出视频文件", "type": "checkbox", "required": False, "default": False},
+    {"key": "use_transcoding_address", "label": "视频转码直链", "type": "boolean", "required": False, "default": False},
+    {"key": "only_list_video_file", "label": "仅列出视频文件", "type": "boolean", "required": False, "default": False},
 ]
 
 def ADAPTER_FACTORY(rec: StorageAdapter) -> BaseAdapter:

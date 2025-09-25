@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Tuple, AsyncIterator
 import httpx
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from fastapi import HTTPException
 from models import StorageAdapter
 
@@ -20,6 +20,7 @@ class OneDriveAdapter:
         self.client_secret = cfg.get("client_secret")
         self.refresh_token = cfg.get("refresh_token")
         self.root = cfg.get("root", "/").strip("/")
+        self.enable_redirect_307 = bool(cfg.get("enable_direct_download_307"))
 
         if not all([self.client_id, self.client_secret, self.refresh_token]):
             raise ValueError(
@@ -380,6 +381,26 @@ class OneDriveAdapter:
 
         return StreamingResponse(file_iterator(), status_code=status, headers=headers, media_type=content_type)
 
+    async def get_direct_download_response(self, root: str, rel: str):
+        if not self.enable_redirect_307:
+            return None
+
+        api_path = self._get_api_path(rel)
+        if not api_path:
+            raise IsADirectoryError("不能对目录进行直链重定向")
+
+        resp = await self._request("GET", api_path_segment=api_path)
+        if resp.status_code == 404:
+            raise FileNotFoundError(rel)
+        resp.raise_for_status()
+
+        item_data = resp.json()
+        download_url = item_data.get("@microsoft.graph.downloadUrl")
+        if not download_url:
+            return None
+
+        return Response(status_code=307, headers={"Location": download_url})
+
     async def get_thumbnail(self, root: str, rel: str, size: str = "medium"):
         """
         获取文件的缩略图。
@@ -434,6 +455,7 @@ CONFIG_SCHEMA = [
         "required": True, "help_text": "可以通过运行 'python -m services.adapters.onedrive' 获取"},
     {"key": "root", "label": "根目录 (Root Path)", "type": "string",
      "required": False, "placeholder": "默认为根目录 /"},
+    {"key": "enable_direct_download_307", "label": "Enable 307 redirect download", "type": "boolean", "default": False},
 ]
 
 

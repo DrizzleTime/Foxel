@@ -212,7 +212,7 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
                     <Tag icon={<WarningOutlined />} color="warning" style={{ marginInlineEnd: 0 }} />
                   ) : (
                     <Tag icon={<WarningOutlined />} color="warning">
-                      {status?.version} - {t('Update available')} [{latestVersion?.version}]
+                      {t('Update available')} [{latestVersion?.version}]
                     </Tag>
                   )}
                 </a>

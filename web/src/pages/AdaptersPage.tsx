@@ -1,23 +1,8 @@
 import { memo, useState, useEffect, useCallback } from 'react';
 import { Table, Button, Space, Drawer, Form, Input, Switch, message, Typography, Popconfirm, Select } from 'antd';
 import PageCard from '../components/PageCard';
-import { adaptersApi, type AdapterItem } from '../api/client';
+import { adaptersApi, type AdapterItem, type AdapterTypeMeta } from '../api/client';
 import { useI18n } from '../i18n';
-
-
-interface AdapterTypeField {
-  key: string;
-  label: string;
-  type: 'string' | 'password' | 'number';
-  required?: boolean;
-  placeholder?: string;
-  default?: any;
-}
-interface AdapterTypeMeta {
-  type: string;
-  name: string;
-  config_schema: AdapterTypeField[];
-}
 
 const AdaptersPage = memo(function AdaptersPage() {
   const [loading, setLoading] = useState(false);

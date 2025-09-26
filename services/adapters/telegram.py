@@ -74,33 +74,32 @@ class TelegramAdapter:
             for message in messages:
                 if not message:
                     continue
-                
+
                 media = message.document or message.video or message.photo
                 if not media:
                     continue
 
-                filename = None
-                size = 0
-                
-                if message.photo:
-                    photo_size = message.photo.sizes[-1]
-                    size = photo_size.size if hasattr(photo_size, 'size') else 0
-                    filename = f"photo_{message.id}.jpg"
+                file_meta = message.file
+                if not file_meta:
+                    continue
 
-                elif message.document or message.video:
-                    size = media.size
-                    if hasattr(media, 'attributes'):
-                        for attr in media.attributes:
-                            if hasattr(attr, 'file_name') and attr.file_name:
-                                filename = attr.file_name
-                                break
-                
+                filename = file_meta.name
                 if not filename:
                     if message.text and '.' in message.text and len(message.text) < 256 and '\n' not in message.text:
                         filename = message.text
-                
-                if not filename:
-                    filename = f"unknown_{message.id}"
+                    else:
+                        filename = f"unknown_{message.id}"
+
+                size = file_meta.size
+                if size is None:
+                    # 兼容缺失 size 的情况
+                    if hasattr(media, "size") and media.size is not None:
+                        size = media.size
+                    elif message.photo and getattr(message.photo, "sizes", None):
+                        photo_size = message.photo.sizes[-1]
+                        size = getattr(photo_size, "size", 0) or 0
+                    else:
+                        size = 0
 
                 entries.append({
                     "name": f"{message.id}_{filename}",
@@ -246,13 +245,27 @@ class TelegramAdapter:
             if not message or not media:
                 raise FileNotFoundError(f"在频道 {self.chat_id} 中未找到消息ID为 {message_id} 的文件")
 
-            if message.photo:
-                photo_size = media.sizes[-1]
-                file_size = photo_size.size if hasattr(photo_size, 'size') else 0
-                mime_type = "image/jpeg"
-            else:
-                file_size = media.size
-                mime_type = media.mime_type or "application/octet-stream"
+            file_meta = message.file
+            file_size = file_meta.size if file_meta and file_meta.size is not None else None
+            if file_size is None:
+                if hasattr(media, "size") and media.size is not None:
+                    file_size = media.size
+                elif message.photo and getattr(message.photo, "sizes", None):
+                    photo_size = message.photo.sizes[-1]
+                    file_size = getattr(photo_size, "size", 0) or 0
+                else:
+                    file_size = 0
+
+            mime_type = None
+            if file_meta and getattr(file_meta, "mime_type", None):
+                mime_type = file_meta.mime_type
+            if not mime_type:
+                if hasattr(media, "mime_type") and media.mime_type:
+                    mime_type = media.mime_type
+                elif message.photo:
+                    mime_type = "image/jpeg"
+                else:
+                    mime_type = "application/octet-stream"
 
             start = 0
             end = file_size - 1
@@ -321,11 +334,16 @@ class TelegramAdapter:
             if not message or not media:
                 raise FileNotFoundError(f"在频道 {self.chat_id} 中未找到消息ID为 {message_id} 的文件")
 
-            if message.photo:
-                photo_size = media.sizes[-1]
-                size = photo_size.size if hasattr(photo_size, 'size') else 0
-            else:
-                size = media.size
+            file_meta = message.file
+            size = file_meta.size if file_meta and file_meta.size is not None else None
+            if size is None:
+                if hasattr(media, "size") and media.size is not None:
+                    size = media.size
+                elif message.photo and getattr(message.photo, "sizes", None):
+                    photo_size = message.photo.sizes[-1]
+                    size = getattr(photo_size, "size", 0) or 0
+                else:
+                    size = 0
 
             return {
                 "name": rel,

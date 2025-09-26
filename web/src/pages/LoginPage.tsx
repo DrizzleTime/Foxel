@@ -6,6 +6,7 @@ import { useSystemStatus } from '../contexts/SystemContext';
 import { useNavigate } from 'react-router';
 import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import WeChatModal from '../components/WeChatModal';
 
 const { Title, Text } = Typography;
 
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [wechatModalOpen, setWechatModalOpen] = useState(false);
   const navigate = useNavigate();
   const { t } = useI18n();
 
@@ -167,11 +169,12 @@ export default function LoginPage() {
               <Text type="secondary">{t('Join our community:')}</Text>
               <Button type="text" icon={<GithubOutlined />} href="https://github.com/DrizzleTime/Foxel" target="_blank">GitHub</Button>
               <Button type="text" icon={<SendOutlined />} href="https://t.me/+thDsBfyqJxZkNTU1" target="_blank">Telegram</Button>
-              <Button type="text" icon={<WechatOutlined />}>微信</Button>
+              <Button type="text" icon={<WechatOutlined />} onClick={() => setWechatModalOpen(true)}>微信</Button>
             </div>
           </div>
         </div>
       </div>
+      <WeChatModal open={wechatModalOpen} onClose={() => setWechatModalOpen(false)} />
     </div>
   );
 }

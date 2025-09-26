@@ -18,6 +18,7 @@ import ReactMarkdown from 'react-markdown';
 import { useTheme } from '../contexts/ThemeContext';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
+import WeChatModal from '../components/WeChatModal';
 const { Sider } = Layout;
 
 export interface SideNavProps {
@@ -260,23 +261,7 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
 
         </div>
       </Sider>
-      <Modal
-        open={isModalOpen}
-        onCancel={() => setIsModalOpen(false)}
-        title={t('Join Community')}
-        footer={null}
-        width={320}
-      >
-        <div style={{ textAlign: 'center', padding: '12px 0' }}>
-          <img src="https://foxel.cc/image/wechat.png" width={200} alt="wechat" />
-          <div style={{ marginTop: 12, color: token.colorTextSecondary }}>
-            {t('Scan to join WeChat group')}
-          </div>
-          <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
-            {t('If QR expires, add drizzle2001 to join')}
-          </div>
-        </div>
-      </Modal>
+      <WeChatModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <Modal
         open={isVersionModalOpen}
         onCancel={() => setIsVersionModalOpen(false)}

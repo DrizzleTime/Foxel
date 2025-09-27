@@ -8,14 +8,23 @@ import { useTheme } from '../../contexts/ThemeContext';
 import '../../styles/settings-tabs.css';
 import { useI18n } from '../../i18n';
 
-const APP_CONFIG_KEYS: {key: string, label: string, default?: string}[] = [
+const APP_CONFIG_KEYS: { key: string, label: string, default?: string }[] = [
   { key: 'APP_NAME', label: 'App Name' },
   { key: 'APP_LOGO', label: 'Logo URL' },
   { key: 'APP_DOMAIN', label: 'App Domain' },
   { key: 'FILE_DOMAIN', label: 'File Domain' },
 ];
 
-const VISION_CONFIG_KEYS = [
+interface AiConfigKeyBase {
+  key: string;
+  default?: string | number;
+}
+
+interface AiConfigKeyWithLabel extends AiConfigKeyBase {
+  label: string;
+}
+
+const VISION_CONFIG_KEYS: AiConfigKeyWithLabel[] = [
   { key: 'AI_VISION_API_URL', label: 'Vision API URL' },
   { key: 'AI_VISION_MODEL', label: 'Vision Model', default: 'Qwen/Qwen2.5-VL-32B-Instruct' },
   { key: 'AI_VISION_API_KEY', label: 'Vision API Key' },
@@ -24,13 +33,24 @@ const VISION_CONFIG_KEYS = [
 const DEFAULT_EMBED_DIMENSION = 4096;
 const EMBED_DIM_KEY = 'AI_EMBED_DIM';
 
-const EMBED_CONFIG_KEYS = [
+const EMBED_CONFIG_KEYS: AiConfigKeyWithLabel[] = [
   { key: 'AI_EMBED_API_URL', label: 'Embedding API URL' },
   { key: 'AI_EMBED_MODEL', label: 'Embedding Model', default: 'Qwen/Qwen3-Embedding-8B' },
   { key: 'AI_EMBED_API_KEY', label: 'Embedding API Key' },
 ];
 
-const ALL_AI_KEYS = [...VISION_CONFIG_KEYS, ...EMBED_CONFIG_KEYS, { key: EMBED_DIM_KEY, default: DEFAULT_EMBED_DIMENSION }];
+const RERANK_CONFIG_KEYS: AiConfigKeyWithLabel[] = [
+  { key: 'AI_RERANK_API_URL', label: 'Rerank API URL' },
+  { key: 'AI_RERANK_MODEL', label: 'Rerank Model' },
+  { key: 'AI_RERANK_API_KEY', label: 'Rerank API Key' },
+];
+
+const ALL_AI_KEYS: AiConfigKeyBase[] = [
+  ...VISION_CONFIG_KEYS,
+  ...EMBED_CONFIG_KEYS,
+  ...RERANK_CONFIG_KEYS,
+  { key: EMBED_DIM_KEY, default: DEFAULT_EMBED_DIMENSION },
+];
 
 const formatBytes = (bytes?: number | null) => {
   if (bytes === null || bytes === undefined) return '-';
@@ -194,6 +214,8 @@ export default function SystemSettingsPage() {
     }
   }, [buildProviderConfigValues, message, t, vectorConfigForm, vectorProviders]);
 
+  const vectorSectionLoading = vectorStatsLoading || vectorConfigLoading;
+
   // 离开“外观设置”时，恢复后端持久化配置（取消未保存的预览）
   useEffect(() => {
     if (activeTab !== 'appearance') {
@@ -303,7 +325,7 @@ export default function SystemSettingsPage() {
                     </Form.Item>
                   </Card>
                   <Card title={t('Advanced')} style={{ marginTop: 24 }}>
-                    <Form.Item name={THEME_KEYS.TOKENS} label={t('Override AntD Tokens (JSON)')} tooltip={t('e.g. {"colorText": "#222"}') }>
+                    <Form.Item name={THEME_KEYS.TOKENS} label={t('Override AntD Tokens (JSON)')} tooltip={t('e.g. {"colorText": "#222"}')}>
                       <Input.TextArea autoSize={{ minRows: 4 }} placeholder='{ "colorText": "#222" }' />
                     </Form.Item>
                     <Form.Item name={THEME_KEYS.CSS} label={t('Custom CSS')}>
@@ -402,6 +424,13 @@ export default function SystemSettingsPage() {
                       <InputNumber min={1} max={32768} style={{ width: '100%' }} />
                     </Form.Item>
                   </Card>
+                  <Card title={t('Rerank Model')} style={{ marginTop: 24 }}>
+                    {RERANK_CONFIG_KEYS.map(({ key, label }) => (
+                      <Form.Item key={key} name={key} label={t(label)}>
+                        <Input size="large" />
+                      </Form.Item>
+                    ))}
+                  </Card>
                   <Form.Item style={{ marginTop: 24 }}>
                     <Button type="primary" htmlType="submit" loading={loading} block>
                       {t('Save')}
@@ -428,178 +457,180 @@ export default function SystemSettingsPage() {
                           {t('Refresh')}
                         </Button>
                       </div>
-                      {vectorMetaError ? (
-                        <Alert type="error" showIcon message={vectorMetaError} />
-                      ) : null}
-                      {vectorStatsLoading && !vectorStats ? (
-                        <Spin />
-                      ) : vectorStats ? (
-                        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
-                            <div>
-                              <div style={{ color: '#888' }}>{t('Collections')}</div>
-                              <div style={{ fontSize: 20, fontWeight: 600 }}>{vectorStats.collection_count}</div>
-                            </div>
-                            <div>
-                              <div style={{ color: '#888' }}>{t('Vectors')}</div>
-                              <div style={{ fontSize: 20, fontWeight: 600 }}>{vectorStats.total_vectors}</div>
-                            </div>
-                            <div>
-                              <div style={{ color: '#888' }}>{t('Database Size')}</div>
-                              <div style={{ fontSize: 20, fontWeight: 600 }}>{formatBytes(vectorStats.db_file_size_bytes)}</div>
-                            </div>
-                            <div>
-                              <div style={{ color: '#888' }}>{t('Estimated Memory')}</div>
-                              <div style={{ fontSize: 20, fontWeight: 600 }}>{formatBytes(vectorStats.estimated_total_memory_bytes)}</div>
-                            </div>
-                          </div>
-                          {vectorStats.collections.length ? (
-                            <Space direction="vertical" style={{ width: '100%' }} size={16}>
-                              {vectorStats.collections.map((collection) => (
-                                <div key={collection.name} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16 }}>
-                                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                                      <strong>{collection.name}</strong>
-                                      <span style={{ color: '#888' }}>
-                                        {collection.is_vector_collection && collection.dimension
-                                          ? `${t('Dimension')}: ${collection.dimension}`
-                                          : t('Non-vector collection')}
-                                      </span>
-                                    </div>
-                                    <div>{t('Vectors')}: {collection.row_count}</div>
-                                    {collection.is_vector_collection ? (
-                                      <div>{t('Estimated memory')}: {formatBytes(collection.estimated_memory_bytes)}</div>
-                                    ) : null}
-                                    {collection.indexes.length ? (
-                                      <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                                        <span>{t('Indexes')}:</span>
-                                        <ul style={{ paddingLeft: 20, margin: 0 }}>
-                                          {collection.indexes.map((index) => (
-                                            <li key={`${collection.name}-${index.index_name || 'default'}`}>
-                                              <span>{index.index_name || t('Unnamed index')}</span>
-                                              <span>{' · '}{index.index_type || '-'}</span>
-                                              <span>{' · '}{index.metric_type || '-'}</span>
-                                              <span>{' · '}{t('Indexed rows')}: {index.indexed_rows}</span>
-                                              <span>{' · '}{t('Pending rows')}: {index.pending_index_rows}</span>
-                                              <span>{' · '}{t('Status')}: {index.state || '-'}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </Space>
-                                    ) : null}
-                                  </Space>
+                      {vectorSectionLoading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+                          <Spin />
+                        </div>
+                      ) : (
+                        <>
+                          {vectorMetaError ? (
+                            <Alert type="error" showIcon message={vectorMetaError} />
+                          ) : null}
+                          {vectorStats ? (
+                            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
+                                <div>
+                                  <div style={{ color: '#888' }}>{t('Collections')}</div>
+                                  <div style={{ fontSize: 20, fontWeight: 600 }}>{vectorStats.collection_count}</div>
                                 </div>
-                              ))}
+                                <div>
+                                  <div style={{ color: '#888' }}>{t('Vectors')}</div>
+                                  <div style={{ fontSize: 20, fontWeight: 600 }}>{vectorStats.total_vectors}</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: '#888' }}>{t('Database Size')}</div>
+                                  <div style={{ fontSize: 20, fontWeight: 600 }}>{formatBytes(vectorStats.db_file_size_bytes)}</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: '#888' }}>{t('Estimated Memory')}</div>
+                                  <div style={{ fontSize: 20, fontWeight: 600 }}>{formatBytes(vectorStats.estimated_total_memory_bytes)}</div>
+                                </div>
+                              </div>
+                              {vectorStats.collections.length ? (
+                                <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                                  {vectorStats.collections.map((collection) => (
+                                    <div key={collection.name} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16 }}>
+                                      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                                          <strong>{collection.name}</strong>
+                                          <span style={{ color: '#888' }}>
+                                            {collection.is_vector_collection && collection.dimension
+                                              ? `${t('Dimension')}: ${collection.dimension}`
+                                              : t('Non-vector collection')}
+                                          </span>
+                                        </div>
+                                        <div>{t('Vectors')}: {collection.row_count}</div>
+                                        {collection.is_vector_collection ? (
+                                          <div>{t('Estimated memory')}: {formatBytes(collection.estimated_memory_bytes)}</div>
+                                        ) : null}
+                                        {collection.indexes.length ? (
+                                          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                            <span>{t('Indexes')}:</span>
+                                            <ul style={{ paddingLeft: 20, margin: 0 }}>
+                                              {collection.indexes.map((index) => (
+                                                <li key={`${collection.name}-${index.index_name || 'default'}`}>
+                                                  <span>{index.index_name || t('Unnamed index')}</span>
+                                                  <span>{' · '}{index.index_type || '-'}</span>
+                                                  <span>{' · '}{index.metric_type || '-'}</span>
+                                                  <span>{' · '}{t('Indexed rows')}: {index.indexed_rows}</span>
+                                                  <span>{' · '}{t('Pending rows')}: {index.pending_index_rows}</span>
+                                                  <span>{' · '}{t('Status')}: {index.state || '-'}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </Space>
+                                        ) : null}
+                                      </Space>
+                                    </div>
+                                  ))}
+                                </Space>
+                              ) : (
+                                <Empty description={t('No collections')} />
+                              )}
+                              <div style={{ color: '#888' }}>
+                                {t('Estimated memory is calculated as vectors x dimension x 4 bytes (float32).')}
+                              </div>
                             </Space>
+                          ) : vectorStatsError ? (
+                            <div style={{ color: '#ff4d4f' }}>{vectorStatsError}</div>
                           ) : (
                             <Empty description={t('No collections')} />
                           )}
-                          <div style={{ color: '#888' }}>
-                            {t('Estimated memory is calculated as vectors x dimension x 4 bytes (float32).')}
-                          </div>
-                        </Space>
-                      ) : vectorStatsError ? (
-                        <div style={{ color: '#ff4d4f' }}>{vectorStatsError}</div>
-                      ) : (
-                        <Empty description={t('No collections')} />
+                          <Form
+                            layout="vertical"
+                            form={vectorConfigForm}
+                            onFinish={handleVectorConfigSave}
+                            initialValues={{ type: selectedProviderType || undefined, config: {} }}
+                          >
+                            <Form.Item
+                              name="type"
+                              label={t('Database Provider')}
+                              rules={[{ required: true, message: t('Please select a provider') }]}
+                            >
+                              <Select
+                                size="large"
+                                options={vectorProviders.map((provider) => ({
+                                  value: provider.type,
+                                  label: provider.enabled ? provider.label : `${provider.label} (${t('Coming soon')})`,
+                                  disabled: !provider.enabled,
+                                }))}
+                                onChange={handleProviderChange}
+                                loading={vectorConfigLoading && !vectorProviders.length}
+                              />
+                            </Form.Item>
+                            {selectedProvider?.description ? (
+                              <Alert
+                                type="info"
+                                showIcon
+                                message={t(selectedProvider.description)}
+                                style={{ marginBottom: 16 }}
+                              />
+                            ) : null}
+                            {selectedProvider?.config_schema?.map((field) => (
+                              <Form.Item
+                                key={field.key}
+                                name={['config', field.key]}
+                                label={t(field.label)}
+                                rules={field.required ? [{ required: true, message: t('Please input {label}', { label: t(field.label) }) }] : []}
+                              >
+                                {field.type === 'password' ? (
+                                  <Input.Password size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+                                ) : (
+                                  <Input size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+                                )}
+                              </Form.Item>
+                            ))}
+                            {selectedProvider && !selectedProvider.enabled ? (
+                              <Alert
+                                type="warning"
+                                showIcon
+                                message={t('This provider is not available yet')}
+                                style={{ marginBottom: 16 }}
+                              />
+                            ) : null}
+                            <Form.Item>
+                              <Space direction="vertical" style={{ width: '100%' }}>
+                                <Button
+                                  type="primary"
+                                  htmlType="submit"
+                                  loading={vectorConfigSaving}
+                                  block
+                                  disabled={!selectedProvider?.enabled}
+                                >
+                                  {t('Save')}
+                                </Button>
+                                <Button
+                                  danger
+                                  htmlType="button"
+                                  block
+                                  onClick={() => {
+                                    Modal.confirm({
+                                      title: t('Confirm clear vector database?'),
+                                      content: t('This will delete all collections irreversibly.'),
+                                      okText: t('Confirm Clear'),
+                                      okType: 'danger',
+                                      cancelText: t('Cancel'),
+                                      onOk: async () => {
+                                        try {
+                                          await vectorDBApi.clearAll();
+                                          message.success(t('Vector database cleared'));
+                                          await fetchVectorStats();
+                                          await fetchVectorMeta();
+                                        } catch (e: any) {
+                                          message.error(e.message || t('Clear failed'));
+                                        }
+                                      },
+                                    });
+                                  }}
+                                >
+                                  {t('Clear Vector DB')}
+                                </Button>
+                              </Space>
+                            </Form.Item>
+                          </Form>
+                        </>
                       )}
                     </Space>
-                    {vectorConfigLoading && !vectorProviders.length ? (
-                      <Spin />
-                    ) : (
-                      <Form
-                        layout="vertical"
-                        form={vectorConfigForm}
-                        onFinish={handleVectorConfigSave}
-                        initialValues={{ type: selectedProviderType || undefined, config: {} }}
-                      >
-                        <Form.Item
-                          name="type"
-                          label={t('Database Provider')}
-                          rules={[{ required: true, message: t('Please select a provider') }]}
-                        >
-                          <Select
-                            size="large"
-                            options={vectorProviders.map((provider) => ({
-                              value: provider.type,
-                              label: provider.enabled ? provider.label : `${provider.label} (${t('Coming soon')})`,
-                              disabled: !provider.enabled,
-                            }))}
-                            onChange={handleProviderChange}
-                            loading={vectorConfigLoading && !vectorProviders.length}
-                          />
-                        </Form.Item>
-                        {selectedProvider?.description ? (
-                          <Alert
-                            type="info"
-                            showIcon
-                            message={t(selectedProvider.description)}
-                            style={{ marginBottom: 16 }}
-                          />
-                        ) : null}
-                        {selectedProvider?.config_schema?.map((field) => (
-                          <Form.Item
-                            key={field.key}
-                            name={['config', field.key]}
-                            label={t(field.label)}
-                            rules={field.required ? [{ required: true, message: t('Please input {label}', { label: t(field.label) }) }] : []}
-                          >
-                            {field.type === 'password' ? (
-                              <Input.Password size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
-                            ) : (
-                              <Input size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
-                            )}
-                          </Form.Item>
-                        ))}
-                        {selectedProvider && !selectedProvider.enabled ? (
-                          <Alert
-                            type="warning"
-                            showIcon
-                            message={t('This provider is not available yet')}
-                            style={{ marginBottom: 16 }}
-                          />
-                        ) : null}
-                        <Form.Item>
-                          <Space direction="vertical" style={{ width: '100%' }}>
-                            <Button
-                              type="primary"
-                              htmlType="submit"
-                              loading={vectorConfigSaving}
-                              block
-                              disabled={!selectedProvider?.enabled}
-                            >
-                              {t('Save')}
-                            </Button>
-                            <Button
-                              danger
-                              htmlType="button"
-                              block
-                              onClick={() => {
-                                Modal.confirm({
-                                  title: t('Confirm clear vector database?'),
-                                  content: t('This will delete all collections irreversibly.'),
-                                  okText: t('Confirm Clear'),
-                                  okType: 'danger',
-                                  cancelText: t('Cancel'),
-                                  onOk: async () => {
-                                    try {
-                                      await vectorDBApi.clearAll();
-                                      message.success(t('Vector database cleared'));
-                                      await fetchVectorStats();
-                                      await fetchVectorMeta();
-                                    } catch (e: any) {
-                                      message.error(e.message || t('Clear failed'));
-                                    }
-                                  },
-                                });
-                              }}
-                            >
-                              {t('Clear Vector DB')}
-                            </Button>
-                          </Space>
-                        </Form.Item>
-                      </Form>
-                    )}
                   </Space>
                 </Card>
               ),

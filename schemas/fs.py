@@ -21,6 +21,13 @@ class SearchResultItem(BaseModel):
     id: int | str
     path: str
     score: float
+    chunk_id: Optional[str] = None
+    snippet: Optional[str] = None
+    mime: Optional[str] = None
+    source_type: Optional[str] = None
+    start_offset: Optional[int] = None
+    end_offset: Optional[int] = None
+    metadata: Optional[dict] = None
 
 
 class MkdirRequest(BaseModel):

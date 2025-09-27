@@ -50,15 +50,20 @@ class MilvusLiteProvider(BaseVectorProvider):
         client = self._get_client()
         if client.has_collection(collection_name):
             return
+        common_fields = [
+            FieldSchema(name="path", dtype=DataType.VARCHAR, max_length=512, is_primary=True, auto_id=False),
+            FieldSchema(name="source_path", dtype=DataType.VARCHAR, max_length=512, is_primary=False, auto_id=False),
+        ]
+
         if vector:
             vector_dim = dim if isinstance(dim, int) and dim > 0 else 0
             if vector_dim <= 0:
                 vector_dim = 4096
             fields = [
-                FieldSchema(name="path", dtype=DataType.VARCHAR, max_length=512, is_primary=True, auto_id=False),
+                *common_fields,
                 FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=vector_dim),
             ]
-            schema = CollectionSchema(fields, description="Image vector collection")
+            schema = CollectionSchema(fields, description="Vector collection", enable_dynamic_field=True)
             client.create_collection(collection_name, schema=schema)
             index_params = MilvusClient.prepare_index_params()
             index_params.add_index(
@@ -70,38 +75,98 @@ class MilvusLiteProvider(BaseVectorProvider):
             )
             client.create_index(collection_name, index_params=index_params)
         else:
-            fields = [
-                FieldSchema(name="path", dtype=DataType.VARCHAR, max_length=512, is_primary=True, auto_id=False),
-            ]
-            schema = CollectionSchema(fields, description="Simple file index")
+            schema = CollectionSchema(common_fields, description="Simple file index", enable_dynamic_field=True)
             client.create_collection(collection_name, schema=schema)
 
     def upsert_vector(self, collection_name: str, data: Dict[str, Any]) -> None:
-        self._get_client().upsert(collection_name, data)
+        payload = dict(data)
+        payload.setdefault("source_path", payload.get("path"))
+        payload.setdefault("vector_id", payload.get("path"))
+        self._get_client().upsert(collection_name, data=[payload])
 
     def delete_vector(self, collection_name: str, path: str) -> None:
-        self._get_client().delete(collection_name, ids=[path])
+        client = self._get_client()
+        escaped = path.replace('"', '\\"')
+        client.delete(collection_name, filter=f'source_path == "{escaped}"')
 
     def search_vectors(self, collection_name: str, query_embedding, top_k: int):
         search_params = {"metric_type": "COSINE"}
-        return self._get_client().search(
+        output_fields = [
+            "path",
+            "source_path",
+            "chunk_id",
+            "mime",
+            "text",
+            "start_offset",
+            "end_offset",
+            "type",
+            "name",
+        ]
+        raw_results = self._get_client().search(
             collection_name,
             data=[query_embedding],
             anns_field="embedding",
             search_params=search_params,
             limit=top_k,
-            output_fields=["path"],
+            output_fields=output_fields,
         )
+        formatted: List[List[Dict[str, Any]]] = []
+        for hits in raw_results:
+            bucket: List[Dict[str, Any]] = []
+            for hit in hits:
+                if hasattr(hit, "entity"):
+                    entity = dict(getattr(hit, "entity", {}) or {})
+                    hit_id = getattr(hit, "id", None)
+                    distance = getattr(hit, "distance", None)
+                elif isinstance(hit, dict):
+                    entity = dict((hit.get("entity") or {}))
+                    hit_id = hit.get("id")
+                    distance = hit.get("distance")
+                else:
+                    entity = {}
+                    hit_id = None
+                    distance = None
+                entity.setdefault("path", entity.get("source_path"))
+                bucket.append({
+                    "id": hit_id,
+                    "distance": distance,
+                    "entity": entity,
+                })
+            formatted.append(bucket)
+        return formatted
 
     def search_by_path(self, collection_name: str, query_path: str, top_k: int):
-        filter_expr = f"path like '%{query_path}%'" if query_path else "path like '%%'"
+        if query_path:
+            escaped = query_path.replace('"', '\\"')
+            filter_expr = f'source_path like "%{escaped}%"'
+        else:
+            filter_expr = "source_path like '%%'"
         results = self._get_client().query(
             collection_name,
             filter=filter_expr,
             limit=top_k,
-            output_fields=["path"],
+            output_fields=[
+                "path",
+                "source_path",
+                "chunk_id",
+                "mime",
+                "text",
+                "start_offset",
+                "end_offset",
+                "type",
+                "name",
+            ],
         )
-        return [[{"id": r["path"], "distance": 1.0, "entity": {"path": r["path"]}} for r in results]]
+        formatted = []
+        for row in results:
+            entity = dict(row)
+            entity.setdefault("path", entity.get("source_path"))
+            formatted.append({
+                "id": entity.get("path"),
+                "distance": 1.0,
+                "entity": entity,
+            })
+        return [formatted]
 
     def get_all_stats(self) -> Dict[str, Any]:
         client = self._get_client()

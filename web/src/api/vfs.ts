@@ -21,9 +21,29 @@ export interface DirListing {
 }
 
 export interface SearchResultItem {
-  id: number;
+  id: string;
   path: string;
   score: number;
+  chunk_id?: string;
+  snippet?: string;
+  mime?: string;
+  source_type?: string;
+  start_offset?: number;
+  end_offset?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface SearchPagination {
+  page: number;
+  page_size: number;
+  has_more: boolean;
+}
+
+export interface SearchResponse {
+  items: SearchResultItem[];
+  query: string;
+  mode?: string;
+  pagination?: SearchPagination;
 }
 
 export const vfsApi = {
@@ -105,6 +125,20 @@ export const vfsApi = {
       xhr.send(fd);
     });
   },
-  searchFiles: (q: string, top_k: number = 10, mode: 'vector' | 'filename' = 'vector') =>
-    request<{ items: SearchResultItem[]; query: string }>(`/search?q=${encodeURIComponent(q)}&top_k=${top_k}&mode=${mode}`),
+  searchFiles: (
+    q: string,
+    top_k: number = 10,
+    mode: 'vector' | 'filename' = 'vector',
+    page?: number,
+    page_size?: number,
+  ) => {
+    const params = new URLSearchParams({
+      q,
+      top_k: String(top_k),
+      mode,
+    });
+    if (page !== undefined) params.set('page', String(page));
+    if (page_size !== undefined) params.set('page_size', String(page_size));
+    return request<SearchResponse>(`/search?${params.toString()}`);
+  },
 };

@@ -58,29 +58,59 @@ class QdrantProvider(BaseVectorProvider):
         size = dim if vector and isinstance(dim, int) and dim > 0 else 1
         return qmodels.VectorParams(size=size, distance=qmodels.Distance.COSINE)
 
+    def _ensure_payload_indexes(self, client: QdrantClient, collection_name: str) -> None:
+        for field in ("path", "source_path"):
+            try:
+                client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name=field,
+                    field_schema="keyword",
+                )
+            except Exception as exc:  # pragma: no cover - 依赖外部服务
+                message = str(exc).lower()
+                if "already exists" in message or "index exists" in message:
+                    continue
+                # 旧版本 qdrant 可能返回带状态码的异常，这里容忍重复创建
+                raise
+
     def ensure_collection(self, collection_name: str, vector: bool, dim: int) -> None:
         client = self._get_client()
         try:
-            if client.collection_exists(collection_name):
-                return
+            exists = client.collection_exists(collection_name)
         except Exception as exc:  # pragma: no cover - 依赖外部服务
             raise RuntimeError(f"Failed to check Qdrant collection '{collection_name}': {exc}") from exc
+
+        if exists:
+            try:
+                self._ensure_payload_indexes(client, collection_name)
+            except Exception:
+                pass
+            return
 
         vectors_config = self._vector_params(vector, dim)
         try:
             client.create_collection(collection_name=collection_name, vectors_config=vectors_config)
         except Exception as exc:  # pragma: no cover
             if "already exists" in str(exc).lower():
+                try:
+                    self._ensure_payload_indexes(client, collection_name)
+                except Exception:
+                    pass
                 return
             raise RuntimeError(f"Failed to create Qdrant collection '{collection_name}': {exc}") from exc
 
+        try:
+            self._ensure_payload_indexes(client, collection_name)
+        except Exception:
+            pass
+
     @staticmethod
-    def _point_id(path: str) -> str:
-        return str(uuid5(NAMESPACE_URL, path))
+    def _point_id(uid: str) -> str:
+        return str(uuid5(NAMESPACE_URL, uid))
 
     def _prepare_point(self, data: Dict[str, Any]) -> qmodels.PointStruct:
-        path = data.get("path")
-        if not path:
+        uid = data.get("path")
+        if not uid:
             raise ValueError("Qdrant upsert requires 'path' in data")
 
         embedding = data.get("embedding")
@@ -89,8 +119,11 @@ class QdrantProvider(BaseVectorProvider):
         else:
             vector = [float(x) for x in embedding]
 
-        payload = {"path": path}
-        return qmodels.PointStruct(id=self._point_id(path), vector=vector, payload=payload)
+        payload = {k: v for k, v in data.items() if k != "embedding"}
+        payload.setdefault("vector_id", uid)
+        source_path = payload.get("source_path") or payload.get("path")
+        payload["path"] = source_path
+        return qmodels.PointStruct(id=self._point_id(str(uid)), vector=vector, payload=payload)
 
     def upsert_vector(self, collection_name: str, data: Dict[str, Any]) -> None:
         client = self._get_client()
@@ -99,7 +132,12 @@ class QdrantProvider(BaseVectorProvider):
 
     def delete_vector(self, collection_name: str, path: str) -> None:
         client = self._get_client()
-        selector = qmodels.PointIdsList(points=[self._point_id(path)])
+        condition = qmodels.FieldCondition(
+            key="path",
+            match=qmodels.MatchValue(value=path),
+        )
+        flt = qmodels.Filter(must=[condition])
+        selector = qmodels.FilterSelector(filter=flt)
         client.delete(collection_name=collection_name, points_selector=selector, wait=True)
 
     def _format_search_results(self, points: Sequence[qmodels.ScoredPoint]):
@@ -107,7 +145,7 @@ class QdrantProvider(BaseVectorProvider):
             {
                 "id": point.id,
                 "distance": point.score,
-                "entity": {"path": (point.payload or {}).get("path")},
+                "entity": point.payload or {},
             }
             for point in points
         ]
@@ -141,11 +179,11 @@ class QdrantProvider(BaseVectorProvider):
                 break
 
             for record in records:
-                path = (record.payload or {}).get("path")
-                if query_path and path:
-                    if query_path not in path:
-                        continue
-                results.append({"id": record.id, "distance": 1.0, "entity": {"path": path}})
+                payload = record.payload or {}
+                path = payload.get("path")
+                if query_path and path and query_path not in path:
+                    continue
+                results.append({"id": record.id, "distance": 1.0, "entity": payload})
                 if len(results) >= top_k:
                     break
 

@@ -68,3 +68,46 @@ async def get_text_embedding(text: str) -> List[float]:
         resp.raise_for_status()
         result = resp.json()
         return result["data"][0]["embedding"]
+
+
+async def rerank_texts(query: str, documents: List[str]) -> List[float]:
+    """调用重排序模型，为一组文档返回得分。未配置时返回空列表。"""
+    if not documents:
+        return []
+
+    api_url = await ConfigCenter.get("AI_RERANK_API_URL")
+    model = await ConfigCenter.get("AI_RERANK_MODEL")
+    api_key = await ConfigCenter.get("AI_RERANK_API_KEY")
+
+    if not api_url or not model or not api_key:
+        return []
+
+    payload = {
+        "model": model,
+        "query": query,
+        "documents": documents,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(api_url, headers=headers, json=payload)
+            resp.raise_for_status()
+        except httpx.HTTPStatusError:
+            return []
+        data = resp.json()
+        if isinstance(data, dict):
+            results = data.get("results")
+            if isinstance(results, list):
+                scores = []
+                for item in results:
+                    if isinstance(item, dict) and "score" in item:
+                        try:
+                            scores.append(float(item["score"]))
+                        except (TypeError, ValueError):
+                            scores.append(0.0)
+                return scores
+        return []

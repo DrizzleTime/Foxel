@@ -1,6 +1,6 @@
 import React from 'react';
-import { Modal, Typography, Spin, theme, Card, Descriptions, Divider, Badge, Space, message } from 'antd';
-import { FileOutlined, FolderOutlined, CameraOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Modal, Typography, Spin, theme, Card, Descriptions, Divider, Badge, Space, message, Collapse, Tag } from 'antd';
+import { FileOutlined, FolderOutlined, CameraOutlined, InfoCircleOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { useI18n } from '../../../i18n';
 import type { VfsEntry } from '../../../api/client';
 
@@ -80,7 +80,63 @@ function formatFileSize(size: number | string, t: (k: string)=>string): string {
 export const FileDetailModal: React.FC<Props> = ({ entry, loading, data, onClose }) => {
   const { token } = theme.useToken();
   const { t } = useI18n();
-  
+  const vectorIndex = data?.vector_index;
+  const vectorEntries = Array.isArray(vectorIndex?.entries) ? vectorIndex.entries : [];
+  const primaryIndexEntries = vectorEntries.slice(0, 3);
+  const remainingIndexEntries = vectorEntries.slice(3);
+
+  const renderIndexEntry = (entry: any, idx: number, total: number) => {
+    const key = entry?.chunk_id ?? entry?.vector_id ?? idx;
+    const hasOffsets = entry?.start_offset !== undefined || entry?.end_offset !== undefined;
+    const previewText = entry?.preview;
+    const previewTruncated = Boolean(entry?.preview_truncated && previewText);
+
+    return (
+      <div
+        key={String(key)}
+        style={{
+          padding: '12px 0',
+          borderBottom: idx === total - 1 ? 'none' : `1px solid ${token.colorSplit}`,
+        }}
+      >
+        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+          <Space size={[4, 4]} wrap>
+            {entry?.chunk_id && (
+              <Tag color="blue">{t('Chunk ID')}: {entry.chunk_id}</Tag>
+            )}
+            {entry?.type && (
+              <Tag>{entry.type}</Tag>
+            )}
+            {entry?.mime && (
+              <Tag color="geekblue">{entry.mime}</Tag>
+            )}
+            {entry?.name && !previewText && (
+              <Tag color="purple">{entry.name}</Tag>
+            )}
+          </Space>
+          {hasOffsets && (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {t('Offset Range')}: {entry?.start_offset ?? '-'} ~ {entry?.end_offset ?? '-'}
+            </Typography.Text>
+          )}
+          {entry?.vector_id && (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {t('Vector ID')}: {entry.vector_id}
+            </Typography.Text>
+          )}
+          {previewText && (
+            <Typography.Paragraph
+              style={{ marginBottom: 0 }}
+              ellipsis={{ rows: 3, expandable: previewTruncated }}
+            >
+              {previewText}
+            </Typography.Paragraph>
+          )}
+        </Space>
+      </div>
+    );
+  };
+
   return (
     <Modal
       title={
@@ -225,6 +281,82 @@ export const FileDetailModal: React.FC<Props> = ({ entry, loading, data, onClose
                   </>
                 )}
               </Card>
+
+              {!data.is_dir && vectorIndex && (
+                <Card
+                  size="small"
+                  style={{ borderRadius: 8, marginTop: 16 }}
+                  title={
+                    <Space>
+                      <DatabaseOutlined />
+                      {t('Index Info')}
+                    </Space>
+                  }
+                >
+                  <Descriptions
+                    column={1}
+                    size="small"
+                    items={[
+                      {
+                        key: 'total',
+                        label: t('Indexed Items'),
+                        children: vectorIndex.total ?? 0,
+                      },
+                      {
+                        key: 'types',
+                        label: t('Indexed Types'),
+                        children: Object.keys(vectorIndex.by_type || {}).length > 0 ? (
+                          <Space size={[4, 4]} wrap>
+                            {Object.entries(vectorIndex.by_type || {}).map(([type, count]) => (
+                              <Tag key={type}>{type} ({count as number})</Tag>
+                            ))}
+                          </Space>
+                        ) : (
+                          <Typography.Text type="secondary">{t('No index data')}</Typography.Text>
+                        ),
+                      },
+                    ]}
+                    contentStyle={{ fontSize: 14 }}
+                    labelStyle={{ fontWeight: 500, color: token.colorTextSecondary, width: '30%' }}
+                  />
+
+                  {vectorIndex.total ? (
+                    <div style={{ marginTop: 12 }}>
+                      <Typography.Text strong style={{ marginBottom: 8, display: 'block' }}>
+                        {t('Indexed Chunks')}
+                      </Typography.Text>
+                      <div style={{ maxHeight: '40vh', overflowY: 'auto', paddingRight: 8 }}>
+                        {primaryIndexEntries.map((entry: any, idx: number) => renderIndexEntry(entry, idx, primaryIndexEntries.length))}
+                        {remainingIndexEntries.length > 0 && (
+                          <Collapse
+                            bordered={false}
+                            size="small"
+                            items={[{
+                              key: 'more',
+                              label: t('More Indexed Chunks'),
+                              children: (
+                                <div>
+                                  {remainingIndexEntries.map((entry: any, idx: number) => renderIndexEntry(entry, idx, remainingIndexEntries.length))}
+                                </div>
+                              ),
+                            }]}
+                            style={{ background: 'transparent' }}
+                          />
+                        )}
+                      </div>
+                      {vectorIndex.has_more && (
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          {t('Showing first {count} entries', { count: vectorEntries.length })}
+                        </Typography.Text>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 12 }}>
+                      <Typography.Text type="secondary">{t('No index data')}</Typography.Text>
+                    </div>
+                  )}
+                </Card>
+              )}
             </div>
 
             {/* 右侧：EXIF 信息 */}

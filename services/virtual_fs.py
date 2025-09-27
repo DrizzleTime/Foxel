@@ -20,6 +20,7 @@ from services.processors.registry import get as get_processor
 from services.tasks import task_service
 from services.logging import LogService
 from services.config import ConfigCenter
+from services.vector_db import VectorDBService
 
 
 CROSS_TRANSFER_TEMP_ROOT = Path("data/tmp/cross_transfer")
@@ -508,12 +509,78 @@ async def stream_file(path: str, range_header: str | None):
     return Response(content=data, media_type=mime or "application/octet-stream")
 
 
+async def _gather_vector_index(full_path: str, limit: int = 20):
+    """查询与文件相关的索引信息。失败时返回 None。"""
+    vector_db = VectorDBService()
+    try:
+        raw_results = await vector_db.search_by_path("vector_collection", full_path, max(limit * 2, 20))
+    except Exception:
+        return None
+
+    matched = []
+    if raw_results:
+        buckets = raw_results if isinstance(raw_results, list) else [raw_results]
+        for bucket in buckets:
+            if not bucket:
+                continue
+            for record in bucket:
+                entity = dict((record or {}).get("entity") or {})
+                source_path = entity.get("source_path") or entity.get("path") or ""
+                if source_path != full_path:
+                    continue
+                entry = {
+                    "chunk_id": str(entity.get("chunk_id")) if entity.get("chunk_id") is not None else None,
+                    "type": entity.get("type"),
+                    "mime": entity.get("mime"),
+                    "name": entity.get("name"),
+                    "start_offset": entity.get("start_offset"),
+                    "end_offset": entity.get("end_offset"),
+                    "vector_id": entity.get("vector_id"),
+                }
+                text = entity.get("text") or entity.get("description")
+                if text:
+                    preview_limit = 400
+                    entry["preview"] = text[:preview_limit]
+                    entry["preview_truncated"] = len(text) > preview_limit
+                matched.append(entry)
+
+    if not matched:
+        return {"total": 0, "entries": [], "by_type": {}, "has_more": False}
+
+    type_counts: Dict[str, int] = {}
+    for item in matched:
+        key = item.get("type") or "unknown"
+        type_counts[key] = type_counts.get(key, 0) + 1
+
+    has_more = len(matched) > limit
+    return {
+        "total": len(matched),
+        "entries": matched[:limit],
+        "by_type": type_counts,
+        "has_more": has_more,
+        "limit": limit,
+    }
+
+
 async def stat_file(path: str):
     adapter_instance, _, root, rel = await resolve_adapter_and_rel(path)
     stat_func = getattr(adapter_instance, "stat_file", None)
     if not callable(stat_func):
         raise HTTPException(501, detail="Adapter does not implement stat_file")
-    return await stat_func(root, rel)
+    info = await stat_func(root, rel)
+
+    if isinstance(info, dict):
+        info.setdefault("path", path)
+        try:
+            is_dir = bool(info.get("is_dir"))
+        except Exception:
+            is_dir = False
+        if not is_dir:
+            vector_index = await _gather_vector_index(path)
+            if vector_index is not None:
+                info["vector_index"] = vector_index
+
+    return info
 
 
 async def copy_path(

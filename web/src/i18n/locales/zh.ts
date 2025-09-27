@@ -220,6 +220,17 @@ export const zh = {
   'Copy failed': '复制失败',
   'Permissions': '权限',
   'EXIF Info': 'EXIF信息',
+  'Index Info': '索引信息',
+  'Indexed Items': '索引条目数',
+  'Indexed Types': '索引类型统计',
+  'No index data': '暂无索引数据',
+  'Indexed Chunks': '索引条目',
+  'More Indexed Chunks': '更多索引条目',
+  'Chunk ID': '分片ID',
+  'Offset Range': '偏移范围',
+  'Vector ID': '向量ID',
+  'Preview': '内容预览',
+  'Showing first {count} entries': '仅展示前 {count} 条',
 
   // Search dialog
   'Smart Search': '智能搜索',

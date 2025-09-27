@@ -220,6 +220,17 @@ export const en = {
   'Copy failed': 'Copy failed',
   'Permissions': 'Permissions',
   'EXIF Info': 'EXIF Info',
+  'Index Info': 'Index Info',
+  'Indexed Items': 'Indexed Items',
+  'Indexed Types': 'Indexed Types',
+  'No index data': 'No index data',
+  'Indexed Chunks': 'Indexed Chunks',
+  'More Indexed Chunks': 'More Indexed Chunks',
+  'Chunk ID': 'Chunk ID',
+  'Offset Range': 'Offset Range',
+  'Vector ID': 'Vector ID',
+  'Preview': 'Preview',
+  'Showing first {count} entries': 'Showing first {count} entries',
 
   // Search dialog
   'Smart Search': 'Smart Search',

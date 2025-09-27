@@ -24,8 +24,6 @@ class VectorDBConfigPayload(BaseModel):
 
 @router.post("/clear-all", summary="清空向量数据库")
 async def clear_vector_db(user: UserAccount = Depends(get_current_active_user)):
-    if user.username != 'admin':
-        raise HTTPException(status_code=403, detail="仅管理员可操作")
     try:
         service = VectorDBService()
         await service.clear_all_data()
@@ -36,8 +34,6 @@ async def clear_vector_db(user: UserAccount = Depends(get_current_active_user)):
 
 @router.get("/stats", summary="获取向量数据库统计")
 async def get_vector_db_stats(user: UserAccount = Depends(get_current_active_user)):
-    if user.username != 'admin':
-        raise HTTPException(status_code=403, detail="仅管理员可操作")
     try:
         service = VectorDBService()
         data = await service.get_all_stats()
@@ -48,15 +44,11 @@ async def get_vector_db_stats(user: UserAccount = Depends(get_current_active_use
 
 @router.get("/providers", summary="列出可用向量数据库提供者")
 async def list_vector_providers(user: UserAccount = Depends(get_current_active_user)):
-    if user.username != 'admin':
-        raise HTTPException(status_code=403, detail="仅管理员可操作")
     return success(list_providers())
 
 
 @router.get("/config", summary="获取当前向量数据库配置")
 async def get_vector_db_config(user: UserAccount = Depends(get_current_active_user)):
-    if user.username != 'admin':
-        raise HTTPException(status_code=403, detail="仅管理员可操作")
     service = VectorDBService()
     data = await service.current_provider()
     return success(data)
@@ -64,18 +56,17 @@ async def get_vector_db_config(user: UserAccount = Depends(get_current_active_us
 
 @router.post("/config", summary="更新向量数据库配置")
 async def update_vector_db_config(payload: VectorDBConfigPayload, user: UserAccount = Depends(get_current_active_user)):
-    if user.username != 'admin':
-        raise HTTPException(status_code=403, detail="仅管理员可操作")
-
     entry = get_provider_entry(payload.type)
     if not entry:
-        raise HTTPException(status_code=400, detail=f"未知的向量数据库类型: {payload.type}")
+        raise HTTPException(
+            status_code=400, detail=f"未知的向量数据库类型: {payload.type}")
     if not entry.get("enabled", True):
         raise HTTPException(status_code=400, detail="该向量数据库类型暂不可用")
 
     provider_cls = get_provider_class(payload.type)
     if not provider_cls:
-        raise HTTPException(status_code=400, detail=f"未找到类型 {payload.type} 对应的实现")
+        raise HTTPException(
+            status_code=400, detail=f"未找到类型 {payload.type} 对应的实现")
 
     # 先尝试建立连接，确保配置有效
     test_provider = provider_cls(payload.config)

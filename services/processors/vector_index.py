@@ -93,7 +93,7 @@ def _compress_image_for_embedding(input_bytes: bytes) -> Tuple[bytes, Dict[str, 
 
 class VectorIndexProcessor:
     name = "向量索引"
-    supported_exts = ["jpg", "jpeg", "png", "bmp", "txt", "md"]
+    supported_exts: List[str] = []  # 留空表示不限扩展名
     config_schema = [
         {
             "key": "action", "label": "操作", "type": "select", "required": True, "default": "create",

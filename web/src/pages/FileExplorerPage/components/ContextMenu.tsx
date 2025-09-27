@@ -61,7 +61,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
     if (!entry.is_dir && processorTypes.length > 0) {
       const ext = entry.name.split('.').pop()?.toLowerCase() || '';
       processorSubMenu = processorTypes
-        .filter(pt => pt.supported_exts.includes(ext))
+        .filter(pt => {
+          const exts = pt.supported_exts;
+          if (!Array.isArray(exts) || exts.length === 0) return true;
+          return exts.includes(ext);
+        })
         .map(pt => ({
           key: 'processor-' + pt.type,
           label: pt.name,

@@ -8,8 +8,27 @@ export const descriptor: AppDescriptor = {
   supported: (entry) => {
     if (entry.is_dir) return false;
     const ext = entry.name.split('.').pop()?.toLowerCase() || '';
-    // Supports common text and markdown formats
-    return ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'xml', 'html', 'css', 'js', 'ts', 'py', 'sh', 'log'].includes(ext);
+    // Supports common text and code formats
+    return [
+      // Text formats
+      'txt', 'md', 'markdown', 'log',
+      // Data formats
+      'json', 'yaml', 'yml', 'xml', 'toml', 'ini', 'cfg', 'conf',
+      // Web technologies
+      'html', 'htm', 'css', 'scss', 'sass', 'less', 'js', 'jsx', 'ts', 'tsx', 'vue',
+      // Programming languages
+      'py', 'java', 'c', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'hxx',
+      'php', 'rb', 'go', 'rs', 'swift', 'kt', 'scala', 'clj', 'cljs',
+      'cs', 'vb', 'fs', 'pl', 'pm', 'r', 'lua', 'dart', 'elm',
+      // Database
+      'sql',
+      // Shell and scripts
+      'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+      // Build and config files
+      'dockerfile', 'makefile', 'gradle', 'cmake',
+      // Other common text files
+      'gitignore', 'gitattributes', 'editorconfig', 'prettierrc'
+    ].includes(ext);
   },
   component: TextEditorApp,
   default: true,

@@ -45,9 +45,9 @@ export const getFileIcon = (fileName: string, size: number = 16, resolvedMode: '
   if (['xls', 'xlsx'].includes(ext)) return make(<FileExcelOutlined />, '#52c41a');
   if (['ppt', 'pptx'].includes(ext)) return make(<FilePptOutlined />, '#fa8c16');
   if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) return make(<FileZipOutlined />, '#faad14');
-  if (['js','jsx','ts','tsx','vue','html','css','scss','less','json','xml','yaml','yml','py','java','cpp','c','h','php','rb','go','rs','swift','kt'].includes(ext)) return make(<CodeOutlined />, '#13c2c2');
+  if (['js','jsx','ts','tsx','vue','html','htm','css','scss','sass','less','json','xml','yaml','yml','py','java','cpp','cc','cxx','c','h','hpp','hxx','php','rb','go','rs','rust','swift','kt','scala','clj','cljs','cs','vb','fs','pl','pm','r','lua','dart','elm'].includes(ext)) return make(<CodeOutlined />, '#13c2c2');
   if (['md', 'markdown'].includes(ext)) return make(<FileMarkdownOutlined />, '#1890ff');
-  if (['txt', 'log', 'ini', 'cfg', 'conf'].includes(ext)) return make(<FileTextOutlined />, '#8c8c8c');
+  if (['txt', 'log', 'ini', 'cfg', 'conf', 'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd', 'dockerfile', 'makefile', 'gradle', 'cmake', 'gitignore', 'gitattributes', 'editorconfig', 'prettierrc'].includes(ext)) return make(<FileTextOutlined />, '#8c8c8c');
   if (['ttf', 'otf', 'woff', 'woff2', 'eot'].includes(ext)) return make(<FontSizeOutlined />, '#eb2f96');
   if (['db', 'sqlite', 'sql'].includes(ext)) return make(<DatabaseOutlined />, '#fa541c');
   if (['env', 'config', 'properties', 'toml'].includes(ext)) return make(<SettingOutlined />, '#faad14');

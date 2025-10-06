@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Steps, Select, Space, Typography } from 'antd';
-import { UserOutlined, LockOutlined, HddOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, HddOutlined, GlobalOutlined } from '@ant-design/icons';
 import { adaptersApi } from '../api/adapters';
+import { setConfig } from '../api/config';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
@@ -15,13 +16,27 @@ const SetupPage = () => {
   const [form] = Form.useForm();
   const { login, register } = useAuth();
   const { t } = useI18n();
+
+  // Get current domain for default values
+  useEffect(() => {
+    const currentDomain = window.location.origin;
+    form.setFieldsValue({
+      app_domain: currentDomain,
+      file_domain: currentDomain
+    });
+  }, [form]);
+
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
       await register(values.username, values.password, values.email, values.full_name);
       await login(values.username, values.password);
-        message.success(t('Initialization succeeded! Logging you in...'));
+      message.success(t('Initialization succeeded! Logging you in...'));
       setTimeout(async () => {
+        // Save domain configurations
+        await setConfig('APP_DOMAIN', values.app_domain);
+        await setConfig('FILE_DOMAIN', values.file_domain);
+        
         await adaptersApi.create({
           name: values.adapter_name,
           type: values.adapter_type,
@@ -44,6 +59,7 @@ const SetupPage = () => {
 
   const stepFields = [
     ['db_driver', 'vector_db_driver'],
+    ['app_domain', 'file_domain'],
     ['adapter_name', 'adapter_type', 'path', 'root_dir'],
     ['username', 'full_name', 'email', 'password', 'confirm'],
   ]
@@ -80,6 +96,29 @@ const SetupPage = () => {
             rules={[{ required: true }]}
           >
             <Select size="large" disabled options={[{ label: 'Milvus', value: 'milvus' }]} />
+          </Form.Item>
+        </>
+      )
+    },
+    {
+      title: t('System Configuration'),
+      content: (
+        <>
+          <Title level={4}>{t('Configure system domains')}</Title>
+          <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>{t('Set application and file access domains')}</Text>
+          <Form.Item
+            label={t('App Domain')}
+            name="app_domain"
+            rules={[{ required: true, message: t('Please input app domain!') }]}
+          >
+            <Input size="large" prefix={<GlobalOutlined />} placeholder={t('e.g., https://foxel.example.com')} />
+          </Form.Item>
+          <Form.Item
+            label={t('File Domain')}
+            name="file_domain"
+            rules={[{ required: true, message: t('Please input file domain!') }]}
+          >
+            <Input size="large" prefix={<GlobalOutlined />} placeholder={t('e.g., https://foxel.example.com')} />
           </Form.Item>
         </>
       )

@@ -8,3 +8,5 @@ data/
 migrate/
 .env
 AGENTS.md
+web/node_modules/
+web/dist/

@@ -482,6 +482,7 @@ export const en = {
   'Root Directory': 'Root Directory',
   'Please input root directory!': 'Please input root directory!',
   'e.g., data/ or /var/foxel/data': 'e.g., data/ or /var/foxel/data',
+  'Optional, used for external links. Leave empty to use the current site.': 'Optional, used for external links. Leave empty to use the current site.',
   'Create Admin': 'Create Admin',
   'Create admin account': 'Create admin account',
   'This is the first account with full permissions': 'This is the first account with full permissions',

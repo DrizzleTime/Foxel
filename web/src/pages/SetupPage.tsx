@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Form, Input, Button, Card, message, Steps, Select, Space, Typography } from 'antd';
 import { UserOutlined, LockOutlined, HddOutlined } from '@ant-design/icons';
 import { adaptersApi } from '../api/adapters';
+import { setConfig } from '../api/config';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
@@ -15,6 +16,14 @@ const SetupPage = () => {
   const [form] = Form.useForm();
   const { login, register } = useAuth();
   const { t } = useI18n();
+
+  useEffect(() => {
+    const origin = window.location.origin;
+    form.setFieldsValue({
+      app_domain: origin,
+      file_domain: origin,
+    });
+  }, [form]);
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
@@ -22,17 +31,34 @@ const SetupPage = () => {
       await login(values.username, values.password);
         message.success(t('Initialization succeeded! Logging you in...'));
       setTimeout(async () => {
-        await adaptersApi.create({
-          name: values.adapter_name,
-          type: values.adapter_type,
-          config: {
-            root: values.root_dir
-          },
-          sub_path: null,
-          path: values.path,
-          enabled: true
-        });
-        window.location.href = '/';
+        try {
+          const tasks: Promise<unknown>[] = [];
+          const appDomain = values.app_domain?.trim();
+          const fileDomain = values.file_domain?.trim();
+          if (appDomain) {
+            tasks.push(setConfig('APP_DOMAIN', appDomain));
+          }
+          if (fileDomain) {
+            tasks.push(setConfig('FILE_DOMAIN', fileDomain));
+          }
+          if (tasks.length) {
+            await Promise.all(tasks);
+          }
+          await adaptersApi.create({
+            name: values.adapter_name,
+            type: values.adapter_type,
+            config: {
+              root: values.root_dir
+            },
+            sub_path: null,
+            path: values.path,
+            enabled: true
+          });
+          window.location.href = '/';
+        } catch (configError: any) {
+          console.error(configError);
+          message.error(configError.response?.data?.msg || t('Initialization failed, please try later'));
+        }
       }, 2000);
     } catch (error: any) {
       console.log(error)
@@ -121,6 +147,20 @@ const SetupPage = () => {
             rules={[{ required: true, message: t('Please input root directory!') }]}
           >
             <Input size="large" placeholder={t('e.g., data/ or /var/foxel/data')} />
+          </Form.Item>
+          <Form.Item
+            label={t('App Domain')}
+            name="app_domain"
+            extra={t('Optional, used for external links. Leave empty to use the current site.')}
+          >
+            <Input size="large" placeholder="https://your-app-domain.com" />
+          </Form.Item>
+          <Form.Item
+            label={t('File Domain')}
+            name="file_domain"
+            extra={t('Optional, used for external links. Leave empty to use the current site.')}
+          >
+            <Input size="large" placeholder="https://files.your-domain.com" />
           </Form.Item>
         </>
       )

@@ -495,6 +495,7 @@ export const zh = {
   'Root Directory': '根目录',
   'Please input root directory!': '请输入根目录！',
   'e.g., data/ or /var/foxel/data': '例如: data/ 或 /var/foxel/data',
+  'Optional, used for external links. Leave empty to use the current site.': '可选，用于生成外部链接；留空则使用当前站点。',
   'Create Admin': '创建管理员',
   'Create admin account': '创建管理员账户',
   'This is the first account with full permissions': '这是系统的第一个账户，将拥有最高权限。',

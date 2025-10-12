@@ -9,9 +9,9 @@ dependencies = [
     "aiofiles>=25.1.0",
     "fastapi>=0.116.1",
     "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=3.2.2,<4.0",
     "pillow>=11.3.0",
     "pyjwt>=2.10.1",
-    "pymilvus>=2.6.2",
     "pysocks>=1.7.1",
     "python-dotenv>=1.1.1",
     "python-multipart>=0.0.20",
@@ -20,4 +20,5 @@ dependencies = [
     "telethon>=1.41.2",
     "tortoise-orm>=0.25.1",
     "uvicorn>=0.37.0",
+    "pymilvus[milvus-lite]>=2.6.2",
 ]

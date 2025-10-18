@@ -143,7 +143,7 @@ async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, so
     norm = (path if path.startswith('/') else '/' + path).rstrip('/') or '/'
     adapters = await StorageAdapter.filter(enabled=True)
 
-    child_mount_entries = []
+    child_mount_entries: List[str] = []
     norm_prefix = norm.rstrip('/')
     for a in adapters:
         if a.path == norm:
@@ -153,6 +153,27 @@ async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, so
             if '/' not in tail:
                 child_mount_entries.append(tail)
     child_mount_entries = sorted(set(child_mount_entries))
+
+    sort_field = sort_by.lower()
+    reverse = sort_order.lower() == "desc"
+
+    def build_sort_key(item: Dict) -> Tuple:
+        key = (not bool(item.get("is_dir")),)
+        if sort_field == "name":
+            key += (str(item.get("name", "")).lower(),)
+        elif sort_field == "size":
+            key += (int(item.get("size", 0)),)
+        elif sort_field == "mtime":
+            key += (int(item.get("mtime", 0)),)
+        else:
+            key += (str(item.get("name", "")).lower(),)
+        return key
+
+    def annotate_entry(entry: Dict) -> None:
+        if not entry.get("is_dir"):
+            entry["is_image"] = is_image_filename(entry.get("name", ""))
+        else:
+            entry["is_image"] = False
 
     try:
         adapter_model, rel = await resolve_adapter_by_path(norm)
@@ -173,18 +194,31 @@ async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, so
         effective_root = ''
         rel = ''
 
-    adapter_entries = []
+    adapter_entries_page: List[Dict] = []
+    adapter_entries_for_merge: List[Dict] = []
     adapter_total = 0
     covered = set()
 
     if adapter_model and adapter_instance:
         list_dir = await _ensure_method(adapter_instance, "list_dir")
         try:
-            adapter_entries, adapter_total = await list_dir(effective_root, rel, page_num, page_size, sort_by, sort_order)
+            adapter_entries_page, adapter_total = await list_dir(effective_root, rel, page_num, page_size, sort_by, sort_order)
         except NotADirectoryError:
             raise HTTPException(400, detail="Not a directory")
 
-        for item in adapter_entries:
+        adapter_entries_for_merge = adapter_entries_page
+
+        # 存在挂载节点且适配器结果被分页时，补齐完整列表以便合并排序
+        if child_mount_entries and adapter_total > len(adapter_entries_page):
+            full_page_size = adapter_total
+            if full_page_size > 0:
+                adapter_entries_for_merge, adapter_total = await list_dir(
+                    effective_root, rel, 1, full_page_size, sort_by, sort_order
+                )
+            else:
+                adapter_entries_for_merge = adapter_entries_page
+
+        for item in adapter_entries_for_merge:
             covered.add(item["name"])
 
     mount_entries = []
@@ -193,37 +227,24 @@ async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, so
             mount_entries.append({"name": name, "is_dir": True,
                                   "size": 0, "mtime": 0, "type": "mount", "is_image": False})
 
-    for ent in adapter_entries:
-        if not ent.get('is_dir'):
-            ent['is_image'] = is_image_filename(ent['name'])
-        else:
-            ent['is_image'] = False
-
-    all_entries = adapter_entries + mount_entries
-    
     if mount_entries:
-        reverse = sort_order.lower() == "desc"
-        def get_sort_key(item):
-            key = (not item.get("is_dir"),)
-            sort_field = sort_by.lower()
-            if sort_field == "name":
-                key += (item["name"].lower(),)
-            elif sort_field == "size":
-                key += (item.get("size", 0),)
-            elif sort_field == "mtime":
-                key += (item.get("mtime", 0),)
-            else:
-                key += (item["name"].lower(),)
-            return key
-        all_entries.sort(key=get_sort_key, reverse=reverse)
-        
-        total_entries = adapter_total + len(mount_entries)
+        for ent in adapter_entries_for_merge:
+            annotate_entry(ent)
+        combined_entries = adapter_entries_for_merge + [
+            {**ent, "is_image": False} for ent in mount_entries
+        ]
+        combined_entries.sort(key=build_sort_key, reverse=reverse)
+
+        total_entries = len(combined_entries)
         start_idx = (page_num - 1) * page_size
         end_idx = start_idx + page_size
-        page_entries = all_entries[start_idx:end_idx]
+        page_entries = combined_entries[start_idx:end_idx]
         return page(page_entries, total_entries, page_num, page_size)
-    
-    return page(adapter_entries, adapter_total, page_num, page_size)
+
+    annotate_entry_list = adapter_entries_page or []
+    for ent in annotate_entry_list:
+        annotate_entry(ent)
+    return page(adapter_entries_page, adapter_total, page_num, page_size)
 
 
 async def read_file(path: str) -> Union[bytes, Any]:

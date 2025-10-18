@@ -36,6 +36,81 @@ class Configuration(Model):
         table = "configurations"
 
 
+class AIProvider(Model):
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=100)
+    identifier = fields.CharField(max_length=100, unique=True)
+    provider_type = fields.CharField(max_length=50, null=True)
+    api_format = fields.CharField(max_length=20)
+    base_url = fields.CharField(max_length=512, null=True)
+    api_key = fields.CharField(max_length=512, null=True)
+    logo_url = fields.CharField(max_length=512, null=True)
+    extra_config = fields.JSONField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "ai_providers"
+
+
+class AIModel(Model):
+    id = fields.IntField(pk=True)
+    provider: fields.ForeignKeyRelation[AIProvider] = fields.ForeignKeyField(
+        "models.AIProvider", related_name="models", on_delete=fields.CASCADE
+    )
+    name = fields.CharField(max_length=255)
+    display_name = fields.CharField(max_length=255, null=True)
+    description = fields.TextField(null=True)
+    capabilities = fields.JSONField(null=True)
+    context_window = fields.IntField(null=True)
+    metadata = fields.JSONField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "ai_models"
+        unique_together = ("provider", "name")
+
+    @property
+    def embedding_dimensions(self) -> int | None:
+        metadata = self.metadata or {}
+        if not isinstance(metadata, dict):
+            return None
+        value = metadata.get("embedding_dimensions")
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @embedding_dimensions.setter
+    def embedding_dimensions(self, value: int | None) -> None:
+        base_metadata = self.metadata if isinstance(self.metadata, dict) else {}
+        metadata = dict(base_metadata or {})
+        if value is None:
+            metadata.pop("embedding_dimensions", None)
+        else:
+            try:
+                metadata["embedding_dimensions"] = int(value)
+            except (TypeError, ValueError):
+                metadata.pop("embedding_dimensions", None)
+        self.metadata = metadata or None
+
+
+class AIDefaultModel(Model):
+    id = fields.IntField(pk=True)
+    ability = fields.CharField(max_length=50, unique=True)
+    model: fields.ForeignKeyRelation[AIModel] = fields.ForeignKeyField(
+        "models.AIModel", related_name="default_for", on_delete=fields.CASCADE
+    )
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "ai_default_models"
+
+
 class AutomationTask(Model):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=100)

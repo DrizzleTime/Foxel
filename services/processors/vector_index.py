@@ -5,15 +5,11 @@ import mimetypes
 import os
 from io import BytesIO
 
-from services.ai import describe_image_base64, get_text_embedding
+from services.ai import describe_image_base64, get_text_embedding, provider_service
 from services.vector_db import VectorDBService, DEFAULT_VECTOR_DIMENSION
 from services.logging import LogService
-from services.config import ConfigCenter
+from PIL import Image
 
-try:  # Pillow is optional but bundled with the project dependencies
-    from PIL import Image
-except ImportError:  # pragma: no cover - fallback when pillow missing
-    Image = None
 
 
 CHUNK_SIZE = 800
@@ -150,13 +146,15 @@ class VectorIndexProcessor:
         file_ext = path.split('.')[-1].lower()
         details: Dict[str, Any] = {"path": path, "action": "create", "index_type": "vector"}
 
-        raw_dim = await ConfigCenter.get('AI_EMBED_DIM', DEFAULT_VECTOR_DIMENSION)
-        try:
-            vector_dim = int(raw_dim)
-        except (TypeError, ValueError):
-            vector_dim = DEFAULT_VECTOR_DIMENSION
-        if vector_dim <= 0:
-            vector_dim = DEFAULT_VECTOR_DIMENSION
+        embedding_model = await provider_service.get_default_model("embedding")
+        vector_dim = DEFAULT_VECTOR_DIMENSION
+        if embedding_model and getattr(embedding_model, "embedding_dimensions", None):
+            try:
+                vector_dim = int(embedding_model.embedding_dimensions)
+            except (TypeError, ValueError):
+                vector_dim = DEFAULT_VECTOR_DIMENSION
+            if vector_dim <= 0:
+                vector_dim = DEFAULT_VECTOR_DIMENSION
 
         await vector_db.ensure_collection(collection_name, vector=True, dim=vector_dim)
         await vector_db.delete_vector(collection_name, path)

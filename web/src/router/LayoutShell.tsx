@@ -18,17 +18,26 @@ import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext
 import { AppWindowsLayer } from '../apps/AppWindowsLayer';
 
 const ShellBody = memo(function ShellBody() {
-  const { navKey = 'files' } = useParams();
+  const params = useParams<{ navKey?: string; '*': string }>();
+  const navKey = params.navKey ?? 'files';
+  const subPath = params['*'] ?? '';
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const { windows, closeWindow, toggleMax, bringToFront, updateWindow } = useAppWindows();
+  const settingsTab = navKey === 'settings' ? (subPath.split('/')[0] || undefined) : undefined;
   return (
     <Layout style={{ minHeight: '100vh', background: 'var(--ant-color-bg-layout)' }}>
       <SideNav
         collapsed={collapsed}
         onToggle={() => setCollapsed(c => !c)}
         activeKey={navKey}
-        onChange={(key) => navigate(`/${key}`)}
+        onChange={(key) => {
+          if (key === 'settings') {
+            navigate('/settings/appearance', { replace: true });
+          } else {
+            navigate(`/${key}`);
+          }
+        }}
       />
       <Layout style={{ background: 'var(--ant-color-bg-layout)' }}>
         <TopHeader collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
@@ -43,7 +52,12 @@ const ShellBody = memo(function ShellBody() {
               {navKey === 'processors' && <ProcessorsPage />}
               {navKey === 'offline' && <OfflineDownloadPage />}
               {navKey === 'plugins' && <PluginsPage />}
-              {navKey === 'settings' && <SystemSettingsPage />}
+              {navKey === 'settings' && (
+                <SystemSettingsPage
+                  tabKey={settingsTab}
+                  onTabNavigate={(key, options) => navigate(`/settings/${key}`, options)}
+                />
+              )}
               {navKey === 'logs' && <LogsPage />}
               {navKey === 'backup' && <BackupPage />}
             </Flex>

@@ -1,11 +1,10 @@
 import httpx
 import time
-from fastapi import APIRouter, Depends, Form, HTTPException
+from fastapi import APIRouter, Depends, Form
 from typing import Annotated
 from services.config import ConfigCenter, VERSION
 from services.auth import get_current_active_user, User, has_users
 from api.response import success
-from services.vector_db import VectorDBService
 router = APIRouter(prefix="/api/config", tags=["config"])
 
 
@@ -24,27 +23,8 @@ async def set_config(
     key: str = Form(...),
     value: str = Form(...)
 ):
-    original_value = await ConfigCenter.get(key)
-    value_to_save = value
-    if key == "AI_EMBED_DIM":
-        try:
-            parsed_value = int(value)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="AI_EMBED_DIM must be an integer")
-        if parsed_value <= 0:
-            raise HTTPException(status_code=400, detail="AI_EMBED_DIM must be greater than zero")
-        value_to_save = str(parsed_value)
-
-    await ConfigCenter.set(key, value_to_save)
-
-    if key == "AI_EMBED_DIM" and str(original_value) != value_to_save:
-        try:
-            service = VectorDBService()
-            await service.clear_all_data()
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Failed to clear vector database: {exc}")
-
-    return success({"key": key, "value": value_to_save})
+    await ConfigCenter.set(key, value)
+    return success({"key": key, "value": value})
 
 
 @router.get("/all")

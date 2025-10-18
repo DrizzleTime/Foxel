@@ -6,7 +6,7 @@ export interface VfsEntry {
   size: number;
   mtime: number;
   type?: string; 
-  is_image?: boolean;
+  has_thumbnail?: boolean;
 }
 
 export interface DirListing {

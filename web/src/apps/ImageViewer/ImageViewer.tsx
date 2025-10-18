@@ -54,8 +54,8 @@ const DEFAULT_TONE: RgbColor = { r: 28, g: 32, b: 46 };
 
 const isImageEntry = (ent: VfsEntry) => {
   if (ent.is_dir) return false;
-  const maybe = ent as VfsEntry & { is_image?: boolean };
-  if (typeof maybe.is_image === 'boolean' && maybe.is_image) return true;
+  const maybe = ent as VfsEntry & { has_thumbnail?: boolean };
+  if (typeof maybe.has_thumbnail === 'boolean' && maybe.has_thumbnail) return true;
   const ext = ent.name.split('.').pop()?.toLowerCase();
   if (!ext) return false;
   return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'ico', 'tif', 'tiff', 'svg', 'heic', 'heif', 'arw', 'cr2', 'cr3', 'nef', 'rw2', 'orf', 'pef', 'dng'].includes(ext);

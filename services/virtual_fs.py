@@ -171,9 +171,9 @@ async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, so
 
     def annotate_entry(entry: Dict) -> None:
         if not entry.get("is_dir"):
-            entry["is_image"] = is_image_filename(entry.get("name", ""))
+            entry["has_thumbnail"] = is_image_filename(entry.get("name", ""))
         else:
-            entry["is_image"] = False
+            entry["has_thumbnail"] = False
 
     try:
         adapter_model, rel = await resolve_adapter_by_path(norm)
@@ -225,13 +225,13 @@ async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, so
     for name in child_mount_entries:
         if name not in covered:
             mount_entries.append({"name": name, "is_dir": True,
-                                  "size": 0, "mtime": 0, "type": "mount", "is_image": False})
+                                  "size": 0, "mtime": 0, "type": "mount", "has_thumbnail": False})
 
     if mount_entries:
         for ent in adapter_entries_for_merge:
             annotate_entry(ent)
         combined_entries = adapter_entries_for_merge + [
-            {**ent, "is_image": False} for ent in mount_entries
+            {**ent, "has_thumbnail": False} for ent in mount_entries
         ]
         combined_entries.sort(key=build_sort_key, reverse=reverse)
 
@@ -596,6 +596,9 @@ async def stat_file(path: str):
             is_dir = bool(info.get("is_dir"))
         except Exception:
             is_dir = False
+        rel_name = rel.rstrip('/').split('/')[-1] if rel else path.rstrip('/').split('/')[-1]
+        name_hint = info.get("name") or rel_name
+        info["has_thumbnail"] = bool(not is_dir and is_image_filename(str(name_hint or "")))
         if not is_dir:
             vector_index = await _gather_vector_index(path)
             if vector_index is not None:

@@ -13,7 +13,7 @@ export function useThumbnails(entries: VfsEntry[], path: string) {
 
   useEffect(() => {
     const newThumbs: Record<string, string> = {};
-    const targets = entries.filter(e => !e.is_dir && (e as any).is_image && !thumbs[e.name]);
+    const targets = entries.filter(e => !e.is_dir && (e as any).has_thumbnail && !thumbs[e.name]);
 
     if (targets.length > 0) {
       targets.forEach(ent => {

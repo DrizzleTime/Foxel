@@ -221,7 +221,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ open, onClose }) => {
         size: Number((stat as any)?.size ?? 0),
         mtime: Number((stat as any)?.mtime ?? (stat as any)?.mtime_ms ?? 0),
         type: (stat as any)?.type,
-        is_image: Boolean((stat as any)?.is_image),
+        has_thumbnail: Boolean((stat as any)?.has_thumbnail),
       };
       statCacheRef.current.set(fullPath, entry);
       return entry;

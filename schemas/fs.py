@@ -8,7 +8,7 @@ class VfsEntry(BaseModel):
     size: int
     mtime: int
     type: Optional[str] = None
-    is_image: Optional[bool] = None
+    has_thumbnail: Optional[bool] = None
 
 
 class DirListing(BaseModel):

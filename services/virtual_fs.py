@@ -15,7 +15,7 @@ import aiofiles
 from models import StorageAdapter
 from .adapters.registry import runtime_registry
 from api.response import page
-from .thumbnail import is_image_filename, is_raw_filename
+from .thumbnail import is_image_filename, is_raw_filename, is_video_filename
 from services.processors.registry import get as get_processor
 from services.tasks import task_service
 from services.logging import LogService
@@ -171,7 +171,8 @@ async def list_virtual_dir(path: str, page_num: int = 1, page_size: int = 50, so
 
     def annotate_entry(entry: Dict) -> None:
         if not entry.get("is_dir"):
-            entry["has_thumbnail"] = is_image_filename(entry.get("name", ""))
+            name = entry.get("name", "")
+            entry["has_thumbnail"] = bool(is_image_filename(name) or is_video_filename(name))
         else:
             entry["has_thumbnail"] = False
 
@@ -597,8 +598,8 @@ async def stat_file(path: str):
         except Exception:
             is_dir = False
         rel_name = rel.rstrip('/').split('/')[-1] if rel else path.rstrip('/').split('/')[-1]
-        name_hint = info.get("name") or rel_name
-        info["has_thumbnail"] = bool(not is_dir and is_image_filename(str(name_hint or "")))
+        name_hint = str(info.get("name") or rel_name or "")
+        info["has_thumbnail"] = bool(not is_dir and (is_image_filename(name_hint) or is_video_filename(name_hint)))
         if not is_dir:
             vector_index = await _gather_vector_index(path)
             if vector_index is not None:

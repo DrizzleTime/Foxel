@@ -17,7 +17,7 @@ from services.virtual_fs import (
     verify_temp_link_token,
     maybe_redirect_download,
 )
-from services.thumbnail import is_image_filename, get_or_create_thumb, is_raw_filename
+from services.thumbnail import is_image_filename, get_or_create_thumb, is_raw_filename, is_video_filename
 from schemas import MkdirRequest, MoveRequest
 from api.response import success
 from services.config import ConfigCenter
@@ -121,8 +121,8 @@ async def get_thumb(
     adapter, mount, root, rel = await resolve_adapter_and_rel(full_path)
     if not rel or rel.endswith('/'):
         raise HTTPException(400, detail="Not a file")
-    if not is_image_filename(rel):
-        raise HTTPException(404, detail="Not an image")
+    if not (is_image_filename(rel) or is_video_filename(rel)):
+        raise HTTPException(404, detail="Not an image or video")
     # type: ignore
     data, mime, key = await get_or_create_thumb(adapter, mount.id, root, rel, w, h, fit)
     headers = {

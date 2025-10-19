@@ -9,7 +9,6 @@ import { useI18n } from '../../../i18n';
 
 interface FileListViewProps {
   entries: VfsEntry[];
-  loading: boolean;
   selectedEntries: string[];
   onRowClick: (entry: VfsEntry, e: React.MouseEvent) => void;
   onSelectionChange: (selectedKeys: string[]) => void;
@@ -22,7 +21,6 @@ interface FileListViewProps {
 
 export const FileListView: React.FC<FileListViewProps> = ({
   entries,
-  loading,
   selectedEntries,
   onRowClick,
   onSelectionChange,
@@ -107,7 +105,6 @@ export const FileListView: React.FC<FileListViewProps> = ({
       rowKey={r => r.name}
       dataSource={entries}
       columns={columns as any}
-      loading={loading}
       pagination={false}
       onRow={(r) => ({
         onClick: (e: any) => onRowClick(r, e),

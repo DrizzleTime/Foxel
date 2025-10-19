@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Tooltip, Spin, theme } from 'antd';
+import { Tooltip, theme } from 'antd';
 import { FolderFilled, PictureOutlined } from '@ant-design/icons';
 import type { VfsEntry } from '../../../api/client';
 import { getFileIcon } from './FileIcons';
@@ -10,7 +10,6 @@ interface Props {
   entries: VfsEntry[];
   thumbs: Record<string, string>;
   selectedEntries: string[];
-  loading: boolean;
   path: string;
   onSelect: (e: VfsEntry, additive?: boolean) => void;
   onSelectRange: (names: string[]) => void;
@@ -25,7 +24,7 @@ const formatSize = (size: number) => {
   return (size / 1024 / 1024 / 1024).toFixed(1) + ' GB';
 };
 
-export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, loading, path, onSelect, onSelectRange, onOpen, onContextMenu }) => {
+export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, path, onSelect, onSelectRange, onOpen, onContextMenu }) => {
   const { token } = theme.useToken();
   const { resolvedMode } = useTheme();
   const lightenColor = (hex: string, amount: number) => {
@@ -185,8 +184,7 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, lo
           }}
         />
       )}
-      {loading && <div style={{ width: '100%', textAlign: 'center', padding: 40 }}><Spin /></div>}
-      {!loading && entries.length === 0 && <EmptyState isRoot={path === '/'} />}
+      {entries.length === 0 && <EmptyState isRoot={path === '/'} />}
     </div>
   );
 };

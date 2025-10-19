@@ -25,6 +25,7 @@ import { FileDetailModal } from './components/FileDetailModal';
 import { MoveCopyModal } from './components/Modals/MoveCopyModal';
 import type { ViewMode } from './types';
 import { vfsApi, type VfsEntry } from '../../api/client';
+import { LoadingSkeleton } from './components/LoadingSkeleton';
 
 const FileExplorerPage = memo(function FileExplorerPage() {
   const { navKey = 'files', '*': restPath = '' } = useParams();
@@ -56,10 +57,11 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [copyingEntries, setCopyingEntries] = useState<VfsEntry[]>([]);
 
   // --- Effects ---
+  const routePath = '/' + (restPath || '').replace(/^\/+/, '');
+
   useEffect(() => {
-    const routeP = '/' + (restPath || '').replace(/^\/+/, '');
-    load(routeP, 1, pagination.pageSize, sortBy, sortOrder);
-  }, [restPath, navKey, load, pagination.pageSize, sortBy, sortOrder]);
+    load(routePath, 1, pagination.pageSize, sortBy, sortOrder);
+  }, [routePath, navKey, load, pagination.pageSize, sortBy, sortOrder]);
 
   // --- Handlers ---
   const handleOpenEntry = (entry: VfsEntry) => {
@@ -167,14 +169,15 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       <input ref={uploader.fileInputRef} type="file" style={{ display: 'none' }} multiple onChange={uploader.handleFileChange} />
 
       <div style={{ flex: 1, overflow: 'auto', paddingBottom: pagination.total > 0 ? '80px' : '0' }} onContextMenu={openBlankContextMenu}>
-        {loading && entries.length === 0 ? (
+        {loading && (entries.length === 0 || path !== routePath) ? (
+          <LoadingSkeleton mode={viewMode} />
+        ) : !loading && entries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40 }}><EmptyState isRoot={path === '/'} /></div>
         ) : viewMode === 'grid' ? (
           <GridView
             entries={entries}
             thumbs={thumbs}
             selectedEntries={selectedEntries}
-            loading={loading}
             path={path}
             onSelect={handleSelect}
             onSelectRange={handleSelectRange}
@@ -184,7 +187,6 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         ) : (
           <FileListView
             entries={entries}
-            loading={loading}
             selectedEntries={selectedEntries}
             onRowClick={(r, e) => handleSelect(r, e.ctrlKey || e.metaKey)}
             onSelectionChange={setSelectedEntries}

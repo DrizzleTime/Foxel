@@ -127,6 +127,8 @@ export const en = {
 
   // Context menu
   'Upload File': 'Upload File',
+  'Upload Files': 'Upload Files',
+  'Upload Folder': 'Upload Folder',
   'Open': 'Open',
   'Open With': 'Open With',
   'Default': 'Default',
@@ -136,6 +138,31 @@ export const en = {
   'Delete': 'Delete',
   'Details': 'Details',
   'Get Direct Link': 'Get Direct Link',
+
+  // Upload modal
+  'Total progress': 'Total progress',
+  'Upload bytes summary': '{uploaded} / {total}',
+  'Upload task summary': 'Tasks: {completed} / {total} completed, {pending} pending, {failures} failed',
+  'Overwrite confirmation required': 'Overwrite confirmation required',
+  'Target already exists: {path}': 'Target already exists: {path}',
+  'Overwrite': 'Overwrite',
+  'Skip': 'Skip',
+  'Overwrite All': 'Overwrite All',
+  'Skip All': 'Skip All',
+  'Directory': 'Directory',
+  'Creating directory...': 'Creating directory...',
+  'Directory ready': 'Directory ready',
+  'Create directory failed': 'Create directory failed',
+  'Waiting to create': 'Waiting to create',
+  'Waiting for overwrite decision': 'Waiting for overwrite decision',
+  'Waiting to upload': 'Waiting to upload',
+  'Skipped': 'Skipped',
+  'Upload succeeded': 'Upload succeeded',
+  'Upload failed': 'Upload failed',
+  'No items selected for upload': 'No items selected for upload',
+  'No uploadable files or directories found': 'No uploadable files or directories found',
+  'Missing file content': 'Missing file content',
+  'Directory conflicts with existing file': 'A file with the same name already exists at the target location',
 
   // Side nav modals
   'Join Community': 'Join Community',

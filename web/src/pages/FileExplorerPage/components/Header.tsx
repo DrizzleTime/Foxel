@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flex, Typography, Divider, Button, Space, Tooltip, Segmented, Breadcrumb, Input, theme } from 'antd';
+import { Flex, Typography, Divider, Button, Space, Tooltip, Segmented, Breadcrumb, Input, theme, Dropdown } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, ReloadOutlined, PlusOutlined, UploadOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import { useI18n } from '../../../i18n';
@@ -16,7 +16,8 @@ interface HeaderProps {
   onNavigate: (path: string) => void;
   onRefresh: () => void;
   onCreateDir: () => void;
-  onUpload: () => void;
+  onUploadFile: () => void;
+  onUploadDirectory: () => void;
   onSetViewMode: (mode: ViewMode) => void;
   onSortChange: (sortBy: string, sortOrder: string) => void;
 }
@@ -31,7 +32,8 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   onRefresh,
   onCreateDir,
-  onUpload,
+  onUploadFile,
+  onUploadDirectory,
   onSetViewMode,
   onSortChange,
 }) => {
@@ -108,7 +110,26 @@ export const Header: React.FC<HeaderProps> = ({
       <Space size={8} wrap>
         <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>{t('Refresh')}</Button>
         <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir}>{t('New Folder')}</Button>
-        <Button size="small" icon={<UploadOutlined />} onClick={onUpload}>{t('Upload')}</Button>
+        <Dropdown.Button
+          size="small"
+          icon={<UploadOutlined />}
+          onClick={onUploadFile}
+          menu={{
+            items: [
+              { key: 'file', label: t('Upload Files') },
+              { key: 'folder', label: t('Upload Folder') },
+            ],
+            onClick: ({ key }) => {
+              if (key === 'folder') {
+                onUploadDirectory();
+              } else {
+                onUploadFile();
+              }
+            },
+          }}
+        >
+          {t('Upload')}
+        </Dropdown.Button>
         <Select
           size="small"
           value={sortBy}
@@ -128,7 +149,7 @@ export const Header: React.FC<HeaderProps> = ({
         <Segmented
           size="small"
           value={viewMode}
-          onChange={v => onSetViewMode(v as any)}
+          onChange={value => onSetViewMode(value as ViewMode)}
           options={[
             { label: <Tooltip title={t('Grid')}><AppstoreOutlined /></Tooltip>, value: 'grid' },
             { label: <Tooltip title={t('List')}><UnorderedListOutlined /></Tooltip>, value: 'list' }

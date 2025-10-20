@@ -1,6 +1,8 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Menu, theme } from 'antd';
+import type { MenuProps } from 'antd';
 import type { VfsEntry } from '../../../api/client';
+import type { ProcessorTypeMeta } from '../../../api/processors';
 import { getAppsForEntry, getDefaultAppForEntry } from '../../../apps/registry';
 import { useI18n } from '../../../i18n';
 import {
@@ -15,7 +17,7 @@ interface ContextMenuProps {
   entry?: VfsEntry;
   entries: VfsEntry[];
   selectedEntries: string[];
-  processorTypes: any[];
+  processorTypes: ProcessorTypeMeta[];
   onClose: () => void;
   onOpen: (entry: VfsEntry) => void;
   onOpenWith: (entry: VfsEntry, appKey: string) => void;
@@ -24,12 +26,25 @@ interface ContextMenuProps {
   onDelete: (entries: VfsEntry[]) => void;
   onDetail: (entry: VfsEntry) => void;
   onProcess: (entry: VfsEntry, processorType: string) => void;
-  onUpload: () => void;
+  onUploadFile: () => void;
+  onUploadDirectory: () => void;
   onCreateDir: () => void;
   onShare: (entries: VfsEntry[]) => void;
   onGetDirectLink: (entry: VfsEntry) => void;
   onMove: (entries: VfsEntry[]) => void;
   onCopy: (entries: VfsEntry[]) => void;
+}
+
+type MenuItem = Required<MenuProps>['items'][number];
+
+interface ActionMenuItem {
+  key: string;
+  label: React.ReactNode;
+  icon?: React.ReactNode;
+  disabled?: boolean;
+  danger?: boolean;
+  onClick?: () => void;
+  children?: ActionMenuItem[];
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
@@ -43,10 +58,18 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
     setPosition({ left: x, top: y });
   }, [x, y]);
 
-  const getContextMenuItems = () => {
+  const getContextMenuItems = (): ActionMenuItem[] => {
     if (!entry) { // Blank context menu
       return [
-        { key: 'upload', label: t('Upload File'), icon: <UploadOutlined />, onClick: actions.onUpload },
+        {
+          key: 'upload',
+          label: t('Upload'),
+          icon: <UploadOutlined />,
+          children: [
+            { key: 'upload-file', label: t('Upload Files'), onClick: actions.onUploadFile },
+            { key: 'upload-folder', label: t('Upload Folder'), onClick: actions.onUploadDirectory },
+          ],
+        },
         { key: 'mkdir', label: t('New Folder'), icon: <PlusOutlined />, onClick: actions.onCreateDir },
       ];
     }
@@ -57,7 +80,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
     const targetNames = selectedEntries.includes(entry.name) ? selectedEntries : [entry.name];
     const targetEntries = entries.filter(e => targetNames.includes(e.name));
 
-    let processorSubMenu: any[] = [];
+    let processorSubMenu: ActionMenuItem[] = [];
     if (!entry.is_dir && processorTypes.length > 0) {
       const ext = entry.name.split('.').pop()?.toLowerCase() || '';
       processorSubMenu = processorTypes
@@ -73,7 +96,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         }));
     }
 
-    return [
+    const menuItems: (ActionMenuItem | null)[] = [
       (entry.is_dir || apps.length > 0) ? {
         key: 'open',
         label: defaultApp ? `${t('Open')} (${defaultApp.name})` : t('Open'),
@@ -151,18 +174,32 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         icon: <InfoCircleOutlined />,
         onClick: () => actions.onDetail(entry),
       },
-    ].filter(Boolean);
+    ];
+
+    return menuItems.filter((item): item is ActionMenuItem => item !== null);
   };
 
-  const items = getContextMenuItems()
-    .filter(item => item !== null) // Ensure no null items
-    .map(item => ({
-      ...item,
-      onClick: () => {
-        if (item.onClick) item.onClick();
-        onClose();
-      }
-    }));
+  const actionItems = getContextMenuItems();
+
+  const handlerMap = new Map<string, () => void>();
+
+  const mapItems = (source: ActionMenuItem[]): MenuItem[] =>
+    source.map<MenuItem>((item) => {
+      if (item.onClick) handlerMap.set(item.key, item.onClick);
+      const mappedChildren = item.children && item.children.length > 0 ? mapItems(item.children) : undefined;
+
+      const transformed = {
+        key: item.key,
+        label: item.label,
+        icon: item.icon,
+        disabled: item.disabled,
+        danger: item.danger,
+        ...(mappedChildren ? { children: mappedChildren } : {}),
+      } as MenuItem;
+      return transformed;
+    });
+
+  const items = mapItems(actionItems);
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
@@ -203,8 +240,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
       onClick={onClose} // Close on any click inside the menu area
     >
       <Menu
-        items={items as any[]}
+        items={items}
         selectable={false}
+        onClick={({ key }) => {
+          const handler = handlerMap.get(String(key));
+          if (handler) handler();
+          onClose();
+        }}
         style={{ width: 160, borderRadius: token.borderRadius, background: 'transparent' }}
       />
     </div>

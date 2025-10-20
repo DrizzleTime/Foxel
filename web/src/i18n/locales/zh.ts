@@ -129,6 +129,8 @@ export const zh = {
 
   // Context menu
   'Upload File': '上传文件',
+  'Upload Files': '上传文件',
+  'Upload Folder': '上传文件夹',
   'Open': '打开',
   'Open With': '打开方式',
   'Default': '默认',
@@ -138,6 +140,31 @@ export const zh = {
   'Delete': '删除',
   'Details': '详情',
   'Get Direct Link': '获取直链',
+
+  // Upload modal
+  'Total progress': '总体进度',
+  'Upload bytes summary': '{uploaded} / {total}',
+  'Upload task summary': '任务：已完成 {completed} / {total}，待处理 {pending}，失败 {failures}',
+  'Overwrite confirmation required': '需要确认是否覆盖',
+  'Target already exists: {path}': '目标已存在：{path}',
+  'Overwrite': '覆盖',
+  'Skip': '跳过',
+  'Overwrite All': '全部覆盖',
+  'Skip All': '全部跳过',
+  'Directory': '目录',
+  'Creating directory...': '正在创建目录...',
+  'Directory ready': '目录已就绪',
+  'Create directory failed': '创建目录失败',
+  'Waiting to create': '等待创建',
+  'Waiting for overwrite decision': '等待覆盖处理',
+  'Waiting to upload': '等待上传',
+  'Skipped': '已跳过',
+  'Upload succeeded': '上传成功',
+  'Upload failed': '上传失败',
+  'No items selected for upload': '未选择任何可上传项',
+  'No uploadable files or directories found': '未找到可上传的文件或目录',
+  'Missing file content': '缺少文件内容',
+  'Directory conflicts with existing file': '目标存在同名文件，无法创建目录',
 
   // Side nav modals
   'Join Community': '加入社区',

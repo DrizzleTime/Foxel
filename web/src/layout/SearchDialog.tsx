@@ -522,7 +522,8 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ open, onClose }) => {
             processorHook.setSelectedProcessor(type);
             processorHook.openProcessorModal(entry);
           }}
-          onUpload={noop}
+          onUploadFile={noop}
+          onUploadDirectory={noop}
           onCreateDir={noop}
           onShare={doShare}
           onGetDirectLink={doGetDirectLink}

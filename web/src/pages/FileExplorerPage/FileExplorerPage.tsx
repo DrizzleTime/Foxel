@@ -41,7 +41,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const { openFileWithDefaultApp, confirmOpenWithApp } = useAppWindows();
   const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, closeContextMenus } = useContextMenu();
   const uploader = useUploader(path, refresh);
-  const { handleFileDrop } = uploader;
+  const { handleFileDrop, openFilePicker, openDirectoryPicker, handleFileInputChange, handleDirectoryInputChange } = uploader;
   const processorHook = useProcessor({ path, processorTypes, refresh });
   const { thumbs } = useThumbnails(entries, path);
 
@@ -51,7 +51,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [sharingEntries, setSharingEntries] = useState<VfsEntry[]>([]);
   const [detailEntry, setDetailEntry] = useState<VfsEntry | null>(null);
   const [directLinkEntry, setDirectLinkEntry] = useState<VfsEntry | null>(null);
-  const [detailData, setDetailData] = useState<any>(null);
+  const [detailData, setDetailData] = useState<Record<string, unknown> | { error: string } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [movingEntries, setMovingEntries] = useState<VfsEntry[]>([]);
   const [copyingEntries, setCopyingEntries] = useState<VfsEntry[]>([]);
@@ -79,9 +79,10 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     try {
       const fullPath = (path === '/' ? '' : path) + '/' + entry.name;
       const stat = await vfsApi.stat(fullPath);
-      setDetailData(stat);
-    } catch (e: any) {
-      setDetailData({ error: e.message });
+      setDetailData(stat as Record<string, unknown>);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      setDetailData({ error: messageText });
     } finally {
       setDetailLoading(false);
     }
@@ -130,7 +131,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     e.stopPropagation();
     setIsDragging(false);
     dragCounter.current = 0;
-    handleFileDrop(e.dataTransfer.files);
+    void handleFileDrop(e.dataTransfer);
   };
 
   return (
@@ -161,12 +162,26 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onNavigate={navigateTo}
         onRefresh={refresh}
         onCreateDir={() => setCreatingDir(true)}
-        onUpload={uploader.openModal}
+        onUploadFile={openFilePicker}
+        onUploadDirectory={openDirectoryPicker}
         onSetViewMode={setViewMode}
         onSortChange={handleSortChange}
       />
 
-      <input ref={uploader.fileInputRef} type="file" style={{ display: 'none' }} multiple onChange={uploader.handleFileChange} />
+      <input
+        ref={uploader.fileInputRef}
+        type="file"
+        style={{ display: 'none' }}
+        multiple
+        onChange={handleFileInputChange}
+      />
+      <input
+        ref={uploader.directoryInputRef}
+        type="file"
+        style={{ display: 'none' }}
+        multiple
+        onChange={handleDirectoryInputChange}
+      />
 
       <div style={{ flex: 1, overflow: 'auto', paddingBottom: pagination.total > 0 ? '80px' : '0' }} onContextMenu={openBlankContextMenu}>
         {loading && (entries.length === 0 || path !== routePath) ? (
@@ -284,7 +299,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             processorHook.setSelectedProcessor(type);
             processorHook.openProcessorModal(entry);
           }}
-          onUpload={uploader.openModal}
+          onUploadFile={openFilePicker}
+          onUploadDirectory={openDirectoryPicker}
           onCreateDir={() => setCreatingDir(true)}
           onShare={doShare}
           onGetDirectLink={doGetDirectLink}
@@ -295,8 +311,14 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       <UploadModal
         visible={uploader.isModalVisible}
         files={uploader.files}
+        isUploading={uploader.isUploading}
+        totalProgress={uploader.totalProgress}
+        totalFileBytes={uploader.totalFileBytes}
+        uploadedFileBytes={uploader.uploadedFileBytes}
+        conflict={uploader.conflict}
         onClose={uploader.closeModal}
         onStartUpload={uploader.startUpload}
+        onResolveConflict={uploader.confirmConflict}
       />
       <DropzoneOverlay visible={isDragging} />
     </div>

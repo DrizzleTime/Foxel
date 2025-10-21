@@ -1,0 +1,42 @@
+name: Question / 问题咨询
+description: Ask about usage, configuration, or clarification / 用于使用、配置或澄清问题
+title: "[Question] "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Need help? You're in the right place. / 需要帮助？请按以下提示填写。
+        Check the docs before filing. / 提交前请先查阅文档。
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Pre-flight Check / 提交前检查
+      options:
+        - label: I searched existing issues and discussions / 我已搜索现有 Issue 和讨论
+          required: true
+        - label: I read the relevant documentation / 我已阅读相关文档
+          required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question Details / 问题详情
+      description: What do you need help with? Be specific. / 具体说明需要帮助的内容
+      placeholder: Describe the scenario, expectation, and blockers / 说明场景、期望结果与阻碍
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What You Tried / 已尝试方案
+      description: List commands, configs, or steps attempted / 列出尝试过的命令、配置或步骤
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context / 补充信息
+      description: Environment details, logs, screenshots / 可补充运行环境、日志或截图
+    validations:
+      required: false

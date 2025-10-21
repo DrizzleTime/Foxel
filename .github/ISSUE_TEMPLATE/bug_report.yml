@@ -1,0 +1,75 @@
+name: Bug Report / 缺陷报告
+description: Report reproducible defects with clear context / 请提供可复现的缺陷信息
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve Foxel! / 感谢你帮助改进 Foxel！
+        Please confirm the checklist below before filing. / 在提交前请确认以下事项。
+  - type: checkboxes
+    id: validations
+    attributes:
+      label: Pre-flight Check / 提交前检查
+      options:
+        - label: I searched existing issues and docs / 我已搜索现有 Issue 与文档
+          required: true
+        - label: This is not a question or feature request / 这不是问题咨询或功能需求
+          required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug Summary / 缺陷摘要
+      description: Briefly describe what is wrong / 简要说明出现了什么问题
+      placeholder: e.g. Upload fails with 500 error / 例如：上传时报 500 错误
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce / 复现步骤
+      description: List numbered steps to trigger the bug / 列出触发问题的步骤
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior / 预期行为
+      description: What should happen instead? / 期望看到什么结果？
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior / 实际行为
+      description: What actually happens? Include messages or screenshots / 实际发生了什么？可附报错或截图
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / 版本信息
+      description: Git commit, tag, or build number / 提供 Git 提交、标签或构建号
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / 运行环境
+      description: OS, browser, API server config, etc. / 操作系统、浏览器、服务端配置等
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs & Attachments / 日志与附件
+      description: Paste relevant logs, stack traces, screenshots / 粘贴相关日志、堆栈或截图
+      render: shell
+    validations:
+      required: false

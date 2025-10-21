@@ -1,0 +1,56 @@
+name: Feature Request / 功能需求
+description: Suggest enhancements or new capabilities / 提出改进或新增能力
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us about your idea! / 欢迎分享你的想法！
+        Please complete the sections below so we can evaluate it quickly. / 请完整填写以下信息，便于快速评估。
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Pre-flight Check / 提交前检查
+      options:
+        - label: I searched existing issues and roadmap / 我已搜索现有 Issue 与路线图
+          required: true
+        - label: This is not a bug report or question / 这不是缺陷或问题咨询
+          required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary / 功能概述
+      description: What do you want to build? / 希望新增什么能力？
+      placeholder: e.g. Support sharing download links / 例如：支持分享下载链接
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / 背景与价值
+      description: Why is this feature important? Who benefits? / 为什么重要？受益者是谁？
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed Solution / 建议方案
+      description: Outline how the feature might work, including API or UI hints / 描述可能的实现方式，包含 API 或 UI 提示
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives / 可选方案
+      description: List any alternatives considered / 如有考虑过其他方案请列出
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context / 补充信息
+      description: Diagrams, sketches, links, constraints, etc. / 可附上草图、链接或约束
+    validations:
+      required: false

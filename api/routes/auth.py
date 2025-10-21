@@ -66,7 +66,7 @@ async def get_me(current_user: Annotated[User, Depends(get_current_active_user)]
     """
     email = (current_user.email or "").strip().lower()
     md5_hash = hashlib.md5(email.encode("utf-8")).hexdigest()
-    gravatar_url = f"https://www.gravatar.com/avatar/{md5_hash}?s=64&d=identicon"
+    gravatar_url = f"https://cn.cravatar.com/avatar/{md5_hash}?s=64&d=identicon"
     return success({
         "id": current_user.id,
         "username": current_user.username,

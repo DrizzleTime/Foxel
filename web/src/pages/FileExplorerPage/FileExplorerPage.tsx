@@ -32,7 +32,9 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const { token } = theme.useToken();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isDragging, setIsDragging] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(false);
   const dragCounter = useRef(0);
+  const skeletonTimerRef = useRef<number | null>(null);
 
   // --- Hooks ---
   const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange } = useFileExplorer(navKey);
@@ -62,6 +64,29 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   useEffect(() => {
     load(routePath, 1, pagination.pageSize, sortBy, sortOrder);
   }, [routePath, navKey, load, pagination.pageSize, sortBy, sortOrder]);
+
+  useEffect(() => {
+    if (skeletonTimerRef.current !== null) {
+      clearTimeout(skeletonTimerRef.current);
+      skeletonTimerRef.current = null;
+    }
+
+    if (loading) {
+      skeletonTimerRef.current = window.setTimeout(() => {
+        setShowSkeleton(true);
+        skeletonTimerRef.current = null;
+      }, 200);
+    } else {
+      setShowSkeleton(false);
+    }
+
+    return () => {
+      if (skeletonTimerRef.current !== null) {
+        clearTimeout(skeletonTimerRef.current);
+        skeletonTimerRef.current = null;
+      }
+    };
+  }, [loading]);
 
   // --- Handlers ---
   const handleOpenEntry = (entry: VfsEntry) => {
@@ -184,7 +209,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       />
 
       <div style={{ flex: 1, overflow: 'auto', paddingBottom: pagination.total > 0 ? '80px' : '0' }} onContextMenu={openBlankContextMenu}>
-        {loading && (entries.length === 0 || path !== routePath) ? (
+        {showSkeleton && loading && (entries.length === 0 || path !== routePath) ? (
           <LoadingSkeleton mode={viewMode} />
         ) : !loading && entries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40 }}><EmptyState isRoot={path === '/'} /></div>

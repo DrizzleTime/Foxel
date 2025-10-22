@@ -307,7 +307,12 @@ async def write_file_stream(path: str, data_iter: AsyncIterator[bytes], overwrit
 async def make_dir(path: str):
     adapter_instance, _, root, rel = await resolve_adapter_and_rel(path)
     if not rel:
-        raise HTTPException(400, detail="Cannot create root")
+        await LogService.info(
+            "virtual_fs",
+            f"Ignored create-root request for {path}",
+            details={"path": path, "reason": "root directory already exists"},
+        )
+        return
     mkdir_func = await _ensure_method(adapter_instance, "mkdir")
     await mkdir_func(root, rel)
     await LogService.action("virtual_fs", f"Created directory {path}", details={"path": path})

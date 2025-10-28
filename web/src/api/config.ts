@@ -19,6 +19,7 @@ export interface SystemStatus {
   version: string;
   title: string;
   logo: string;
+  favicon: string;
   is_initialized: boolean;
   app_domain?: string;
   file_domain?: string;

@@ -18,9 +18,14 @@ function AppInner() {
         const status = await getStatus();
         setStatus(status);
         document.title = status.title;
-        const favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+        let favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+        if (!favicon) {
+          favicon = document.createElement('link');
+          favicon.rel = 'icon';
+          document.head.appendChild(favicon);
+        }
         if (favicon) {
-          favicon.href = status.logo;
+          favicon.href = status.favicon || status.logo;
         }
       } catch (error) {
         console.error("Failed to check initialization status:", error);

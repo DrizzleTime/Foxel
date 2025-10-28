@@ -37,10 +37,13 @@ async def get_all_config(
 
 @router.get("/status")
 async def get_system_status():
+    logo = await ConfigCenter.get("APP_LOGO", "/logo.svg")
+    favicon = await ConfigCenter.get("APP_FAVICON", logo)
     system_info = {
         "version": VERSION,
         "title": await ConfigCenter.get("APP_NAME", "Foxel"),
-        "logo": await ConfigCenter.get("APP_LOGO", "/logo.svg"),
+        "logo": logo,
+        "favicon": favicon,
         "is_initialized": await has_users(),
         "app_domain": await ConfigCenter.get("APP_DOMAIN"),
         "file_domain": await ConfigCenter.get("FILE_DOMAIN"),

@@ -328,6 +328,7 @@ export const en = {
   'Clear Vector DB': 'Clear Vector DB',
   'App Name': 'App Name',
   'Logo URL': 'Logo URL',
+  'Favicon URL': 'Favicon URL',
   'App Domain': 'App Domain',
   'File Domain': 'File Domain',
   'Vision API URL': 'Vision API URL',

@@ -26,6 +26,7 @@ interface SystemSettingsPageProps {
 const APP_CONFIG_KEYS: { key: string, label: string, default?: string }[] = [
   { key: 'APP_NAME', label: 'App Name' },
   { key: 'APP_LOGO', label: 'Logo URL' },
+  { key: 'APP_FAVICON', label: 'Favicon URL', default: '/logo.svg' },
   { key: 'APP_DOMAIN', label: 'App Domain' },
   { key: 'FILE_DOMAIN', label: 'File Domain' },
 ];

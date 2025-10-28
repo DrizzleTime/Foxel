@@ -333,6 +333,7 @@ export const zh = {
   'Clear Vector DB': '清空向量库',
   'App Name': '应用名称',
   'Logo URL': 'LOGO地址',
+  'Favicon URL': 'Favicon 地址',
   'App Domain': '应用域名',
   'File Domain': '文件域名',
   'Vision API URL': '视觉模型 API 地址',

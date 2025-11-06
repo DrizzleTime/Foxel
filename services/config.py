@@ -4,7 +4,7 @@ from typing import Any, Optional, Dict
 from dotenv import load_dotenv
 from models.database import Configuration
 load_dotenv(dotenv_path=".env")
-VERSION = "v1.3.4"
+VERSION = "v1.3.5"
 
 class ConfigCenter:
     _cache: Dict[str, Any] = {}

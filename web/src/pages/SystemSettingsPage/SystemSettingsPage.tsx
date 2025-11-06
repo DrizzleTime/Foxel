@@ -109,13 +109,12 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
     <PageCard
       title={t('System Settings')}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={32}>
+      <Space direction="vertical" style={{ width: '100%' }} size={16}>
         <Tabs
           className="fx-settings-tabs"
           activeKey={activeTab}
           onChange={handleTabChange}
           centered
-          tabPosition="left"
           items={[
             {
               key: 'appearance',

@@ -1,11 +1,19 @@
+.fx-settings-tabs .ant-tabs-nav {
+  margin-bottom: 12px;
+}
+
 .fx-settings-tabs .ant-tabs-nav-list {
-  padding: 8px 4px;
+  padding: 4px 8px;
+  width: 100%;
+  gap: 8px;
 }
 
 .fx-settings-tabs .ant-tabs-tab {
-  margin: 4px 0 !important;
+  margin: 0 !important;
   border-radius: 8px;
-  padding: 6px 10px !important;
+  padding: 8px 12px !important;
+  flex: 1 1 auto;
+  justify-content: center;
 }
 
 .fx-settings-tabs .ant-tabs-tab .ant-tabs-tab-btn {

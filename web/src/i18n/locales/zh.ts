@@ -531,9 +531,11 @@ export const zh = {
   'Level': '级别',
   'Source': '来源',
   'Message': '消息',
+  'User ID': '用户 ID',
   'Search source': '搜索来源',
   'Clear': '清理',
   'Log Details': '日志详情',
+  'Raw Log': '原始日志',
 
   // Backup
   'Export started, check your downloads.': '导出已开始，请检查您的下载。',

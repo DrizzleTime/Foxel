@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback } from 'react';
-import { Table, message, Tag, Input, Select, Button, Space, Modal, DatePicker } from 'antd';
+import { Table, message, Tag, Input, Select, Button, Space, Modal, DatePicker, Descriptions, Divider, Typography } from 'antd';
 import PageCard from '../components/PageCard';
 import { logsApi, type LogItem, type PaginatedLogs } from '../api/logs';
 import { useI18n } from '../i18n';
@@ -8,6 +8,7 @@ import { format, formatISO } from 'date-fns';
 const { RangePicker } = DatePicker;
 
 const LOG_LEVELS = ['API', 'INFO', 'WARNING', 'ERROR'];
+const LEVEL_COLOR_MAP: Record<string, string> = { API: 'blue', INFO: 'green', WARNING: 'orange', ERROR: 'red' };
 
 const LogsPage = memo(function LogsPage() {
   const [loading, setLoading] = useState(false);
@@ -74,7 +75,7 @@ const LogsPage = memo(function LogsPage() {
       dataIndex: 'level',
       width: 100,
       render: (level: string) => {
-        const color = { API: 'blue', INFO: 'green', WARNING: 'orange', ERROR: 'red' }[level] || 'default';
+        const color = LEVEL_COLOR_MAP[level] || 'default';
         return <Tag color={color}>{level}</Tag>;
       },
     },
@@ -93,9 +94,10 @@ const LogsPage = memo(function LogsPage() {
     <PageCard
       title={t('System Logs')}
       extra={
-        <Space>
+        <Space align="center">
           <RangePicker
             showTime
+            size="small"
             onChange={dates => {
               setFilters(f => ({
                 ...f,
@@ -109,6 +111,7 @@ const LogsPage = memo(function LogsPage() {
             style={{ width: 120 }}
             placeholder={t('Level')}
             allowClear
+            size="small"
             value={filters.level || undefined}
             onChange={level => setFilters(f => ({ ...f, level: level || '', page: 1 }))}
             options={LOG_LEVELS.map(l => ({ value: l, label: l }))}
@@ -116,6 +119,7 @@ const LogsPage = memo(function LogsPage() {
           <Input.Search
             style={{ width: 240 }}
             placeholder={t('Search source')}
+            size="small"
             onSearch={source => setFilters(f => ({ ...f, source, page: 1 }))}
             allowClear
           />
@@ -145,9 +149,32 @@ const LogsPage = memo(function LogsPage() {
         width={800}
       >
         {selectedLog && (
-          <pre style={{ maxHeight: '60vh', overflow: 'auto', background: 'var(--ant-color-fill-tertiary, #f5f5f5)', padding: 12 }}>
-            {JSON.stringify(selectedLog.details, null, 2)}
-          </pre>
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Descriptions column={1} bordered size="small">
+              <Descriptions.Item label={t('Time')}>
+                {format(new Date(selectedLog.timestamp), 'yyyy-MM-dd HH:mm:ss')}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('Level')}>
+                <Tag color={LEVEL_COLOR_MAP[selectedLog.level] || 'default'}>{selectedLog.level}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('Source')}>
+                {selectedLog.source}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('Message')}>
+                <Typography.Text style={{ whiteSpace: 'pre-wrap' }}>{selectedLog.message}</Typography.Text>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('User ID')}>
+                {selectedLog.user_id ?? '-'}
+              </Descriptions.Item>
+            </Descriptions>
+            <Divider style={{ margin: '12px 0 0' }} />
+            <Typography.Title level={5} style={{ margin: 0 }}>
+              {t('Raw Log')}
+            </Typography.Title>
+            <pre style={{ maxHeight: '60vh', overflow: 'auto', background: 'var(--ant-color-fill-tertiary, #f5f5f5)', padding: 12 }}>
+              {JSON.stringify(selectedLog, null, 2)}
+            </pre>
+          </Space>
         )}
       </Modal>
     </PageCard>

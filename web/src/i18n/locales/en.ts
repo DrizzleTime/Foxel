@@ -527,9 +527,11 @@ export const en = {
   'Level': 'Level',
   'Source': 'Source',
   'Message': 'Message',
+  'User ID': 'User ID',
   'Search source': 'Search source',
   'Clear': 'Clear',
   'Log Details': 'Log Details',
+  'Raw Log': 'Raw Log',
 
   // Backup
   'Export started, check your downloads.': 'Export started, check your downloads.',

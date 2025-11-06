@@ -107,6 +107,12 @@ export default function LoginPage() {
                   />
                 </Form.Item>
 
+                <Form.Item style={{ marginBottom: 8, textAlign: 'right' }}>
+                  <Button type="link" onClick={() => navigate('/forgot-password')} style={{ padding: 0 }}>
+                    {t('Forgot Password?')}
+                  </Button>
+                </Form.Item>
+
                 <Form.Item>
                   <Button
                     type="primary"

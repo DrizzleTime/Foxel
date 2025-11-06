@@ -4,6 +4,8 @@ import LayoutShell from './LayoutShell.tsx';
 import LoginPage from '../pages/LoginPage.tsx';
 import SetupPage from '../pages/SetupPage.tsx';
 import PublicSharePage from '../pages/PublicSharePage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
 import { useAuth } from '../contexts/AuthContext';
 import type { JSX } from 'react';
 
@@ -13,12 +15,16 @@ export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/share/:token', element: <PublicSharePage /> },
   { path: '/setup', element: <SetupPage /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
 ];
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
-  if (!isAuthenticated && !location.pathname.startsWith('/share/') && location.pathname !== '/login' && location.pathname !== '/register') {
+  const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+  const isPublic = publicPaths.some((p) => location.pathname.startsWith(p));
+  if (!isAuthenticated && !location.pathname.startsWith('/share/') && !isPublic) {
     return <Navigate to="/login" replace />;
   }
   return children;

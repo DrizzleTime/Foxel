@@ -22,4 +22,5 @@ dependencies = [
     "uvicorn>=0.37.0",
     "pymilvus[milvus-lite]>=2.6.2",
     "paramiko>=4.0.0",
+    "pydantic[email]>=2.11.7",
 ]

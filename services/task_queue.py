@@ -130,6 +130,10 @@ class TaskQueueService:
 
                 result = await run_cross_mount_transfer_task(task)
                 task.result = result
+            elif task.name == "send_email":
+                from services.email import EmailService
+                await EmailService.send_from_task(task.id, task.task_info)
+                task.result = "Email sent"
             else:
                 raise ValueError(f"Unknown task name: {task.name}")
             

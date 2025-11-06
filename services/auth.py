@@ -1,5 +1,8 @@
+import asyncio
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+import secrets
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -10,9 +13,78 @@ from pydantic import BaseModel
 
 from models.database import UserAccount
 from services.config import ConfigCenter
+from services.logging import LogService
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 365
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 10
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+@dataclass
+class PasswordResetEntry:
+    user_id: int
+    email: str
+    username: str
+    expires_at: datetime
+    used: bool = False
+
+
+class PasswordResetStore:
+    _tokens: dict[str, PasswordResetEntry] = {}
+    _lock = asyncio.Lock()
+
+    @classmethod
+    def _cleanup(cls):
+        now = _now()
+        for token, record in list(cls._tokens.items()):
+            if record.used or record.expires_at < now:
+                cls._tokens.pop(token, None)
+
+    @classmethod
+    async def create(cls, user: UserAccount) -> str:
+        async with cls._lock:
+            cls._cleanup()
+            for key, record in list(cls._tokens.items()):
+                if record.user_id == user.id:
+                    cls._tokens.pop(key, None)
+            token = secrets.token_urlsafe(32)
+            expires_at = _now() + timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+            cls._tokens[token] = PasswordResetEntry(
+                user_id=user.id,
+                email=user.email or "",
+                username=user.username,
+                expires_at=expires_at,
+            )
+            return token
+
+    @classmethod
+    async def get(cls, token: str) -> PasswordResetEntry | None:
+        async with cls._lock:
+            cls._cleanup()
+            record = cls._tokens.get(token)
+            if not record or record.used:
+                return None
+            return record
+
+    @classmethod
+    async def mark_used(cls, token: str) -> None:
+        async with cls._lock:
+            record = cls._tokens.get(token)
+            if record:
+                record.used = True
+            cls._cleanup()
+
+    @classmethod
+    async def invalidate_user(cls, user_id: int, except_token: str | None = None) -> None:
+        async with cls._lock:
+            for key, record in list(cls._tokens.items()):
+                if record.user_id == user_id and key != except_token:
+                    cls._tokens.pop(key, None)
+            cls._cleanup()
 
 
 async def get_secret_key():
@@ -130,6 +202,94 @@ async def create_access_token(data: dict, expires_delta: timedelta | None = None
     secret_key = await get_secret_key()
     encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def _normalize_email(email: str | None) -> str:
+    return (email or "").strip().lower()
+
+
+async def _send_password_reset_email(user: UserAccount, token: str) -> None:
+    from services.email import EmailService
+
+    app_domain = await ConfigCenter.get("APP_DOMAIN", None)
+    base_url = (app_domain or "http://localhost:5173").rstrip("/")
+    reset_link = f"{base_url}/reset-password?token={token}"
+    await EmailService.enqueue_email(
+        recipients=[user.email],
+        subject="Foxel 密码重置",
+        template="password_reset",
+        context={
+            "username": user.username,
+            "reset_link": reset_link,
+            "expire_minutes": PASSWORD_RESET_TOKEN_EXPIRE_MINUTES,
+        },
+    )
+
+
+async def request_password_reset(email: str) -> bool:
+    normalized = _normalize_email(email)
+    if not normalized:
+        return False
+    user = await UserAccount.get_or_none(email=normalized)
+    if not user or not user.email:
+        return False
+
+    token = await PasswordResetStore.create(user)
+    try:
+        await _send_password_reset_email(user, token)
+    except Exception as exc:  # noqa: BLE001
+        await PasswordResetStore.mark_used(token)
+        await PasswordResetStore.invalidate_user(user.id)
+        await LogService.error(
+            "auth",
+            f"Failed to enqueue password reset email: {exc}",
+            details={"user_id": user.id},
+            user_id=user.id,
+        )
+        raise HTTPException(status_code=500, detail="邮件发送失败") from exc
+    await LogService.action(
+        "auth",
+        "Password reset requested",
+        details={"user_id": user.id},
+        user_id=user.id,
+    )
+    return True
+
+
+async def verify_password_reset_token(token: str) -> UserAccount:
+    record = await PasswordResetStore.get(token)
+    if not record:
+        raise HTTPException(status_code=400, detail="重置链接无效")
+    user = await UserAccount.get_or_none(id=record.user_id)
+    if not user:
+        raise HTTPException(status_code=400, detail="重置链接无效")
+    if record.expires_at < _now():
+        await PasswordResetStore.mark_used(token)
+        raise HTTPException(status_code=400, detail="重置链接已过期")
+    return user
+
+
+async def reset_password_with_token(token: str, new_password: str) -> None:
+    record = await PasswordResetStore.get(token)
+    if not record:
+        raise HTTPException(status_code=400, detail="重置链接无效")
+    if record.expires_at < _now():
+        await PasswordResetStore.mark_used(token)
+        raise HTTPException(status_code=400, detail="重置链接已过期")
+
+    user = await UserAccount.get_or_none(id=record.user_id)
+    if not user:
+        raise HTTPException(status_code=400, detail="重置链接无效")
+    user.hashed_password = get_password_hash(new_password)
+    await user.save(update_fields=["hashed_password"])
+    await PasswordResetStore.mark_used(token)
+    await PasswordResetStore.invalidate_user(user.id)
+    await LogService.action(
+        "auth",
+        "Password reset via email",
+        details={"user_id": user.id},
+        user_id=user.id,
+    )
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):

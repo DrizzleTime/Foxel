@@ -10,6 +10,9 @@ from services.auth import (
     Token,
     get_current_active_user,
     User,
+    request_password_reset,
+    verify_password_reset_token,
+    reset_password_with_token,
 )
 from pydantic import BaseModel
 from datetime import timedelta
@@ -83,6 +86,15 @@ class UpdateMeRequest(BaseModel):
     new_password: str | None = None
 
 
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    password: str
+
+
 @router.put("/me", summary="更新当前登录用户信息")
 async def update_me(
     payload: UpdateMeRequest,
@@ -120,3 +132,24 @@ async def update_me(
         "full_name": db_user.full_name,
         "gravatar_url": gravatar_url,
     })
+
+
+@router.post("/password-reset/request", summary="请求密码重置邮件")
+async def password_reset_request_endpoint(payload: PasswordResetRequest):
+    await request_password_reset(payload.email)
+    return success(msg="如果邮箱存在，将发送重置邮件")
+
+
+@router.get("/password-reset/verify", summary="校验密码重置令牌")
+async def password_reset_verify(token: str):
+    user = await verify_password_reset_token(token)
+    return success({
+        "username": user.username,
+        "email": user.email,
+    })
+
+
+@router.post("/password-reset/confirm", summary="使用令牌重置密码")
+async def password_reset_confirm(payload: PasswordResetConfirm):
+    await reset_password_with_token(payload.token, payload.password)
+    return success(msg="密码已重置")

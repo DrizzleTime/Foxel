@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from .routes import adapters, virtual_fs, auth, config, processors, tasks, logs, share, backup, search, vector_db, offline_downloads, ai_providers
+from .routes import adapters, virtual_fs, auth, config, processors, tasks, logs, share, backup, search, vector_db, offline_downloads, ai_providers, email
 from .routes import webdav
 from .routes import plugins
 
@@ -22,3 +22,4 @@ def include_routers(app: FastAPI):
     app.include_router(plugins.router)
     app.include_router(webdav.router)
     app.include_router(offline_downloads.router)
+    app.include_router(email.router)

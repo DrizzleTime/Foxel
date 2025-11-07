@@ -20,6 +20,16 @@ from services.virtual_fs import (
     copy_path,
     stream_file,
 )
+from services.config import ConfigCenter
+
+
+_WEBDAV_ENABLED_KEY = "WEBDAV_MAPPING_ENABLED"
+
+
+async def _ensure_webdav_enabled() -> None:
+    enabled = await ConfigCenter.get(_WEBDAV_ENABLED_KEY, "1")
+    if str(enabled).strip().lower() in ("0", "false", "off", "no"):
+        raise HTTPException(503, detail="WebDAV mapping disabled")
 
 
 router = APIRouter(prefix="/webdav", tags=["webdav"])
@@ -140,12 +150,17 @@ def _normalize_fs_path(path: str) -> str:
 
 
 @router.options("/{path:path}")
-async def options_root(path: str = ""):
+async def options_root(path: str = "", _enabled: None = Depends(_ensure_webdav_enabled)):
     return Response(status_code=200, headers=_dav_headers())
 
 
 @router.api_route("/{path:path}", methods=["PROPFIND"])
-async def propfind(request: Request, path: str, user: User = Depends(_get_basic_user)):
+async def propfind(
+    request: Request,
+    path: str,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
     full_path = _normalize_fs_path(path)
     depth = request.headers.get("Depth", "1").lower()
     if depth not in ("0", "1", "infinity"):
@@ -187,14 +202,23 @@ async def propfind(request: Request, path: str, user: User = Depends(_get_basic_
 
 
 @router.get("/{path:path}")
-async def dav_get(path: str, request: Request, user: User = Depends(_get_basic_user)):
+async def dav_get(
+    path: str,
+    request: Request,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
     full_path = _normalize_fs_path(path)
     range_header = request.headers.get("Range")
     return await stream_file(full_path, range_header)
 
 
 @router.head("/{path:path}")
-async def dav_head(path: str, user: User = Depends(_get_basic_user)):
+async def dav_head(
+    path: str,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
     full_path = _normalize_fs_path(path)
     try:
         st = await stat_file(full_path)
@@ -216,7 +240,12 @@ async def dav_head(path: str, user: User = Depends(_get_basic_user)):
 
 
 @router.api_route("/{path:path}", methods=["PUT"])
-async def dav_put(path: str, request: Request, user: User = Depends(_get_basic_user)):
+async def dav_put(
+    path: str,
+    request: Request,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
     full_path = _normalize_fs_path(path)
     async def body_iter():
         async for chunk in request.stream():
@@ -227,14 +256,22 @@ async def dav_put(path: str, request: Request, user: User = Depends(_get_basic_u
 
 
 @router.api_route("/{path:path}", methods=["DELETE"])
-async def dav_delete(path: str, user: User = Depends(_get_basic_user)):
+async def dav_delete(
+    path: str,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
     full_path = _normalize_fs_path(path)
     await delete_path(full_path)
     return Response(status_code=204, headers=_dav_headers())
 
 
 @router.api_route("/{path:path}", methods=["MKCOL"])
-async def dav_mkcol(path: str, user: User = Depends(_get_basic_user)):
+async def dav_mkcol(
+    path: str,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
     full_path = _normalize_fs_path(path)
     await make_dir(full_path)
     return Response(status_code=201, headers=_dav_headers())
@@ -270,4 +307,3 @@ async def dav_copy(path: str, request: Request, user: User = Depends(_get_basic_
     overwrite = request.headers.get("Overwrite", "T").upper() != "F"  
     await copy_path(full_src, dst, overwrite=overwrite)
     return Response(status_code=201 if not overwrite else 204, headers=_dav_headers())
-

@@ -2,7 +2,7 @@ import { message, Tabs, Space } from 'antd';
 import { useEffect, useState } from 'react';
 import PageCard from '../../components/PageCard';
 import { getAllConfig, setConfig } from '../../api/config';
-import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined } from '@ant-design/icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import '../../styles/settings-tabs.css';
 import { useI18n } from '../../i18n';
@@ -11,10 +11,11 @@ import AppSettingsTab from './components/AppSettingsTab';
 import AiSettingsTab from './components/AiSettingsTab';
 import VectorDbSettingsTab from './components/VectorDbSettingsTab';
 import EmailSettingsTab from './components/EmailSettingsTab';
+import ProtocolMappingsTab from './components/ProtocolMappingsTab';
 
-type TabKey = 'appearance' | 'app' | 'email' | 'ai' | 'vector-db';
+type TabKey = 'appearance' | 'app' | 'email' | 'ai' | 'vector-db' | 'mappings';
 
-const TAB_KEYS: TabKey[] = ['appearance', 'app', 'email', 'ai', 'vector-db'];
+const TAB_KEYS: TabKey[] = ['appearance', 'app', 'email', 'ai', 'vector-db', 'mappings'];
 const DEFAULT_TAB: TabKey = 'appearance';
 
 const isValidTab = (key?: string): key is TabKey => !!key && (TAB_KEYS as string[]).includes(key);
@@ -189,6 +190,22 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
               ),
               children: (
                 <VectorDbSettingsTab isActive={activeTab === 'vector-db'} />
+              ),
+            },
+            {
+              key: 'mappings',
+              label: (
+                <span>
+                  <CloudSyncOutlined style={{ marginRight: 8 }} />
+                  {t('Protocol Mappings')}
+                </span>
+              ),
+              children: (
+                <ProtocolMappingsTab
+                  config={config}
+                  loading={loading}
+                  onSave={handleSave}
+                />
               ),
             },
           ]}

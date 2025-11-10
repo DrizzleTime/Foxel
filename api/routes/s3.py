@@ -494,8 +494,10 @@ async def object_get_head(request: Request, bucket: str, object_path: str):
     if request.method == "HEAD":
         return Response(status_code=200, headers=base_headers)
     resp = await stream_file(_virtual_path(settings, key), request.headers.get("range"))
+    safe_merge_keys = {"ETag", "Last-Modified", "x-amz-version-id", "Accept-Ranges"}
     for hk, hv in base_headers.items():
-        resp.headers[hk] = hv
+        if hk in safe_merge_keys:
+            resp.headers.setdefault(hk, hv)
     resp.headers.setdefault("Content-Type", meta.get("mime") or "application/octet-stream")
     return resp
 
@@ -512,6 +514,9 @@ async def put_object(request: Request, bucket: str, object_path: str):
     if err:
         return err
     headers = _object_headers(meta, key)
+    headers.pop("Content-Length", None)
+    headers.pop("Accept-Ranges", None)
+    headers["Content-Length"] = "0"
     _, extra = _meta_headers()
     headers.update(extra)
     return Response(status_code=200, headers=headers)

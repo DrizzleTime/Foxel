@@ -297,14 +297,14 @@ const ProcessorsPage = memo(function ProcessorsPage() {
   const renderProcessorList = () => {
     if (loadingList) {
       return (
-        <Flex align="center" justify="center" style={{ height: '100%' }}>
+        <Flex align="center" justify="center" style={{ height: '100%', width: '100%' }}>
           <Spin />
         </Flex>
       );
     }
     if (!processors.length) {
       return (
-        <Flex align="center" justify="center" style={{ height: '100%' }}>
+        <Flex align="center" justify="center" style={{ height: '100%', width: '100%' }}>
           <Empty description={t('No data')} />
         </Flex>
       );
@@ -385,7 +385,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
             {sourceLoading ? (
-              <Flex align="center" justify="center" style={{ height: '100%' }}>
+              <Flex align="center" justify="center" style={{ height: '100%', width: '100%' }}>
                 <Spin />
               </Flex>
             ) : (

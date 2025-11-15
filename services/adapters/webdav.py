@@ -455,8 +455,16 @@ class WebDAVAdapter:
                 info["type"] = "dir" if is_dir else "file"
                 if size_el is not None and size_el.text and size_el.text.isdigit():
                     info["size"] = int(size_el.text)
+                elif info["size"] is None:
+                    info["size"] = 0
                 if lm_el is not None and lm_el.text:
-                    info["mtime"] = lm_el.text
+                    from email.utils import parsedate_to_datetime
+                    try:
+                        info["mtime"] = int(parsedate_to_datetime(lm_el.text).timestamp())
+                    except Exception:
+                        info["mtime"] = 0
+                elif info["mtime"] is None:
+                    info["mtime"] = 0
             # exif信息
             exif = None
             if not info["is_dir"]:

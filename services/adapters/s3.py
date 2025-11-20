@@ -359,7 +359,7 @@ class S3Adapter:
         return StreamingResponse(iterator(), status_code=status, headers=headers, media_type=content_type)
 
 
-ADAPTER_TYPE = "S3"
+ADAPTER_TYPE = "s3"
 
 CONFIG_SCHEMA = [
     {"key": "bucket_name", "label": "Bucket 名称",

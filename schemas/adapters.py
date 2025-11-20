@@ -1,14 +1,27 @@
+import re
 from typing import Dict, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
 class AdapterBase(BaseModel):
     name: str
-    type: str = Field(pattern=r"^[a-zA-Z0-9_]+$")
+    type: str = Field(pattern=r"^[a-z0-9_]+$")
     config: Dict = Field(default_factory=dict)
     enabled: bool = True
     path: str = None
     sub_path: Optional[str] = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _normalize_type(cls, v: str):
+        if not isinstance(v, str):
+            raise ValueError("type required")
+        normalized = v.strip().lower()
+        if not normalized:
+            raise ValueError("type required")
+        if not re.fullmatch(r"[a-z0-9_]+", normalized):
+            raise ValueError("type must be lowercase alphanumeric or underscore")
+        return normalized
 
 
 class AdapterCreate(AdapterBase):

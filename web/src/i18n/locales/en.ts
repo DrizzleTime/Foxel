@@ -525,6 +525,15 @@ export const en = {
   'Select adapter type': 'Select adapter type',
   '/ or /drive': '/ or /drive',
   'Adapter Config': 'Adapter Config',
+  'adapter.type.local': 'Local Filesystem',
+  'adapter.type.webdav': 'WebDAV',
+  'adapter.type.googledrive': 'Google Drive',
+  'adapter.type.onedrive': 'OneDrive',
+  'adapter.type.s3': 'Amazon S3',
+  'adapter.type.ftp': 'FTP',
+  'adapter.type.sftp': 'SFTP',
+  'adapter.type.telegram': 'Telegram',
+  'adapter.type.quark': 'Quark Drive',
 
   // Tasks
   'Automation Tasks': 'Automation Tasks',

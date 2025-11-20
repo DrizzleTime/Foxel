@@ -528,6 +528,15 @@ export const zh = {
   'Select adapter type': '选择适配器类型',
   '/ or /drive': '/或/drive',
   'Adapter Config': '适配器配置',
+  'adapter.type.local': '本地文件系统',
+  'adapter.type.webdav': 'WebDAV',
+  'adapter.type.googledrive': 'Google Drive',
+  'adapter.type.onedrive': 'OneDrive',
+  'adapter.type.s3': 'Amazon S3',
+  'adapter.type.ftp': 'FTP',
+  'adapter.type.sftp': 'SFTP',
+  'adapter.type.telegram': 'Telegram',
+  'adapter.type.quark': '夸克网盘',
 
   // Tasks
   'Automation Tasks': '自动化任务',

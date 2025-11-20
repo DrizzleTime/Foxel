@@ -21,7 +21,6 @@ export interface AdapterTypeField {
 
 export interface AdapterTypeMeta {
   type: string;
-  name: string;
   config_schema: AdapterTypeField[];
 }
 

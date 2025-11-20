@@ -445,7 +445,7 @@ class OneDriveAdapter:
         return self._format_item(resp.json())
 
 
-ADAPTER_TYPE = "OneDrive"
+ADAPTER_TYPE = "onedrive"
 
 CONFIG_SCHEMA = [
     {"key": "client_id", "label": "Client ID", "type": "string", "required": True},

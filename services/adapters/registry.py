@@ -12,6 +12,13 @@ TYPE_MAP: Dict[str, AdapterFactory] = {}
 CONFIG_SCHEMAS: Dict[str, list] = {}
 
 
+def normalize_adapter_type(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    return normalized or None
+
+
 def discover_adapters():
     """扫描 services.adapters 包, 自动注册适配器类型、工厂与配置 schema。"""
     from .. import adapters as adapters_pkg
@@ -25,7 +32,7 @@ def discover_adapters():
             module = import_module(full_name)
         except Exception:
             continue
-        adapter_type = getattr(module, "ADAPTER_TYPE", None)
+        adapter_type = normalize_adapter_type(getattr(module, "ADAPTER_TYPE", None))
         schema = getattr(module, "CONFIG_SCHEMA", None)
         factory = getattr(module, "ADAPTER_FACTORY", None)
 
@@ -64,7 +71,16 @@ class RuntimeRegistry:
         self._instances.clear()
         adapters = await StorageAdapter.filter(enabled=True)
         for rec in adapters:
-            factory = TYPE_MAP.get(rec.type)
+            normalized_type = normalize_adapter_type(rec.type)
+            if not normalized_type:
+                continue
+            if normalized_type != rec.type:
+                rec.type = normalized_type
+                try:
+                    await rec.save(update_fields=["type"])
+                except Exception:
+                    continue
+            factory = TYPE_MAP.get(normalized_type)
             if not factory:
                 continue
             try:
@@ -89,10 +105,21 @@ class RuntimeRegistry:
             self.remove(rec.id)
             return
         
-        factory = TYPE_MAP.get(rec.type)
+        normalized_type = normalize_adapter_type(rec.type)
+        if not normalized_type:
+            self.remove(rec.id)
+            return
+        if normalized_type != rec.type:
+            rec.type = normalized_type
+            try:
+                await rec.save(update_fields=["type"])
+            except Exception:
+                pass
+
+        factory = TYPE_MAP.get(normalized_type)
         if not factory:
             discover_adapters()
-            factory = TYPE_MAP.get(rec.type)
+            factory = TYPE_MAP.get(normalized_type)
             if not factory:
                 return
 

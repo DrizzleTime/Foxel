@@ -130,9 +130,16 @@ const AdaptersPage = memo(function AdaptersPage() {
     }
   };
 
+  const renderTypeLabel = useCallback((type?: string) => {
+    if (!type) return '-';
+    const key = `adapter.type.${type}`;
+    const label = t(key);
+    return label === key ? type : label;
+  }, [t]);
+
   const columns = [
     { title: t('Name'), dataIndex: 'name' },
-    { title: t('Type'), dataIndex: 'type', width: 100 },
+    { title: t('Type'), dataIndex: 'type', width: 140, render: (value: string) => renderTypeLabel(value) },
     { title: t('Mount Path'), dataIndex: 'path', width: 140, render: (v: string) => v || '-' },
     { title: t('Sub Path'), dataIndex: 'sub_path', width: 140, render: (v: string) => v || '-' },
     {
@@ -233,9 +240,9 @@ const AdaptersPage = memo(function AdaptersPage() {
           <Form.Item name="type" label={t('Type')} rules={[{ required: true }]}>
             <Select
               placeholder={t('Select adapter type')}
-              options={availableTypes.map(t => ({ value: t.type, label: `${t.name} (${t.type})` }))}
-              onChange={() => {
-                const t = availableTypes.find(v => v.type === form.getFieldValue('type'));
+              options={availableTypes.map(t => ({ value: t.type, label: renderTypeLabel(t.type) }))}
+              onChange={(value) => {
+                const t = availableTypes.find(v => v.type === value);
                 const cfgDefaults: Record<string, any> = {};
                 t?.config_schema.forEach(f => {
                   if (f.default !== undefined) cfgDefaults[f.key] = f.default;

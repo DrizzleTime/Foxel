@@ -718,7 +718,7 @@ class QuarkAdapter:
         return it["fid"]
 
 
-ADAPTER_TYPE = "Quark"
+ADAPTER_TYPE = "quark"
 
 CONFIG_SCHEMA = [
     {"key": "cookie", "label": "Cookie", "type": "password", "required": True, "placeholder": "从 pan.quark.cn 复制"},

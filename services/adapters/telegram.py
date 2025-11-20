@@ -8,7 +8,7 @@ from telethon.sessions import StringSession
 import socks
 
 # 适配器类型标识
-ADAPTER_TYPE = "Telegram"
+ADAPTER_TYPE = "telegram"
 
 # 适配器配置项定义
 CONFIG_SCHEMA = [

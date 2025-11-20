@@ -543,7 +543,7 @@ class GoogleDriveAdapter:
             return None
 
 
-ADAPTER_TYPE = "GoogleDrive"
+ADAPTER_TYPE = "googledrive"
 
 CONFIG_SCHEMA = [
     {"key": "client_id", "label": "Client ID", "type": "string", "required": True},

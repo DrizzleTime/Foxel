@@ -489,6 +489,59 @@ class GoogleDriveAdapter:
         resp.raise_for_status()
         return self._format_item(resp.json())
 
+    async def get_direct_download_response(self, root: str, rel: str):
+        """
+        获取直接下载响应 (307 重定向)。
+        :param root: 根路径。
+        :param rel: 相对路径。
+        :return: 307 重定向响应或 None。
+        """
+        if not self.enable_redirect_307:
+            return None
+
+        file_id = await self._get_file_id_by_path(rel)
+        if not file_id:
+            raise FileNotFoundError(rel)
+
+        # 获取文件的下载链接
+        resp = await self._request("GET", f"/files/{file_id}", params={"fields": "webContentLink"})
+        if resp.status_code == 404:
+            raise FileNotFoundError(rel)
+        resp.raise_for_status()
+
+        item_data = resp.json()
+        download_url = item_data.get("webContentLink")
+        if not download_url:
+            return None
+
+        return Response(status_code=307, headers={"Location": download_url})
+
+    async def get_thumbnail(self, root: str, rel: str, size: str = "medium"):
+        """
+        获取文件的缩略图。
+        :param root: 根路径。
+        :param rel: 相对路径。
+        :param size: 缩略图大小 (暂未使用，Google Drive 自动决定)。
+        :return: 缩略图内容的字节流，或在不支持时返回 None。
+        """
+        file_id = await self._get_file_id_by_path(rel)
+        if not file_id:
+            return None
+
+        try:
+            resp = await self._request("GET", f"/files/{file_id}", params={"fields": "thumbnailLink"})
+            if resp.status_code == 200:
+                item_data = resp.json()
+                thumbnail_link = item_data.get("thumbnailLink")
+                if thumbnail_link:
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        thumb_resp = await client.get(thumbnail_link)
+                        thumb_resp.raise_for_status()
+                        return thumb_resp.content
+            return None
+        except Exception:
+            return None
+
 
 ADAPTER_TYPE = "GoogleDrive"
 

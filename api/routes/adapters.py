@@ -77,11 +77,17 @@ async def list_adapters(
 async def available_adapter_types(
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
+    name_map = {
+        "local": "本地文件系统",
+        "webdav": "WebDAV",
+        "GoogleDrive": "Google Drive",
+        "OneDrive": "OneDrive",
+    }
     data = []
     for t, fields in get_config_schemas().items():
         data.append({
             "type": t,
-            "name": "本地文件系统" if t == "local" else ("WebDAV" if t == "webdav" else t),
+            "name": name_map.get(t, t),
             "config_schema": fields,
         })
     return success(data)

@@ -395,6 +395,11 @@ async def list_objects(request: Request, bucket: str):
     return _build_list_result(bucket, prefix, delimiter, contents, next_prefixes if delimiter else [], max_keys, is_truncated, continuation, next_token, start_after)
 
 
+@router.get("/{bucket}/", include_in_schema=False)
+async def list_objects_with_slash(request: Request, bucket: str):
+    return await list_objects(request, bucket)
+
+
 def _build_list_result(
     bucket: str,
     prefix: str,

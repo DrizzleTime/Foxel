@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from api.response import success
 from application.auth.dependencies import User, get_current_active_user
 from application.vector_db.dependencies import vector_db_use_cases
+from models.database import UserAccount
 
 router = APIRouter(prefix="/api/vector-db", tags=["vector-db"])
 

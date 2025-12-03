@@ -1,10 +1,13 @@
 import httpx
 import time
-from fastapi import APIRouter, Depends, Form
 from typing import Annotated
-from services.config import ConfigCenter, VERSION
-from services.auth import get_current_active_user, User, has_users
+
+from fastapi import APIRouter, Depends, Form
+
 from api.response import success
+from application.auth.dependencies import User, get_current_active_user, has_users
+from application.config.dependencies import config_service
+from core.version import VERSION
 router = APIRouter(prefix="/api/config", tags=["config"])
 
 
@@ -13,7 +16,7 @@ async def get_config(
     current_user: Annotated[User, Depends(get_current_active_user)],
     key: str
 ):
-    value = await ConfigCenter.get(key)
+    value = await config_service.get(key)
     return success({"key": key, "value": value})
 
 
@@ -23,7 +26,7 @@ async def set_config(
     key: str = Form(...),
     value: str = Form(...)
 ):
-    await ConfigCenter.set(key, value)
+    await config_service.set(key, value)
     return success({"key": key, "value": value})
 
 
@@ -31,22 +34,22 @@ async def set_config(
 async def get_all_config(
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
-    configs = await ConfigCenter.get_all()
+    configs = await config_service.get_all()
     return success(configs)
 
 
 @router.get("/status")
 async def get_system_status():
-    logo = await ConfigCenter.get("APP_LOGO", "/logo.svg")
-    favicon = await ConfigCenter.get("APP_FAVICON", logo)
+    logo = await config_service.get("APP_LOGO", "/logo.svg")
+    favicon = await config_service.get("APP_FAVICON", logo)
     system_info = {
         "version": VERSION,
-        "title": await ConfigCenter.get("APP_NAME", "Foxel"),
+        "title": await config_service.get("APP_NAME", "Foxel"),
         "logo": logo,
         "favicon": favicon,
         "is_initialized": await has_users(),
-        "app_domain": await ConfigCenter.get("APP_DOMAIN"),
-        "file_domain": await ConfigCenter.get("FILE_DOMAIN"),
+        "app_domain": await config_service.get("APP_DOMAIN"),
+        "file_domain": await config_service.get("FILE_DOMAIN"),
     }
     return success(system_info)
 

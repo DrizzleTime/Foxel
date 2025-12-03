@@ -4,6 +4,10 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Path
 
 from api.response import success
+from application.ai.dependencies import ai_use_cases
+from application.ai.use_cases import ABILITIES
+from application.auth.dependencies import User, get_current_active_user
+from infrastructure.vector_db.service import VectorDBService
 from schemas.ai import (
     AIDefaultsUpdate,
     AIModelCreate,
@@ -11,20 +15,16 @@ from schemas.ai import (
     AIProviderCreate,
     AIProviderUpdate,
 )
-from services.ai_providers import AIProviderService
-from services.auth import User, get_current_active_user
-from services.vector_db import VectorDBService
 
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
-service = AIProviderService()
 
 
 @router.get("/providers")
 async def list_providers(
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
-    providers = await service.list_providers()
+    providers = await ai_use_cases.list_providers()
     return success({"providers": providers})
 
 
@@ -33,7 +33,7 @@ async def create_provider(
     payload: AIProviderCreate,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
-    provider = await service.create_provider(payload.dict())
+    provider = await ai_use_cases.create_provider(payload.model_dump())
     return success(provider)
 
 
@@ -42,7 +42,10 @@ async def get_provider(
     provider_id: Annotated[int, Path(..., gt=0)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    provider = await service.get_provider(provider_id, with_models=True)
+    try:
+        provider = await ai_use_cases.get_provider(provider_id, with_models=True)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Provider not found")
     return success(provider)
 
 
@@ -55,7 +58,10 @@ async def update_provider(
     data = {k: v for k, v in payload.dict().items() if v is not None}
     if not data:
         raise HTTPException(status_code=400, detail="No fields to update")
-    provider = await service.update_provider(provider_id, data)
+    try:
+        provider = await ai_use_cases.update_provider(provider_id, data)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Provider not found")
     return success(provider)
 
 
@@ -64,7 +70,7 @@ async def delete_provider(
     provider_id: Annotated[int, Path(..., gt=0)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    await service.delete_provider(provider_id)
+    await ai_use_cases.delete_provider(provider_id)
     return success({"id": provider_id})
 
 
@@ -74,7 +80,7 @@ async def sync_models(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     try:
-        result = await service.sync_models(provider_id)
+        result = await ai_use_cases.sync_models(provider_id)
     except (httpx.RequestError, httpx.HTTPStatusError) as exc:
         raise HTTPException(status_code=502, detail=f"Failed to synchronize models: {exc}") from exc
     except ValueError as exc:
@@ -89,7 +95,7 @@ async def fetch_remote_models(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     try:
-        models = await service.fetch_remote_models(provider_id)
+        models = await ai_use_cases.fetch_remote_models(provider_id)
     except (httpx.RequestError, httpx.HTTPStatusError) as exc:
         raise HTTPException(status_code=502, detail=f"Failed to pull models: {exc}") from exc
     except ValueError as exc:
@@ -103,7 +109,7 @@ async def list_models(
     provider_id: Annotated[int, Path(..., gt=0)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    models = await service.list_models(provider_id)
+    models = await ai_use_cases.list_models(provider_id)
     return success({"models": models})
 
 
@@ -113,7 +119,7 @@ async def create_model(
     payload: AIModelCreate,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    model = await service.create_model(provider_id, payload.dict())
+    model = await ai_use_cases.create_model(provider_id, payload.model_dump())
     return success(model)
 
 
@@ -126,7 +132,10 @@ async def update_model(
     data = {k: v for k, v in payload.dict().items() if v is not None}
     if not data:
         raise HTTPException(status_code=400, detail="No fields to update")
-    model = await service.update_model(model_id, data)
+    try:
+        model = await ai_use_cases.update_model(model_id, data)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Model not found")
     return success(model)
 
 
@@ -135,7 +144,7 @@ async def delete_model(
     model_id: Annotated[int, Path(..., gt=0)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    await service.delete_model(model_id)
+    await ai_use_cases.delete_model(model_id)
     return success({"id": model_id})
 
 
@@ -150,7 +159,7 @@ def _get_embedding_dimension(entry: Optional[Dict]) -> Optional[int]:
 async def get_defaults(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    defaults = await service.get_default_models()
+    defaults = await ai_use_cases.get_default_models()
     return success(defaults)
 
 
@@ -159,9 +168,9 @@ async def update_defaults(
     payload: AIDefaultsUpdate,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    previous = await service.get_default_models()
+    previous = await ai_use_cases.get_default_models()
     try:
-        updated = await service.set_default_models(payload.as_mapping())
+        updated = await ai_use_cases.set_default_models(payload.as_mapping())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

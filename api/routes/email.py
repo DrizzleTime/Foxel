@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from services.auth import User, get_current_active_user
-from services.email import EmailService, EmailTemplateRenderer
-from schemas.email import EmailTestRequest, EmailTemplateUpdate, EmailTemplatePreviewPayload
 from api.response import success
-from services.logging import LogService
+from application.auth.dependencies import User, get_current_active_user
+from application.email.service import EmailService, EmailTemplateRenderer
+from application.logging.dependencies import logging_service
+from schemas.email import EmailTestRequest, EmailTemplatePreviewPayload, EmailTemplateUpdate
 
 
 router = APIRouter(
@@ -27,7 +27,7 @@ async def trigger_test_email(
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    await LogService.action(
+    await logging_service.action(
         "route:email",
         "Triggered email test",
         details={"task_id": task.id, "template": payload.template, "to": str(payload.to)},
@@ -68,7 +68,7 @@ async def update_email_template(
         await EmailTemplateRenderer.save(name, payload.content)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    await LogService.action(
+    await logging_service.action(
         "route:email",
         "Updated email template",
         details={"template": name},

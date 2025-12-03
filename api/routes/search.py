@@ -2,10 +2,10 @@ from typing import Any, Dict, List, Tuple
 
 from fastapi import APIRouter, Depends, Query
 
+from application.ai.inference import get_text_embedding
+from application.auth.dependencies import User, get_current_active_user
+from application.vector_db.dependencies import vector_db_use_cases
 from schemas.fs import SearchResultItem
-from services.auth import get_current_active_user, User
-from services.ai import get_text_embedding
-from services.vector_db import VectorDBService
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -49,7 +49,6 @@ def _normalize_result(raw: Dict[str, Any], source: str, fallback_score: float = 
 
 
 async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
-    vector_db = VectorDBService()
     try:
         embedding = await get_text_embedding(query)
     except Exception:
@@ -58,7 +57,7 @@ async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
         return []
 
     try:
-        raw_results = await vector_db.search_vectors("vector_collection", embedding, max(top_k, 10))
+        raw_results = await vector_db_use_cases.search_vectors("vector_collection", embedding, max(top_k, 10))
     except Exception:
         return []
 
@@ -70,11 +69,10 @@ async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
 
 
 async def _filename_search(query: str, page: int, page_size: int) -> Tuple[List[SearchResultItem], bool]:
-    vector_db = VectorDBService()
     limit = max(page * page_size + 1, page_size * (page + 2))
     limit = min(limit, 2000)
     try:
-        raw_results = await vector_db.search_by_path("vector_collection", query, limit)
+        raw_results = await vector_db_use_cases.search_by_path("vector_collection", query, limit)
     except Exception:
         return [], False
 

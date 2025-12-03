@@ -1,9 +1,11 @@
-from typing import Optional
-from fastapi import APIRouter, Query
-from models.database import Log
-from api.response import page, success
-from tortoise.expressions import Q
+from dataclasses import asdict
 from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Query
+
+from api.response import page, success
+from application.logging.dependencies import logging_service
 
 router = APIRouter(prefix="/api/logs", tags=["Logs"])
 
@@ -17,20 +19,16 @@ async def get_logs(
     end_time: Optional[datetime] = Query(None),
 ):
     """获取日志列表，支持分页和筛选"""
-    query = Log.all()
-    if level:
-        query = query.filter(level=level)
-    if source:
-        query = query.filter(source__icontains=source)
-    if start_time:
-        query = query.filter(timestamp__gte=start_time)
-    if end_time:
-        query = query.filter(timestamp__lte=end_time)
-
-    total = await query.count()
-    logs = await query.order_by("-timestamp").offset((page_num - 1) * page_size).limit(page_size)
-
-    return success(page([log for log in logs], total, page_num, page_size))
+    logs, total = await logging_service.list_logs(
+        page=page_num,
+        page_size=page_size,
+        level=level,
+        source=source,
+        start_time=start_time,
+        end_time=end_time,
+    )
+    items = [asdict(log) for log in logs]
+    return success(page(items, total, page_num, page_size))
 
 @router.delete("")
 async def clear_logs(
@@ -38,11 +36,7 @@ async def clear_logs(
     end_time: Optional[datetime] = Query(None),
 ):
     """清理指定时间范围内的日志"""
-    query = Log.all()
-    if start_time:
-        query = query.filter(timestamp__gte=start_time)
-    if end_time:
-        query = query.filter(timestamp__lte=end_time)
-    
-    deleted_count = await query.delete()
+    deleted_count = await logging_service.clear_logs(
+        start_time=start_time, end_time=end_time
+    )
     return success({"deleted_count": deleted_count})

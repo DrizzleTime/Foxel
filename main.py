@@ -1,15 +1,18 @@
 import os
-from services.config import VERSION, ConfigCenter
-from services.adapters.registry import runtime_registry
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from db.session import close_db, init_db
-from api.routers import include_routers
-from fastapi import FastAPI
-from services.middleware.logging_middleware import LoggingMiddleware
-from services.middleware.exception_handler import global_exception_handler
+
 from dotenv import load_dotenv
-from services.task_queue import task_queue_service
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from api.routers import include_routers
+from application.config.dependencies import config_service
+from application.middleware.exception_handler import global_exception_handler
+from application.middleware.logging_middleware import LoggingMiddleware
+from application.task_queue import task_queue_service
+from core.version import VERSION
+from db.session import close_db, init_db
+from infrastructure.storage_adapters.registry import runtime_registry
 
 load_dotenv()
 
@@ -19,7 +22,7 @@ async def lifespan(app: FastAPI):
     os.makedirs("data/db", exist_ok=True)
     await init_db()
     await runtime_registry.refresh()
-    await ConfigCenter.set("APP_VERSION", VERSION)
+    await config_service.set("APP_VERSION", VERSION)
     await task_queue_service.start_worker()
     try:
         yield

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
-from services.auth import get_current_active_user
-from services.backup import BackupService
-from models.database import UserAccount
-import json
 import datetime
+import json
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
+
+from application.auth.dependencies import get_current_active_user
+from application.backup.dependencies import backup_service
 
 router = APIRouter(
     prefix="/api/backup",
@@ -18,7 +19,7 @@ async def export_backup():
     生成并下载一个包含所有关键数据的JSON文件。
     """
     try:
-        data = await BackupService.export_data()
+        data = await backup_service.export_data()
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         headers = {
             "Content-Disposition": f"attachment; filename=foxel_backup_{timestamp}.json"
@@ -44,7 +45,7 @@ async def import_backup(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="无法解析JSON文件")
     
     try:
-        await BackupService.import_data(data)
+        await backup_service.import_data(data)
         return {"message": "数据导入成功。"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"导入失败: {e}")

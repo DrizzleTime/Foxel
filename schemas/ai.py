@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from services.ai_providers import ABILITIES, normalize_capabilities
+from application.ai.use_cases import ABILITIES, normalize_capabilities
 
 
 class AIProviderBase(BaseModel):

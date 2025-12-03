@@ -3,12 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.response import success
+from application.auth.dependencies import User, get_current_active_user
+from application.logging.dependencies import logging_service
+from application.storage.virtual_fs_service import path_is_directory
+from application.task_queue import TaskProgress, task_queue_service
 from schemas.offline_downloads import OfflineDownloadCreate
-from services.auth import User, get_current_active_user
-from services.logging import LogService
-from services.task_queue import task_queue_service, TaskProgress
-from services.virtual_fs import path_is_directory
-
 
 router = APIRouter(
     prefix="/api/offline-downloads",
@@ -49,10 +48,14 @@ async def create_offline_download(
         ),
     )
 
-    await LogService.action(
+    await logging_service.action(
         "route:offline_downloads",
         f"Offline download task created {task.id}",
-        details={"url": str(payload.url), "dest_dir": dest_dir, "filename": payload.filename},
+        details={
+            "url": str(payload.url),
+            "dest_dir": dest_dir,
+            "filename": payload.filename,
+        },
         user_id=current_user.id if hasattr(current_user, "id") else None,
     )
 
@@ -63,7 +66,11 @@ async def create_offline_download(
 async def list_offline_downloads(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    tasks = [t for t in task_queue_service.get_all_tasks() if t.name == "offline_http_download"]
+    tasks = [
+        t
+        for t in task_queue_service.get_all_tasks()
+        if t.name == "offline_http_download"
+    ]
     data = [t.dict() for t in tasks]
     return success(data)
 

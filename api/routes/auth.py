@@ -1,24 +1,29 @@
-from typing import Annotated
-from fastapi import APIRouter, HTTPException, Depends, Form
 import hashlib
+from datetime import timedelta
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
-from services.auth import (
+from pydantic import BaseModel
+
+from api.response import success
+from application.auth.dependencies import (
+    auth_service,
     authenticate_user_db,
     create_access_token,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    register_user,
-    Token,
     get_current_active_user,
-    User,
+    get_password_hash,
+    register_user,
     request_password_reset,
-    verify_password_reset_token,
     reset_password_with_token,
+    verify_password,
+    verify_password_reset_token,
 )
-from pydantic import BaseModel
-from datetime import timedelta
-from api.response import success
-from models.database import UserAccount
-from services.auth import verify_password, get_password_hash
+from application.auth.use_cases import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    Token,
+    UserPublic as User,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -100,38 +105,26 @@ async def update_me(
     payload: UpdateMeRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    db_user = await UserAccount.get_or_none(id=current_user.id)
-    if not db_user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+    updated = await auth_service.update_profile(
+        user_id=current_user.id,
+        email=payload.email,
+        full_name=payload.full_name,
+        old_password=payload.old_password,
+        new_password=payload.new_password,
+    )
 
-    if payload.email is not None:
-        exists = await UserAccount.filter(email=payload.email).exclude(id=db_user.id).exists()
-        if exists:
-            raise HTTPException(status_code=400, detail="邮箱已被占用")
-        db_user.email = payload.email
-
-    if payload.full_name is not None:
-        db_user.full_name = payload.full_name
-
-    if payload.new_password:
-        if not payload.old_password:
-            raise HTTPException(status_code=400, detail="请提供原密码")
-        if not verify_password(payload.old_password, db_user.hashed_password):
-            raise HTTPException(status_code=400, detail="原密码错误")
-        db_user.hashed_password = get_password_hash(payload.new_password)
-
-    await db_user.save()
-
-    email = (db_user.email or "").strip().lower()
+    email = (updated.email or "").strip().lower()
     md5_hash = hashlib.md5(email.encode("utf-8")).hexdigest()
     gravatar_url = f"https://cn.cravatar.com/avatar/{md5_hash}?s=64&d=identicon"
-    return success({
-        "id": db_user.id,
-        "username": db_user.username,
-        "email": db_user.email,
-        "full_name": db_user.full_name,
-        "gravatar_url": gravatar_url,
-    })
+    return success(
+        {
+            "id": updated.id,
+            "username": updated.username,
+            "email": updated.email,
+            "full_name": updated.full_name,
+            "gravatar_url": gravatar_url,
+        }
+    )
 
 
 @router.post("/password-reset/request", summary="请求密码重置邮件")

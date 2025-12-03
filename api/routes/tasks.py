@@ -1,18 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from dataclasses import asdict
 from typing import Annotated
 
-from models.database import AutomationTask
+from fastapi import APIRouter, Depends, HTTPException
+
+from api.response import success
+from application.auth.dependencies import User, get_current_active_user
+from application.automation.dependencies import automation_service
+from application.config.dependencies import config_service
+from application.logging.dependencies import logging_service
+from application.task_queue import task_queue_service
 from schemas.tasks import (
     AutomationTaskCreate,
     AutomationTaskUpdate,
     TaskQueueSettings,
     TaskQueueSettingsResponse,
 )
-from api.response import success
-from services.auth import get_current_active_user, User
-from services.logging import LogService
-from services.task_queue import task_queue_service
-from services.config import ConfigCenter
 
 router = APIRouter(
     prefix="/api/tasks",
@@ -47,8 +49,8 @@ async def update_task_queue_settings(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     await task_queue_service.set_concurrency(settings.concurrency)
-    await ConfigCenter.set("TASK_QUEUE_CONCURRENCY", str(task_queue_service.get_concurrency()))
-    await LogService.action(
+    await config_service.set("TASK_QUEUE_CONCURRENCY", str(task_queue_service.get_concurrency()))
+    await logging_service.action(
         "route:tasks",
         "Updated task queue settings",
         details={"concurrency": settings.concurrency},
@@ -77,50 +79,52 @@ async def create_task(
     task_in: AutomationTaskCreate,
     user: User = Depends(get_current_active_user)
 ):
-    task = await AutomationTask.create(**task_in.model_dump())
-    await LogService.action(
+    try:
+        task = await automation_service.create_task(task_in.model_dump())
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc))
+    await logging_service.action(
         "route:tasks",
         f"Created task {task.name}",
         details=task_in.model_dump(),
         user_id=user.id if hasattr(user, "id") else None,
     )
-    return success(task)
+    return success(asdict(task))
 
 
 @router.get("/{task_id}")
 async def get_task(task_id: int):
-    task = await AutomationTask.get_or_none(id=task_id)
+    task = await automation_service.get_task(task_id)
     if not task:
         raise HTTPException(
             status_code=404, detail=f"Task {task_id} not found")
-    return success(task)
+    return success(asdict(task))
 
 
 @router.get("/")
 async def list_tasks():
-    tasks = await AutomationTask.all()
-    return success(tasks)
+    tasks = await automation_service.list_tasks()
+    return success([asdict(t) for t in tasks])
 
 
 @router.put("/{task_id}")
 async def update_task(
         current_user: Annotated[User, Depends(get_current_active_user)],
         task_id: int, task_in: AutomationTaskUpdate):
-    task = await AutomationTask.get_or_none(id=task_id)
-    if not task:
-        raise HTTPException(
-            status_code=404, detail=f"Task {task_id} not found")
     update_data = task_in.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(task, key, value)
-    await task.save()
-    await LogService.action(
+    try:
+        task = await automation_service.update_task(task_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404 if "not found" in str(exc) else 400, detail=str(exc)
+        )
+    await logging_service.action(
         "route:tasks",
         f"Updated task {task.name}",
         details=task_in.model_dump(),
         user_id=current_user.id,
     )
-    return success(task)
+    return success(asdict(task))
 
 
 @router.delete("/{task_id}")
@@ -128,11 +132,11 @@ async def delete_task(
     task_id: int,
     user: User = Depends(get_current_active_user)
 ):
-    deleted_count = await AutomationTask.filter(id=task_id).delete()
+    deleted_count = await automation_service.delete_task(task_id)
     if not deleted_count:
         raise HTTPException(
             status_code=404, detail=f"Task {task_id} not found")
-    await LogService.action(
+    await logging_service.action(
         "route:tasks",
         f"Deleted task {task_id}",
         details={"task_id": task_id},

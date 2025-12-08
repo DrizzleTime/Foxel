@@ -1,14 +1,14 @@
 import { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import type { PropsWithChildren } from 'react';
-import { zh } from './locales/zh';
-import { en } from './locales/en';
+import en from './locales/en.json';
+import zhOverrides from './locales/zh.json';
 
 type Lang = 'zh' | 'en';
 type Dict = Record<string, string>;
 
 const dicts: Record<Lang, Dict> = {
-  zh,
   en,
+  zh: { ...en, ...zhOverrides },
 };
 
 export interface I18nContextValue {

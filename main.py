@@ -1,15 +1,14 @@
 import os
-from services.config import VERSION, ConfigCenter
-from services.adapters.registry import runtime_registry
+from domain.config.service import ConfigService, VERSION
+from domain.adapters.registry import runtime_registry
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from db.session import close_db, init_db
 from api.routers import include_routers
 from fastapi import FastAPI
-from services.middleware.logging_middleware import LoggingMiddleware
-from services.middleware.exception_handler import global_exception_handler
+from middleware.exception_handler import global_exception_handler
 from dotenv import load_dotenv
-from services.task_queue import task_queue_service
+from domain.tasks.task_queue import task_queue_service
 
 load_dotenv()
 
@@ -19,7 +18,7 @@ async def lifespan(app: FastAPI):
     os.makedirs("data/db", exist_ok=True)
     await init_db()
     await runtime_registry.refresh()
-    await ConfigCenter.set("APP_VERSION", VERSION)
+    await ConfigService.set("APP_VERSION", VERSION)
     await task_queue_service.start_worker()
     try:
         yield
@@ -35,7 +34,6 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     include_routers(app)
-    app.add_middleware(LoggingMiddleware)
     app.add_exception_handler(Exception, global_exception_handler)
     return app
 

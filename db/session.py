@@ -1,6 +1,6 @@
 from tortoise import Tortoise
 
-from services.adapters.registry import runtime_registry
+from domain.adapters.registry import runtime_registry
 
 TORTOISE_ORM = {
     "connections": {"default": "sqlite://data/db/db.sqlite3"},

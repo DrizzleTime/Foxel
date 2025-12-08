@@ -137,8 +137,8 @@ Install the following tooling first:
 
 Storage adapters integrate new storage providers (for example S3, FTP, or Alist).
 
-1. Create a new module under [`services/adapters/`](services/adapters/) (for example `my_new_adapter.py`).
-2. Implement a class that inherits from [`services.adapters.base.BaseAdapter`](services/adapters/base.py) and provide concrete implementations for the abstract methods such as `list_dir`, `get_meta`, `upload`, and `download`.
+1. Create a new module under [`domain/adapters/providers/`](domain/adapters/providers/) (for example `my_new_adapter.py`).
+2. Implement a class that inherits from [`domain.adapters.providers.base.BaseAdapter`](domain/adapters/providers/base.py) and provide concrete implementations for the abstract methods such as `list_dir`, `get_meta`, `upload`, and `download`.
 
 ### Frontend Apps
 

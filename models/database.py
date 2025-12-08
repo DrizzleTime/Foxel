@@ -128,17 +128,25 @@ class AutomationTask(Model):
         table = "automation_tasks"
 
 
-class Log(Model):
+class AuditLog(Model):
     id = fields.IntField(pk=True)
-    timestamp = fields.DatetimeField(auto_now_add=True)
-    level = fields.CharField(max_length=50)
-    source = fields.CharField(max_length=100)
-    message = fields.TextField()
-    details = fields.JSONField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    action = fields.CharField(max_length=50)
+    description = fields.TextField(null=True)
     user_id = fields.IntField(null=True)
+    username = fields.CharField(max_length=100, null=True)
+    client_ip = fields.CharField(max_length=64, null=True)
+    method = fields.CharField(max_length=10)
+    path = fields.CharField(max_length=1024)
+    status_code = fields.IntField()
+    duration_ms = fields.FloatField(null=True)
+    success = fields.BooleanField(default=True)
+    request_params = fields.JSONField(null=True)
+    request_body = fields.JSONField(null=True)
+    error = fields.TextField(null=True)
 
     class Meta:
-        table = "logs"
+        table = "audit_logs"
 
 
 class ShareLink(Model):

@@ -1,0 +1,59 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Form, Request
+
+from api.response import success
+from domain.audit import AuditAction, audit
+from domain.auth.service import get_current_active_user
+from domain.auth.types import User
+from domain.config.service import ConfigService
+from domain.config.types import ConfigItem
+
+router = APIRouter(prefix="/api/config", tags=["config"])
+
+
+@router.get("/")
+@audit(action=AuditAction.READ, description="获取配置")
+async def get_config(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    key: str,
+):
+    value = await ConfigService.get(key)
+    return success(ConfigItem(key=key, value=value).model_dump())
+
+
+@router.post("/")
+@audit(action=AuditAction.UPDATE, description="设置配置", body_fields=["key", "value"])
+async def set_config(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    key: str = Form(...),
+    value: str = Form(...),
+):
+    await ConfigService.set(key, value)
+    return success(ConfigItem(key=key, value=value).model_dump())
+
+
+@router.get("/all")
+@audit(action=AuditAction.READ, description="获取全部配置")
+async def get_all_config(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    configs = await ConfigService.get_all()
+    return success(configs)
+
+
+@router.get("/status")
+@audit(action=AuditAction.READ, description="获取系统状态")
+async def get_system_status(request: Request):
+    status_data = await ConfigService.get_system_status()
+    return success(status_data.model_dump())
+
+
+@router.get("/latest-version")
+@audit(action=AuditAction.READ, description="获取最新版本")
+async def get_latest_version(request: Request):
+    info = await ConfigService.get_latest_version()
+    return success(info.model_dump())

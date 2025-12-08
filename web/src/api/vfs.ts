@@ -139,6 +139,6 @@ export const vfsApi = {
     });
     if (page !== undefined) params.set('page', String(page));
     if (page_size !== undefined) params.set('page_size', String(page_size));
-    return request<SearchResponse>(`/search?${params.toString()}`);
+    return request<SearchResponse>(`/fs/search?${params.toString()}`);
   },
 };

@@ -143,9 +143,9 @@
 
 存储适配器是 Foxel 的核心扩展点，用于接入不同的存储后端 (如 S3, FTP, Alist 等)。
 
-1. **创建适配器文件**: 在 [`services/adapters/`](services/adapters/) 目录下，创建一个新文件，例如 `my_new_adapter.py`。
+1. **创建适配器文件**: 在 [`domain/adapters/providers/`](domain/adapters/providers/) 目录下，创建一个新文件，例如 `my_new_adapter.py`。
 2. **实现适配器类**:
-    - 创建一个类，继承自 [`services.adapters.base.BaseAdapter`](services/adapters/base.py)。
+    - 创建一个类，继承自 [`domain.adapters.providers.base.BaseAdapter`](domain/adapters/providers/base.py)。
     - 实现 `BaseAdapter` 中定义的所有抽象方法，如 `list_dir`, `get_meta`, `upload`, `download` 等。请仔细阅读基类中的文档注释以理解每个方法的作用和参数。
 
 ### 贡献前端应用 (App)

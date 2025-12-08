@@ -44,7 +44,7 @@ export const navGroups: NavGroup[] = [
     children: [
       { key: 'settings', icon: React.createElement(SettingOutlined), label: 'System Settings' },
       { key: 'backup', icon: React.createElement(DatabaseOutlined), label: 'Backup & Restore' },
-      { key: 'logs', icon: React.createElement(BugOutlined), label: 'System Logs' }
+      { key: 'audit', icon: React.createElement(BugOutlined), label: 'Audit Logs' }
     ]
   }
 ];

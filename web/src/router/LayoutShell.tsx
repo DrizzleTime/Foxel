@@ -11,7 +11,7 @@ import TaskQueuePage from '../pages/TaskQueuePage.tsx';
 import ProcessorsPage from '../pages/ProcessorsPage.tsx';
 import OfflineDownloadPage from '../pages/OfflineDownloadPage.tsx';
 import SystemSettingsPage from '../pages/SystemSettingsPage/SystemSettingsPage.tsx';
-import LogsPage from '../pages/LogsPage.tsx';
+import AuditLogsPage from '../pages/AuditLogsPage.tsx';
 import BackupPage from '../pages/SystemSettingsPage/BackupPage.tsx';
 import PluginsPage from '../pages/PluginsPage.tsx';
 import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext';
@@ -58,7 +58,7 @@ const ShellBody = memo(function ShellBody() {
                   onTabNavigate={(key, options) => navigate(`/settings/${key}`, options)}
                 />
               )}
-              {navKey === 'logs' && <LogsPage />}
+              {navKey === 'audit' && <AuditLogsPage />}
               {navKey === 'backup' && <BackupPage />}
             </Flex>
           </div>

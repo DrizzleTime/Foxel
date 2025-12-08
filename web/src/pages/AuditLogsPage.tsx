@@ -235,10 +235,17 @@ const AuditLogsPage = memo(function AuditLogsPage() {
         onCancel={() => setSelectedLog(null)}
         footer={null}
         width={900}
+        styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       >
         {selectedLog && (
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            <Descriptions column={2} bordered size="small">
+            <Descriptions
+              column={2}
+              bordered
+              size="small"
+              labelStyle={{ minWidth: 120, whiteSpace: 'nowrap', fontWeight: 500 }}
+              contentStyle={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}
+            >
               <Descriptions.Item label={t('Time')}>
                 {format(new Date(selectedLog.created_at), 'yyyy-MM-dd HH:mm:ss')}
               </Descriptions.Item>
@@ -252,9 +259,9 @@ const AuditLogsPage = memo(function AuditLogsPage() {
                 {selectedLog.client_ip || '-'}
               </Descriptions.Item>
               <Descriptions.Item label={t('Path')} span={2}>
-                <Space size={6}>
+                <Space size={6} wrap style={{ wordBreak: 'break-all' }}>
                   <Tag bordered={false} color="default" style={{ margin: 0, paddingInline: 8 }}>{selectedLog.method}</Tag>
-                  <Typography.Text copyable>{selectedLog.path}</Typography.Text>
+                  <Typography.Text copyable style={{ wordBreak: 'break-all' }}>{selectedLog.path}</Typography.Text>
                 </Space>
               </Descriptions.Item>
               <Descriptions.Item label={t('Status Code')}>
@@ -268,7 +275,7 @@ const AuditLogsPage = memo(function AuditLogsPage() {
                   {selectedLog.success ? t('Success') : t('Failure')}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label={t('Description')}>
+              <Descriptions.Item label={t('Description')} span={2}>
                 {selectedLog.description || '-'}
               </Descriptions.Item>
               <Descriptions.Item label={t('Error')} span={2}>

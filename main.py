@@ -5,8 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from db.session import close_db, init_db
 from api.routers import include_routers
-from fastapi import FastAPI
-from middleware.exception_handler import global_exception_handler
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
+from middleware.exception_handler import (
+    global_exception_handler,
+    http_exception_handler,
+    httpx_exception_handler,
+    validation_exception_handler,
+)
+import httpx
 from dotenv import load_dotenv
 from domain.tasks.task_queue import task_queue_service
 
@@ -34,6 +41,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     include_routers(app)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(httpx.HTTPStatusError, httpx_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
     return app
 

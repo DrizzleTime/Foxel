@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { Button, Typography, Upload, message, Modal } from 'antd';
+import { Button, Typography, Upload, message, Modal, Card } from 'antd';
 import PageCard from '../../components/PageCard';
 import { UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { backupApi } from '../../api/backup';
@@ -55,7 +55,7 @@ const BackupPage = memo(function BackupPage() {
     <PageCard title={t('Backup & Restore')}>
 
       <div style={{ display: 'flex', gap: '16px' }}>
-        <PageCard title={t('Export')} style={{ flex: 1 }}>
+        <Card title={t('Export')} style={{ flex: 1 }}>
           <Paragraph>
             {t('Export all data (adapters, users, tasks, shares) into a JSON file.')}
             <Text strong>{t('Keep your backup file safe.')}</Text>
@@ -67,8 +67,8 @@ const BackupPage = memo(function BackupPage() {
           >
             {t('Export Backup')}
           </Button>
-        </PageCard>
-        <PageCard title={t('Import')} style={{ flex: 1 }}>
+        </Card>
+        <Card title={t('Import')} style={{ flex: 1 }}>
           <Paragraph>
             {t('Restore data from a previously exported JSON file.')}
             <Text strong type="danger">{t('Warning: This will clear and overwrite existing data.')}</Text>
@@ -81,7 +81,7 @@ const BackupPage = memo(function BackupPage() {
               {t('Choose File and Restore')}
             </Button>
           </Upload>
-        </PageCard>
+        </Card>
       </div>
     </PageCard>
   );

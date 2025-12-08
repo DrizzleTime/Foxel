@@ -10,3 +10,7 @@ class BackupData(BaseModel):
     automation_tasks: list[dict[str, Any]] = Field(default_factory=list)
     share_links: list[dict[str, Any]] = Field(default_factory=list)
     configurations: list[dict[str, Any]] = Field(default_factory=list)
+    ai_providers: list[dict[str, Any]] = Field(default_factory=list)
+    ai_models: list[dict[str, Any]] = Field(default_factory=list)
+    ai_default_models: list[dict[str, Any]] = Field(default_factory=list)
+    plugins: list[dict[str, Any]] = Field(default_factory=list)

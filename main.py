@@ -1,11 +1,15 @@
 import os
+from pathlib import Path
+from contextlib import asynccontextmanager
+
 from domain.config.service import ConfigService, VERSION
 from domain.adapters.registry import runtime_registry
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 from db.session import close_db, init_db
 from api.routers import include_routers
-from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from middleware.exception_handler import (
     global_exception_handler,
@@ -18,6 +22,31 @@ from dotenv import load_dotenv
 from domain.tasks.task_queue import task_queue_service
 
 load_dotenv()
+
+
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 404:
+            return await super().get_response("index.html", scope)
+        return response
+
+
+INDEX_FILE = Path("web/dist/index.html")
+SPA_EXCLUDE_PREFIXES = ("/api", "/docs", "/openapi.json", "/webdav", "/s3")
+
+
+async def spa_fallback_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if (
+        response.status_code == 404
+        and request.method == "GET"
+        and "text/html" in request.headers.get("accept", "")
+        and not request.url.path.startswith(SPA_EXCLUDE_PREFIXES)
+        and INDEX_FILE.exists()
+    ):
+        return FileResponse(INDEX_FILE)
+    return response
 
 
 @asynccontextmanager
@@ -40,6 +69,7 @@ def create_app() -> FastAPI:
         description="A highly extensible private cloud storage solution for individuals and teams",
         lifespan=lifespan,
     )
+    app.middleware("http")(spa_fallback_middleware)
     include_routers(app)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
@@ -56,6 +86,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/", SPAStaticFiles(directory="web/dist", html=True, check_dir=False), name="static")
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

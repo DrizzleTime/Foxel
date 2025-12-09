@@ -12,7 +12,8 @@ from domain.share import api as share
 from domain.tasks import api as tasks
 from domain.ai import api as ai
 from domain.virtual_fs import api as virtual_fs
-from domain.virtual_fs import s3_api, search_api, webdav_api
+from domain.virtual_fs.mapping import s3_api, webdav_api
+from domain.virtual_fs.search import search_api
 from domain.audit import router as audit
 
 

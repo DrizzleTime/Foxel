@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List, Dict, Protocol, runtime_checkable, Tuple, AsyncIterator
 from models import StorageAdapter
 

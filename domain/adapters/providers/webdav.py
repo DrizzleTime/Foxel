@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List, Dict, Optional, Tuple, AsyncIterator
 import httpx
 from urllib.parse import urljoin, quote

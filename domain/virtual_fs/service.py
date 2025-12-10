@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from .common import VirtualFSCommonMixin
 from .resolver import VirtualFSResolverMixin
 from .listing import VirtualFSListingMixin

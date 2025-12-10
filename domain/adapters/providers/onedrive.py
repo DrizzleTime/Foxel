@@ -1,4 +1,3 @@
-from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Tuple, AsyncIterator
 import httpx

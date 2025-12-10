@@ -398,7 +398,7 @@ class AIProviderService:
 
 
 class VectorDBService:
-    _instance: "VectorDBService" | None = None
+    _instance: Optional["VectorDBService"] = None
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:

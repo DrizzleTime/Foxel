@@ -166,7 +166,7 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
           }}
         >
           {/* 最小化应用 Dock */}
-          {minimized.length > 0 && (
+          {!collapsed && minimized.length > 0 && (
             <div
               style={{
                 width: '100%',
@@ -224,7 +224,7 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
                     <Tag icon={<CheckCircleOutlined />} color="success" style={{ marginInlineEnd: 0 }} />
                   ) : (
                     <Tag icon={<CheckCircleOutlined />} color="success">
-                      {t('Up to date')}
+                      {status?.version}
                     </Tag>
                   )}
                 </Tooltip>
@@ -233,31 +233,33 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
               )
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: collapsed ? 'column' : 'row', gap: 8 }}>
-            <Button
-              shape="circle"
-              icon={<GithubOutlined />}
-              href="https://github.com/DrizzleTime/Foxel"
-              target="_blank"
-            />
-            <Button
-              shape="circle"
-              icon={<WechatOutlined />}
-              onClick={() => setIsModalOpen(true)}
-            />
-            <Button
-              shape="circle"
-              icon={<SendOutlined />}
-              href="https://t.me/+thDsBfyqJxZkNTU1"
-              target="_blank"
-            />
-            <Button
-              shape="circle"
-              icon={<FileTextOutlined />}
-              href="https://foxel.cc"
-              target="_blank"
-            />
-          </div>
+          {!collapsed && (
+            <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
+              <Button
+                shape="circle"
+                icon={<GithubOutlined />}
+                href="https://github.com/DrizzleTime/Foxel"
+                target="_blank"
+              />
+              <Button
+                shape="circle"
+                icon={<WechatOutlined />}
+                onClick={() => setIsModalOpen(true)}
+              />
+              <Button
+                shape="circle"
+                icon={<SendOutlined />}
+                href="https://t.me/+thDsBfyqJxZkNTU1"
+                target="_blank"
+              />
+              <Button
+                shape="circle"
+                icon={<FileTextOutlined />}
+                href="https://foxel.cc"
+                target="_blank"
+              />
+            </div>
+          )}
 
         </div>
       </Sider>

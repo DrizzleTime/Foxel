@@ -3,12 +3,13 @@ import { Button, Modal, Form, Input, Tag, message, Card, Typography, Popconfirm,
 import { GithubOutlined, LinkOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
 import { loadPluginFromUrl, ensureManifest } from '../plugins/runtime';
-import { reloadPluginApps } from '../apps/registry';
+import { reloadPluginApps, ensureAppsLoaded, listSystemApps, type AppDescriptor } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { fetchRepoList, type RepoItem, buildCenterUrl } from '../api/pluginCenter';
 
 const PluginsPage = memo(function PluginsPage() {
   const [data, setData] = useState<PluginItem[]>([]);
+  const [systemApps, setSystemApps] = useState<AppDescriptor[]>([]);
   const [adding, setAdding] = useState(false);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
@@ -30,6 +31,14 @@ const PluginsPage = memo(function PluginsPage() {
   };
 
   useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        await ensureAppsLoaded();
+        setSystemApps(listSystemApps());
+      } catch {}
+    })();
+  }, []);
 
   const installedKeySet = useMemo(() => {
     const set = new Set<string>();
@@ -82,6 +91,20 @@ const PluginsPage = memo(function PluginsPage() {
       || (p.supported_exts || []).some(e => e.toLowerCase().includes(s))
     ));
   }, [data, q]);
+
+  const filteredSystemApps = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return systemApps;
+    return systemApps.filter(a => (
+      (a.name || '').toLowerCase().includes(s)
+      || (a.author || '').toLowerCase().includes(s)
+      || (a.website || '').toLowerCase().includes(s)
+      || (a.github || '').toLowerCase().includes(s)
+      || (a.description || '').toLowerCase().includes(s)
+      || (a.supportedExts || []).some(e => e.toLowerCase().includes(s))
+      || (a.key || '').toLowerCase().includes(s)
+    ));
+  }, [systemApps, q]);
 
   const renderCard = (p: PluginItem) => {
     const icon = p.icon || '/plugins/demo-text-viewer.svg';
@@ -144,6 +167,73 @@ const PluginsPage = memo(function PluginsPage() {
               </div>
             )}
           </div>
+        </div>
+      </Card>
+    );
+  };
+
+  const renderSystemCard = (a: AppDescriptor) => {
+    const icon = a.iconUrl || '/plugins/demo-text-viewer.svg';
+    const name = a.name || a.key;
+    const exts = (a.supportedExts || []).slice(0, 6);
+    const more = (a.supportedExts || []).length - exts.length;
+    const link = a.website || a.github || '';
+    const title = (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <img src={icon} alt={name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/plugins/demo-text-viewer.svg'; }} />
+        <span>{name}</span>
+        <Tag style={{ marginLeft: 'auto' }}>{t('System App')}</Tag>
+      </div>
+    );
+    return (
+      <Card
+        key={`system:${a.key}`}
+        title={title}
+        hoverable
+        size="small"
+        styles={{ body: { padding: 12 } } as any}
+        style={{ borderRadius: 10, boxShadow: token.boxShadowTertiary }}
+        actions={[
+          <Button
+            key="open"
+            type="link"
+            size="small"
+            disabled={!link}
+            onClick={() => { if (link) window.open(link, '_blank', 'noreferrer'); }}
+          >
+            {t('Open Link')}
+          </Button>,
+          <Button
+            key="copy"
+            type="link"
+            size="small"
+            disabled={!link}
+            onClick={async () => {
+              if (!link) return;
+              try { await navigator.clipboard.writeText(link); message.success(t('Link copied')); } catch {}
+            }}
+          >
+            {t('Copy Link')}
+          </Button>,
+          <Button key="del" type="link" danger size="small" disabled>{t('Delete')}</Button>
+        ]}
+      >
+        <Typography.Paragraph
+          style={{ marginBottom: 8, minHeight: 44, lineHeight: '22px' }}
+          ellipsis={{ rows: 2 }}
+        >
+          {a.description || '（暂无描述）'}
+        </Typography.Paragraph>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
+            {(exts.length > 0 ? exts : ['任意']).map(e => <Tag key={e} style={{ flex: 'none' }}>{e}</Tag>)}
+          </div>
+          {more > 0 && <Tag style={{ flex: 'none' }}>+{more}</Tag>}
+        </div>
+        <Divider style={{ margin: '8px 0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextTertiary, fontSize: 12 }}>
+          <span>{t('Author')}: {a.author || 'Foxel'}</span>
+          <span style={{ marginLeft: 'auto', color: token.colorTextTertiary }}>{t('System App')}</span>
         </div>
       </Card>
     );
@@ -277,10 +367,11 @@ const PluginsPage = memo(function PluginsPage() {
                       </Card>
                     ))}
                   </div>
-                ) : filtered.length === 0 ? (
+                ) : (filteredSystemApps.length + filtered.length) === 0 ? (
                   <Empty description={t('No plugins')} />
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+                    {filteredSystemApps.map(renderSystemCard)}
                     {filtered.map(renderCard)}
                   </div>
                 )}

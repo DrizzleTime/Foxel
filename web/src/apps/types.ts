@@ -14,6 +14,11 @@ export interface AppDescriptor {
   iconUrl?: string;
   default?: boolean;
   defaultMaximized?: boolean;
+  description?: string;
+  author?: string;
+  supportedExts?: string[];
+  website?: string;
+  github?: string;
   /**
    * 应用窗口的默认位置与尺寸（非最大化时生效）
    * 任意字段缺省则按系统默认/级联偏移。

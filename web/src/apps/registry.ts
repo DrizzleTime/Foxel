@@ -46,7 +46,15 @@ function registerPluginAsApp(p: PluginItem) {
   });
 }
 
-loadApps();
+const appsLoadedPromise = loadApps();
+
+export async function ensureAppsLoaded() {
+  await appsLoadedPromise;
+}
+
+export function listSystemApps(): AppDescriptor[] {
+  return apps.filter(a => !a.key.startsWith('plugin:'));
+}
 
 export function getAppsForEntry(entry: VfsEntry): AppDescriptor[] {
   return apps.filter(a => a.supported(entry));

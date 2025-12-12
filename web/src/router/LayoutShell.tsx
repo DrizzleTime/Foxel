@@ -1,5 +1,5 @@
 import { Layout, Flex } from 'antd';
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import SideNav from '../layout/SideNav.tsx';
 import TopHeader from '../layout/TopHeader.tsx';
@@ -22,7 +22,11 @@ const ShellBody = memo(function ShellBody() {
   const navKey = params.navKey ?? 'files';
   const subPath = params['*'] ?? '';
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const COLLAPSED_KEY = 'layout.siderCollapsed';
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
+  useEffect(() => {
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
+  }, [collapsed]);
   const { windows, closeWindow, toggleMax, bringToFront, updateWindow } = useAppWindows();
   const settingsTab = navKey === 'settings' ? (subPath.split('/')[0] || undefined) : undefined;
   return (

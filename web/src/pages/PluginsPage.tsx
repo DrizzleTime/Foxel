@@ -340,7 +340,7 @@ const PluginsPage = memo(function PluginsPage() {
   };
 
   return (
-    <>
+    <div style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <Button type="primary" onClick={() => setAdding(true)}>{t('Install App')}</Button>
         {tab === 'installed' && <Button onClick={reload} loading={loading}>{t('Refresh')}</Button>}
@@ -350,12 +350,13 @@ const PluginsPage = memo(function PluginsPage() {
       <Tabs
         activeKey={tab}
         onChange={(k) => setTab(k as any)}
+        className="plugins-tabs"
         items={[
           {
             key: 'installed',
             label: t('Installed'),
             children: (
-              <>
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <Input
                     placeholder={t('Search name/author/url/extension')}
@@ -366,30 +367,32 @@ const PluginsPage = memo(function PluginsPage() {
                     onPressEnter={() => reload()}
                   />
                 </div>
-                {loading ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <Card key={i} style={{ borderRadius: 10 }}>
-                        <Skeleton active avatar paragraph={{ rows: 3 }} />
-                      </Card>
-                    ))}
-                  </div>
-                ) : (filteredSystemApps.length + filtered.length) === 0 ? (
-                  <Empty description={t('No plugins')} />
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
-                    {filteredSystemApps.map(renderSystemCard)}
-                    {filtered.map(renderCard)}
-                  </div>
-                )}
-              </>
+                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
+                  {loading ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <Card key={i} style={{ borderRadius: 10 }}>
+                          <Skeleton active avatar paragraph={{ rows: 3 }} />
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (filteredSystemApps.length + filtered.length) === 0 ? (
+                    <Empty description={t('No plugins')} />
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+                      {filteredSystemApps.map(renderSystemCard)}
+                      {filtered.map(renderCard)}
+                    </div>
+                  )}
+                </div>
+              </div>
             )
           },
           {
             key: 'discover',
             label: t('Discover'),
             children: (
-              <>
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                   <Input
                     placeholder={t('Search apps')}
@@ -417,34 +420,36 @@ const PluginsPage = memo(function PluginsPage() {
                     Foxel Center
                   </Button>
                 </div>
-                {repoLoading ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <Card key={i} style={{ borderRadius: 10 }}>
-                        <Skeleton active avatar paragraph={{ rows: 3 }} />
-                      </Card>
-                    ))}
-                  </div>
-                ) : repoItems.length === 0 ? (
-                  <Empty description={t('No results')} />
-                ) : (
-                  <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
-                      {repoItems.map(renderRepoCard)}
+                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
+                  {repoLoading ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <Card key={i} style={{ borderRadius: 10 }}>
+                          <Skeleton active avatar paragraph={{ rows: 3 }} />
+                        </Card>
+                      ))}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-                      <Pagination
-                        current={repoPage}
-                        pageSize={repoPageSize}
-                        total={repoTotal}
-                        showSizeChanger
-                        pageSizeOptions={[12, 24, 48].map(String)}
-                        onChange={(p, ps) => { setRepoPage(p); setRepoPageSize(ps); }}
-                      />
-                    </div>
-                  </>
-                )}
-              </>
+                  ) : repoItems.length === 0 ? (
+                    <Empty description={t('No results')} />
+                  ) : (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+                        {repoItems.map(renderRepoCard)}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+                        <Pagination
+                          current={repoPage}
+                          pageSize={repoPageSize}
+                          total={repoTotal}
+                          showSizeChanger
+                          pageSizeOptions={[12, 24, 48].map(String)}
+                          onChange={(p, ps) => { setRepoPage(p); setRepoPageSize(ps); }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             )
           }
         ]}
@@ -463,7 +468,7 @@ const PluginsPage = memo(function PluginsPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </>
+    </div>
   );
 });
 

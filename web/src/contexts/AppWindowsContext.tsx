@@ -63,7 +63,7 @@ export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const finalW = Math.min(baseW, vw - 40);
       const finalH = Math.min(baseH, vh - 60);
       const finalX = Math.min(Math.max(0, baseX), vw - finalW - 8);
-      const finalY = Math.min(Math.max(48, baseY), vh - finalH - 8);
+      const finalY = Math.min(Math.max(0, baseY), vh - finalH - 8);
       return [
         ...ws,
         {
@@ -99,7 +99,7 @@ export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const finalW = Math.min(baseW, vw - 40);
       const finalH = Math.min(baseH, vh - 60);
       const finalX = Math.min(Math.max(0, baseX), vw - finalW - 8);
-      const finalY = Math.min(Math.max(48, baseY), vh - finalH - 8);
+      const finalY = Math.min(Math.max(0, baseY), vh - finalH - 8);
       return [
         ...ws,
         {

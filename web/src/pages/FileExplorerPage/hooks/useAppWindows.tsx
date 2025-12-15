@@ -24,7 +24,7 @@ export function useAppWindows(path: string) {
       const finalW = Math.min(baseW, vw - 40);
       const finalH = Math.min(baseH, vh - 60);
       const finalX = Math.min(Math.max(0, baseX), vw - finalW - 8);
-      const finalY = Math.min(Math.max(48, baseY), vh - finalH - 8);
+      const finalY = Math.min(Math.max(0, baseY), vh - finalH - 8);
       return [...ws, {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2),
         app,

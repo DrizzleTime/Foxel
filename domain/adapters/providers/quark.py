@@ -290,6 +290,11 @@ class QuarkAdapter:
             return None
         return None
 
+    async def get_video_transcoding_url(self, fid: str) -> Optional[str]:
+        if not self.use_transcoding_address:
+            return None
+        return await self._get_transcoding_url(fid)
+
     def _is_video_name(self, name: str) -> bool:
         mime, _ = mimetypes.guess_type(name)
         return bool(mime and mime.startswith("video/"))
@@ -313,6 +318,29 @@ class QuarkAdapter:
             resp = await client.get(url, headers=headers)
             if resp.status_code == 404:
                 raise FileNotFoundError(rel)
+            resp.raise_for_status()
+            return resp.content
+
+    async def read_file_range(self, root: str, rel: str, start: int, end: Optional[int] = None) -> bytes:
+        if not rel or rel.endswith("/"):
+            raise IsADirectoryError("Path is a directory")
+        parent = rel.rsplit("/", 1)[0] if "/" in rel else ""
+        name = rel.rsplit("/", 1)[-1]
+        base_fid = root or self.root_fid
+        parent_fid = await self._resolve_dir_fid_from(base_fid, parent)
+        it = await self._find_child(parent_fid, name)
+        if not it or it["is_dir"]:
+            raise FileNotFoundError(rel)
+
+        url = await self._get_download_url(it["fid"])
+        headers = dict(self._download_headers())
+        headers["Range"] = f"bytes={start}-" if end is None else f"bytes={start}-{end}"
+        async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 404:
+                raise FileNotFoundError(rel)
+            if resp.status_code == 416:
+                raise HTTPException(416, detail="Requested Range Not Satisfiable")
             resp.raise_for_status()
             return resp.content
 

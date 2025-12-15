@@ -17,7 +17,7 @@ VIDEO_TAIL_LIMIT = 2 * 1024 * 1024  # 2MB
 VIDEO_TAIL_FALLBACK_LIMIT = 4 * 1024 * 1024  # 4MB
 VIDEO_HEAD_LIMIT = 2 * 1024 * 1024  # 2MB
 VIDEO_HEAD_FALLBACK_LIMIT = 4 * 1024 * 1024  # 4MB
-VIDEO_THUMB_SEEK_SECONDS = (20, 10, 5, 3, 1, 0)
+VIDEO_THUMB_SEEK_SECONDS = (15, 10, 5, 3, 1, 0)
 VIDEO_BLACK_FRAME_MEAN_THRESHOLD = 12.0
 CACHE_ROOT = Path('data/.thumb_cache')
 
@@ -223,10 +223,14 @@ async def _run_ffmpeg_extract_frame(src_path: str, dst_path: str, *, seek_second
         "-y",
         "-hide_banner",
         "-loglevel", "error",
-        "-i", src_path,
     ]
-    if seek_seconds is not None:
-        cmd += ["-ss", str(seek_seconds)]
+    is_http_input = src_path.startswith(("http://", "https://"))
+    if is_http_input and seek_seconds is not None:
+        cmd += ["-ss", str(seek_seconds), "-i", src_path]
+    else:
+        cmd += ["-i", src_path]
+        if seek_seconds is not None:
+            cmd += ["-ss", str(seek_seconds)]
     cmd += [
         "-frames:v", "1",
         dst_path,
@@ -350,6 +354,28 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
 
     if not thumb_bytes:
         if is_video:
+            async def _maybe_transcoding_thumb() -> Tuple[bytes, str] | None:
+                fid = (stat or {}).get("fid") if isinstance(stat, dict) else None
+                get_url = getattr(adapter, "get_video_transcoding_url", None)
+                if not fid or not callable(get_url):
+                    return None
+                try:
+                    url = await get_url(str(fid))
+                except Exception as e:
+                    print(f"Video transcoding url fetch failed: {e}")
+                    return None
+                if not url:
+                    return None
+                try:
+                    return await _generate_video_thumb_from_src_path(url, w, h, fit)
+                except Exception as e:
+                    print(f"Video transcoding thumbnail generation failed: {e}")
+                    return None
+
+            def _is_hevc_decoder_missing(exc: Exception) -> bool:
+                msg = str(exc).lower()
+                return ("no decoder found" in msg) and ("hevc" in msg or "h265" in msg)
+
             async def _read_head(limit: int) -> bytes:
                 try:
                     return await _read_video_head(adapter, root, rel, size, limit=limit)
@@ -377,17 +403,22 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
                 thumb_bytes, mime = await _generate_video_thumb_from_segments(
                     head_bytes, tail_bytes, tail_offset, rel, w, h, fit
                 )
-            except Exception:
-                try:
-                    tail_bytes, tail_offset = await _read_tail(VIDEO_TAIL_FALLBACK_LIMIT)
-                    thumb_bytes, mime = await _generate_video_thumb_from_segments(
-                        head_bytes, tail_bytes, tail_offset, rel, w, h, fit
-                    )
-                except HTTPException:
-                    raise
-                except Exception as e2:
-                    print(f"Video thumbnail generation failed: {e2}")
-                    raise HTTPException(500, detail=f"Video thumbnail generation failed: {e2}")
+            except Exception as e1:
+                if _is_hevc_decoder_missing(e1):
+                    got = await _maybe_transcoding_thumb()
+                    if got is not None:
+                        thumb_bytes, mime = got
+                if not thumb_bytes:
+                    try:
+                        tail_bytes, tail_offset = await _read_tail(VIDEO_TAIL_FALLBACK_LIMIT)
+                        thumb_bytes, mime = await _generate_video_thumb_from_segments(
+                            head_bytes, tail_bytes, tail_offset, rel, w, h, fit
+                        )
+                    except HTTPException:
+                        raise
+                    except Exception as e2:
+                        print(f"Video thumbnail generation failed: {e2}")
+                        raise HTTPException(500, detail=f"Video thumbnail generation failed: {e2}")
 
             if thumb_bytes and _is_black_image_bytes(thumb_bytes):
                 try:

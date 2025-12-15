@@ -14,6 +14,10 @@ class PluginManifestUpdate(BaseModel):
     key: Optional[str] = None
     name: Optional[str] = None
     version: Optional[str] = None
+    open_app: Optional[bool] = Field(
+        default=None,
+        validation_alias=AliasChoices("open_app", "openApp"),
+    )
     supported_exts: Optional[List[str]] = Field(
         default=None,
         validation_alias=AliasChoices("supported_exts", "supportedExts"),
@@ -37,6 +41,7 @@ class PluginOut(BaseModel):
     id: int
     url: str
     enabled: bool
+    open_app: bool = False
     key: Optional[str] = None
     name: Optional[str] = None
     version: Optional[str] = None

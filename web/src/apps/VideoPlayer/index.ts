@@ -1,5 +1,6 @@
 import type { AppDescriptor } from '../types';
 import { VideoPlayerApp } from './VideoPlayer.tsx';
+import { VideoLibraryApp } from './VideoLibrary.tsx';
 
 const supportedExts = ['mp4','webm','ogg','m4v','mov','mkv','avi','wmv','flv','3gp'];
 
@@ -9,6 +10,7 @@ export const descriptor: AppDescriptor = {
   iconUrl: 'https://api.iconify.design/mdi:video.svg',
   description: '内置视频播放器，支持常见视频格式播放。',
   author: 'Foxel',
+  openAppComponent: VideoLibraryApp,
   supportedExts,
   supported: (entry) => {
     if (entry.is_dir) return false;

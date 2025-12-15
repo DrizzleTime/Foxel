@@ -2,7 +2,7 @@ import type { VfsEntry } from '../api/client';
 import type { AppDescriptor } from './types';
 import React from 'react';
 import { pluginsApi, type PluginItem } from '../api/plugins';
-import { PluginAppHost } from './PluginHost';
+import { PluginAppHost, PluginAppOpenHost } from './PluginHost';
 const apps: AppDescriptor[] = [];
 
 // 使用 import.meta.glob 动态导入所有应用
@@ -39,6 +39,7 @@ function registerPluginAsApp(p: PluginItem) {
     name: p.name || `插件 ${p.id}`,
     supported,
     component: (props: any) => React.createElement(PluginAppHost, { plugin: p, ...props }),
+    openAppComponent: p.open_app ? ((props: any) => React.createElement(PluginAppOpenHost, { plugin: p, ...props })) : undefined,
     iconUrl: p.icon || undefined,
     default: false,
     defaultBounds: p.default_bounds || undefined,
@@ -98,6 +99,9 @@ export async function reloadPluginApps() {
         existing.defaultBounds = p.default_bounds || undefined;
         existing.defaultMaximized = p.default_maximized || undefined;
         existing.iconUrl = p.icon || existing.iconUrl;
+        existing.openAppComponent = p.open_app
+          ? ((props: any) => React.createElement(PluginAppOpenHost, { plugin: p, ...props }))
+          : undefined;
       }
     });
   } catch { }

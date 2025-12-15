@@ -1,14 +1,15 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { Space, Button } from 'antd';
 import { FullscreenExitOutlined, FullscreenOutlined, CloseOutlined, MinusOutlined } from '@ant-design/icons';
-import type { AppDescriptor, AppComponentProps } from './types';
+import type { AppDescriptor, AppComponentProps, AppOpenComponentProps } from './types';
 import type { VfsEntry } from '../api/client';
 
 export interface AppWindowItem {
   id: string;
   app: AppDescriptor;
-  entry: VfsEntry;
-  filePath: string;
+  kind: 'file' | 'app';
+  entry?: VfsEntry;
+  filePath?: string;
   maximized: boolean;
   minimized: boolean;
   x: number;
@@ -17,12 +18,14 @@ export interface AppWindowItem {
   height: number;
 }
 
+type AppWindowPatch = Partial<Pick<AppWindowItem, 'maximized' | 'minimized' | 'x' | 'y' | 'width' | 'height'>>;
+
 interface AppWindowsLayerProps {
   windows: AppWindowItem[];
   onClose: (id: string) => void;
   onToggleMax: (id: string) => void;
   onBringToFront: (id: string) => void;
-  onUpdateWindow: (id: string, patch: Partial<AppWindowItem>) => void;
+  onUpdateWindow: (id: string, patch: AppWindowPatch) => void;
 }
 
 export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClose, onToggleMax, onBringToFront, onUpdateWindow }) => {
@@ -193,8 +196,17 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
   return (
     <>
       {visibleWindows.map((w, idx) => {
-        const AppComp = w.app.component as React.FC<AppComponentProps>;
+        const isFileWindow = w.kind !== 'app';
+        const FileComp = w.app.component as React.FC<AppComponentProps>;
+        const OpenComp = w.app.openAppComponent as React.FC<AppOpenComponentProps> | undefined;
+        const ContentComp = (isFileWindow ? FileComp : OpenComp) as React.FC<any> | undefined;
         const useSystemWindow = w.app.useSystemWindow !== false; // 默认为 true
+        const titleText = isFileWindow ? `${w.app.name} - ${w.entry?.name || ''}` : w.app.name;
+
+        if (!ContentComp) {
+          return null;
+        }
+
         if (!useSystemWindow) {
           return (
             <div
@@ -223,16 +235,20 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
                   overflow: 'hidden',
                   background: 'transparent'
                 }}
-              >
-                <AppComp
-                  filePath={w.filePath}
-                  entry={w.entry}
-                  onRequestClose={() => onClose(w.id)}
-                />
-              </div>
-            </div>
-          );
-        }
+	              >
+	                {isFileWindow ? (
+	                  <ContentComp
+	                    filePath={w.filePath || ''}
+	                    entry={w.entry as VfsEntry}
+	                    onRequestClose={() => onClose(w.id)}
+	                  />
+	                ) : (
+	                  <ContentComp onRequestClose={() => onClose(w.id)} />
+	                )}
+	              </div>
+	            </div>
+	          );
+	        }
         // 否则继续使用系统窗口渲染（不改动原有逻辑）
         const interacting = isInteracting(w.id);
         return (
@@ -290,9 +306,9 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
                   paddingRight: 8,
                   flex: 1
                 }}
-              >
-                {w.app.name} - {w.entry.name}
-              </span>
+	              >
+	                {titleText}
+	              </span>
               <Space size={4}>
                 <Button
                   type="text"
@@ -351,11 +367,15 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
               }}
             >
               {!w.maximized && resizeHandles(w)}
-              <AppComp
-                filePath={w.filePath}
-                entry={w.entry}
-                onRequestClose={() => onClose(w.id)}
-              />
+              {isFileWindow ? (
+                <ContentComp
+                  filePath={w.filePath || ''}
+                  entry={w.entry as VfsEntry}
+                  onRequestClose={() => onClose(w.id)}
+                />
+              ) : (
+                <ContentComp onRequestClose={() => onClose(w.id)} />
+              )}
             </div>
           </div>
         );

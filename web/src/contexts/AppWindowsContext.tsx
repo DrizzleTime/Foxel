@@ -5,28 +5,39 @@ import type { AppDescriptor } from '../apps/registry';
 import { getAppsForEntry, getDefaultAppForEntry, getAppByKey } from '../apps/registry';
 import { useI18n } from '../i18n';
 
-export interface AppWindowItem {
+type WindowBase = {
   id: string;
   app: AppDescriptor;
-  entry: VfsEntry;
-  filePath: string;
   maximized: boolean;
   minimized: boolean;
   x: number;
   y: number;
   width: number;
   height: number;
-}
+};
+
+export type AppWindowItem =
+  | (WindowBase & {
+    kind: 'file';
+    entry: VfsEntry;
+    filePath: string;
+  })
+  | (WindowBase & {
+    kind: 'app';
+  });
+
+type AppWindowPatch = Partial<Pick<AppWindowItem, 'maximized' | 'minimized' | 'x' | 'y' | 'width' | 'height'>>;
 
 interface AppWindowsContextValue {
   windows: AppWindowItem[];
   openWithApp: (entry: VfsEntry, app: AppDescriptor, currentPath: string) => void;
   openFileWithDefaultApp: (entry: VfsEntry, currentPath: string) => void;
   confirmOpenWithApp: (entry: VfsEntry, appKey: string, currentPath: string) => void;
+  openApp: (app: AppDescriptor) => void;
   closeWindow: (id: string) => void;
   toggleMax: (id: string) => void;
   bringToFront: (id: string) => void;
-  updateWindow: (id: string, patch: Partial<Omit<AppWindowItem, 'id' | 'app' | 'entry' | 'filePath'>>) => void;
+  updateWindow: (id: string, patch: AppWindowPatch) => void;
   minimizeWindow: (id: string) => void;
   restoreWindow: (id: string) => void;
   toggleMinimize: (id: string) => void;
@@ -57,9 +68,44 @@ export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ...ws,
         {
           id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+          kind: 'file',
           app,
           entry,
           filePath: fullPath,
+          maximized: !!app.defaultMaximized,
+          minimized: false,
+          x: finalX,
+          y: finalY,
+          width: finalW,
+          height: finalH,
+        },
+      ];
+    });
+  }, []);
+
+  const openApp = useCallback((app: AppDescriptor) => {
+    if (!app.openAppComponent) {
+      return;
+    }
+    setWindows(ws => {
+      const idx = ws.length;
+      const bounds = app.defaultBounds || {};
+      const baseX = bounds.x ?? (160 + idx * 32);
+      const baseY = bounds.y ?? (100 + idx * 28);
+      const baseW = bounds.width ?? 640;
+      const baseH = bounds.height ?? 480;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const finalW = Math.min(baseW, vw - 40);
+      const finalH = Math.min(baseH, vh - 60);
+      const finalX = Math.min(Math.max(0, baseX), vw - finalW - 8);
+      const finalY = Math.min(Math.max(48, baseY), vh - finalH - 8);
+      return [
+        ...ws,
+        {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+          kind: 'app',
+          app,
           maximized: !!app.defaultMaximized,
           minimized: false,
           x: finalX,
@@ -115,10 +161,8 @@ export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!target) return ws;
     return [...ws.filter(w => w.id !== id), target];
   });
-  const updateWindow = (
-    id: string,
-    patch: Partial<Omit<AppWindowItem, 'id' | 'app' | 'entry' | 'filePath'>>,
-  ) => setWindows(ws => ws.map(w => (w.id === id ? { ...w, ...patch } : w)));
+  const updateWindow = (id: string, patch: AppWindowPatch) =>
+    setWindows(ws => ws.map(w => (w.id === id ? { ...w, ...patch } : w)));
 
   const minimizeWindow = (id: string) => setWindows(ws => ws.map(w => (w.id === id ? { ...w, minimized: true } : w)));
   const restoreWindow = (id: string) => setWindows(ws => {
@@ -134,6 +178,7 @@ export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     openWithApp,
     openFileWithDefaultApp,
     confirmOpenWithApp,
+    openApp,
     closeWindow,
     toggleMax,
     bringToFront,
@@ -141,7 +186,7 @@ export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     minimizeWindow,
     restoreWindow,
     toggleMinimize,
-  }), [windows, openWithApp, openFileWithDefaultApp, confirmOpenWithApp]);
+  }), [windows, openWithApp, openFileWithDefaultApp, confirmOpenWithApp, openApp]);
 
   return <AppWindowsContext.Provider value={value}>{children}</AppWindowsContext.Provider>;
 };
@@ -151,4 +196,3 @@ export function useAppWindows() {
   if (!ctx) throw new Error('useAppWindows must be used within AppWindowsProvider');
   return ctx;
 }
-

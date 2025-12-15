@@ -6,11 +6,20 @@ export interface AppComponentProps {
   onRequestClose: () => void;
 }
 
+export interface AppOpenComponentProps {
+  onRequestClose: () => void;
+}
+
 export interface AppDescriptor {
   key: string;
   name: string;
   supported: (entry: VfsEntry) => boolean;
   component: React.ComponentType<AppComponentProps>;
+  /**
+   * 独立打开应用（不依赖文件）
+   * 缺省表示该应用仅支持“通过文件打开”。
+   */
+  openAppComponent?: React.ComponentType<AppOpenComponentProps>;
   iconUrl?: string;
   default?: boolean;
   defaultMaximized?: boolean;

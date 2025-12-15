@@ -1,4 +1,4 @@
-import { pluginsApi, type PluginManifestUpdate } from '../api/plugins';
+import { pluginsApi, type PluginManifestUpdate, type PluginItem } from '../api/plugins';
 
 export interface RegisteredPlugin {
   mount: (container: HTMLElement, ctx: {
@@ -8,6 +8,9 @@ export interface RegisteredPlugin {
     host: HostApi;
   }) => void | Promise<void>;
   unmount?: (container: HTMLElement) => void | Promise<void>;
+
+  mountApp?: (container: HTMLElement, ctx: { host: HostApi }) => void | Promise<void>;
+  unmountApp?: (container: HTMLElement) => void | Promise<void>;
 
   key?: string;
   name?: string;
@@ -95,11 +98,32 @@ export async function loadPluginFromUrl(url: string): Promise<RegisteredPlugin> 
   });
 }
 
+export function getPluginBundleUrl(pluginId: number) {
+  return `/api/plugins/${pluginId}/bundle.js`;
+}
+
+export async function loadPlugin(plugin: Pick<PluginItem, 'id' | 'url'>): Promise<RegisteredPlugin> {
+  const bundleUrl = getPluginBundleUrl(plugin.id);
+  try {
+    return await loadPluginFromUrl(bundleUrl);
+  } catch (e) {
+    if (plugin.url && plugin.url !== bundleUrl) {
+      try {
+        return await loadPluginFromUrl(plugin.url);
+      } catch {
+        throw e;
+      }
+    }
+    throw e;
+  }
+}
+
 export async function ensureManifest(pluginId: number, plugin: RegisteredPlugin) {
   const manifest: PluginManifestUpdate = {
     key: plugin.key,
     name: plugin.name,
     version: plugin.version,
+    open_app: typeof plugin.mountApp === 'function',
     supported_exts: plugin.supportedExts,
     default_bounds: plugin.defaultBounds,
     default_maximized: plugin.defaultMaximized,

@@ -2,10 +2,11 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { Button, Modal, Form, Input, Tag, message, Card, Typography, Popconfirm, Empty, Skeleton, theme, Divider, Tabs, Select, Pagination } from 'antd';
 import { GithubOutlined, LinkOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
-import { loadPluginFromUrl, ensureManifest } from '../plugins/runtime';
-import { reloadPluginApps, ensureAppsLoaded, listSystemApps, type AppDescriptor } from '../apps/registry';
+import { loadPlugin, ensureManifest } from '../plugins/runtime';
+import { getAppByKey, reloadPluginApps, ensureAppsLoaded, listSystemApps, type AppDescriptor } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { fetchRepoList, type RepoItem, buildCenterUrl } from '../api/pluginCenter';
+import { useAppWindows } from '../contexts/AppWindowsContext';
 
 const PluginsPage = memo(function PluginsPage() {
   const [data, setData] = useState<PluginItem[]>([]);
@@ -25,6 +26,7 @@ const PluginsPage = memo(function PluginsPage() {
   const [form] = Form.useForm<{ url: string }>();
   const { token } = theme.useToken();
   const { t } = useI18n();
+  const { openApp } = useAppWindows();
 
   const reload = async () => {
     try { setLoading(true); setData(await pluginsApi.list()); } finally { setLoading(false); }
@@ -69,7 +71,7 @@ const PluginsPage = memo(function PluginsPage() {
       const { url } = await form.validateFields();
       const created = await pluginsApi.create({ url });
       try {
-        const p = await loadPluginFromUrl(created.url);
+        const p = await loadPlugin(created);
         await ensureManifest(created.id, p);
       } catch {}
       setAdding(false);
@@ -111,6 +113,8 @@ const PluginsPage = memo(function PluginsPage() {
     const name = p.name || `${t('Plugin')} ${p.id}`;
     const exts = (p.supported_exts || []).slice(0, 6);
     const more = (p.supported_exts || []).length - exts.length;
+    const app = getAppByKey('plugin:' + p.id);
+    const canOpenApp = !!p.open_app;
     const title = (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <img src={icon} alt={name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/plugins/demo-text-viewer.svg'; }} />
@@ -127,8 +131,23 @@ const PluginsPage = memo(function PluginsPage() {
         styles={{ body: { padding: 12 } } as any}
         style={{ borderRadius: 10, boxShadow: token.boxShadowTertiary }}
         actions={[
-          <a key="open" href={p.url} target="_blank" rel="noreferrer">{t('Open Link')}</a>,
-          <Button key="copy" type="link" size="small" onClick={async () => { try { await navigator.clipboard.writeText(p.url); message.success(t('Link copied')); } catch {} }}>{t('Copy Link')}</Button>,
+          <Button
+            key="open-app"
+            type="link"
+            size="small"
+            disabled={!canOpenApp}
+            onClick={async () => {
+              let target = app || getAppByKey('plugin:' + p.id);
+              if (!target) {
+                await reloadPluginApps();
+                target = getAppByKey('plugin:' + p.id);
+              }
+              if (target?.openAppComponent) openApp(target);
+            }}
+          >
+            {t('Open App')}
+          </Button>,
+          <Button key="update-app" type="link" size="small" onClick={() => message.info(t('Coming soon'))}>{t('Update App')}</Button>,
           <Popconfirm key="del" title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.id); await reload(); await reloadPluginApps(); }}>
             <Button type="link" danger size="small">{t('Delete')}</Button>
           </Popconfirm>
@@ -177,7 +196,6 @@ const PluginsPage = memo(function PluginsPage() {
     const name = a.name || a.key;
     const exts = (a.supportedExts || []).slice(0, 6);
     const more = (a.supportedExts || []).length - exts.length;
-    const link = a.website || a.github || '';
     const title = (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <img src={icon} alt={name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/plugins/demo-text-viewer.svg'; }} />
@@ -195,26 +213,15 @@ const PluginsPage = memo(function PluginsPage() {
         style={{ borderRadius: 10, boxShadow: token.boxShadowTertiary }}
         actions={[
           <Button
-            key="open"
+            key="open-app"
             type="link"
             size="small"
-            disabled={!link}
-            onClick={() => { if (link) window.open(link, '_blank', 'noreferrer'); }}
+            disabled={!a.openAppComponent}
+            onClick={() => openApp(a)}
           >
-            {t('Open Link')}
+            {t('Open App')}
           </Button>,
-          <Button
-            key="copy"
-            type="link"
-            size="small"
-            disabled={!link}
-            onClick={async () => {
-              if (!link) return;
-              try { await navigator.clipboard.writeText(link); message.success(t('Link copied')); } catch {}
-            }}
-          >
-            {t('Copy Link')}
-          </Button>,
+          <Button key="update-app" type="link" size="small" disabled onClick={() => message.info(t('Coming soon'))}>{t('Update App')}</Button>,
           <Button key="del" type="link" danger size="small" disabled>{t('Delete')}</Button>
         ]}
       >
@@ -281,7 +288,7 @@ const PluginsPage = memo(function PluginsPage() {
                 const url = buildCenterUrl(item.directUrl);
                 const created = await pluginsApi.create({ url });
                 try {
-                  const p = await loadPluginFromUrl(created.url);
+                  const p = await loadPlugin(created);
                   await ensureManifest(created.id, p);
                 } catch {}
                 await reload();

@@ -4,6 +4,7 @@ export interface PluginItem {
   id: number;
   url: string;
   enabled: boolean;
+  open_app?: boolean | null;
   key?: string | null;
   name?: string | null;
   version?: string | null;
@@ -26,6 +27,7 @@ export interface PluginManifestUpdate {
   key?: string;
   name?: string;
   version?: string;
+  open_app?: boolean;
   supported_exts?: string[];
   default_bounds?: Record<string, any>;
   default_maximized?: boolean;
@@ -43,4 +45,3 @@ export const pluginsApi = {
   update: (id: number, payload: PluginCreate) => request<PluginItem>(`/plugins/${id}`, { method: 'PUT', json: payload }),
   updateManifest: (id: number, payload: PluginManifestUpdate) => request<PluginItem>(`/plugins/${id}/metadata`, { method: 'POST', json: payload }),
 };
-

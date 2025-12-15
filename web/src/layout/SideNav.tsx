@@ -180,14 +180,15 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
                 overflowY: collapsed ? 'auto' : 'visible',
               }}
             >
-              {minimized.map(w => {
-                const src = w.app.iconUrl || DEFAULT_APP_ICON;
-                return (
-                  <Tooltip key={w.id} title={`${w.app.name} - ${w.entry.name}`} placement={collapsed ? 'right' : 'top'}>
-                    <Button
-                      shape="circle"
-                      onClick={() => restoreWindow(w.id)}
-                      icon={<img src={src} alt={w.app.name} style={{ width: 16, height: 16 }} />}
+	              {minimized.map(w => {
+	                const src = w.app.iconUrl || DEFAULT_APP_ICON;
+	                const title = w.kind === 'file' ? `${w.app.name} - ${w.entry.name}` : w.app.name;
+	                return (
+	                  <Tooltip key={w.id} title={title} placement={collapsed ? 'right' : 'top'}>
+	                    <Button
+	                      shape="circle"
+	                      onClick={() => restoreWindow(w.id)}
+	                      icon={<img src={src} alt={w.app.name} style={{ width: 16, height: 16 }} />}
                     />
                   </Tooltip>
                 );

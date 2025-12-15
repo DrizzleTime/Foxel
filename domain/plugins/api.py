@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Body, Request
+from fastapi.responses import FileResponse
 
 from domain.audit import AuditAction, audit
 from domain.plugins.service import PluginService
@@ -50,6 +51,7 @@ async def update_plugin(request: Request, plugin_id: int, payload: PluginCreate)
         "key",
         "name",
         "version",
+        "open_app",
         "supported_exts",
         "default_bounds",
         "default_maximized",
@@ -64,3 +66,9 @@ async def update_manifest(
     request: Request, plugin_id: int, manifest: PluginManifestUpdate = Body(...)
 ):
     return await PluginService.update_manifest(plugin_id, manifest)
+
+
+@router.get("/{plugin_id}/bundle.js")
+async def get_bundle(request: Request, plugin_id: int):
+    path = await PluginService.get_bundle_path(plugin_id)
+    return FileResponse(path, media_type="application/javascript", headers={"Cache-Control": "no-store"})

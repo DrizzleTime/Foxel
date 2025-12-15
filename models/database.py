@@ -171,6 +171,8 @@ class Plugin(Model):
     url = fields.CharField(max_length=2048)
     enabled = fields.BooleanField(default=True)
 
+    open_app = fields.BooleanField(default=False)
+
     key = fields.CharField(max_length=100, null=True)
     name = fields.CharField(max_length=255, null=True)
     version = fields.CharField(max_length=50, null=True)

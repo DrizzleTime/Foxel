@@ -31,6 +31,19 @@ export const ProcessorModal: React.FC<ProcessorModalProps> = (props) => {
   const [form] = Form.useForm();
   const { t } = useI18n();
 
+  const availableProcessors = React.useMemo(() => {
+    if (!entry) return processorTypes;
+    if (entry.is_dir) {
+      return processorTypes.filter(pt => !!pt.supports_directory);
+    }
+    const ext = entry.name.split('.').pop()?.toLowerCase() || '';
+    return processorTypes.filter(pt => {
+      const exts = pt.supported_exts;
+      if (!Array.isArray(exts) || exts.length === 0) return true;
+      return exts.includes(ext);
+    });
+  }, [entry, processorTypes]);
+
   const selectedProcessorMeta = processorTypes.find(pt => pt.type === selectedProcessor);
 
   // Sync form when modal opens or selected processor changes
@@ -64,7 +77,7 @@ export const ProcessorModal: React.FC<ProcessorModalProps> = (props) => {
         <Form.Item name="processor_type" label={t('Processor')} required>
           <Select
             onChange={onSelectedProcessorChange}
-            options={processorTypes.map(pt => ({ value: pt.type, label: pt.name }))}
+            options={availableProcessors.map(pt => ({ value: pt.type, label: pt.name }))}
             placeholder={t('Select a processor')}
           />
         </Form.Item>

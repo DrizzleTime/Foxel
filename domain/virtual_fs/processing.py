@@ -23,6 +23,11 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
             raise HTTPException(400, detail=f"Processor {processor_type} not found")
 
         actual_is_dir = await cls.path_is_directory(path)
+        requires_input_bytes = bool(getattr(processor, "requires_input_bytes", True))
+        if actual_is_dir and bool(getattr(processor, "supports_directory", False)):
+            if save_to:
+                raise HTTPException(400, detail="Directory processing does not support custom save_to path")
+            return await processor.process(b"", path, config)
 
         supported_exts = getattr(processor, "supported_exts", None) or []
         allowed_exts = {str(ext).lower().lstrip(".") for ext in supported_exts if isinstance(ext, str)}
@@ -76,7 +81,9 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
                         if not matches_extension(child_rel):
                             continue
                         absolute_path = cls._build_absolute_path(adapter_model.path, child_rel)
-                        data = await cls.read_file(absolute_path)
+                        data = b""
+                        if requires_input_bytes:
+                            data = await cls.read_file(absolute_path)
                         result = await processor.process(data, absolute_path, config)
                         if getattr(processor, "produces_file", False):
                             result_bytes = coerce_result_bytes(result)
@@ -89,7 +96,9 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
 
             return {"processed_files": processed_count}
 
-        data = await cls.read_file(path)
+        data = b""
+        if requires_input_bytes:
+            data = await cls.read_file(path)
         result = await processor.process(data, path, config)
 
         target_path = save_to

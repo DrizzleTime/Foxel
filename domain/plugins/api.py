@@ -5,9 +5,11 @@ from fastapi.responses import FileResponse
 
 from domain.audit import AuditAction, audit
 from domain.plugins.service import PluginService
+from domain.plugins.routes import video_player as video_player_routes
 from domain.plugins.types import PluginCreate, PluginManifestUpdate, PluginOut
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
+router.include_router(video_player_routes.router)
 
 
 @router.post("", response_model=PluginOut)

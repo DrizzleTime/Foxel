@@ -35,14 +35,20 @@ class ProcessorService:
                 "supported_exts": meta.get("supported_exts", []),
                 "config_schema": meta["config_schema"],
                 "produces_file": meta.get("produces_file", False),
+                "supports_directory": meta.get("supports_directory", False),
                 "module_path": meta.get("module_path"),
             })
         return out
 
     @classmethod
     async def process_file(cls, req: ProcessRequest):
+        processor = cls.get_processor(req.processor_type)
+        if not processor:
+            raise HTTPException(404, detail="Processor not found")
+
         is_dir = await VirtualFSService.path_is_directory(req.path)
-        if is_dir and not req.overwrite:
+        supports_directory = bool(getattr(processor, "supports_directory", False))
+        if is_dir and not supports_directory and not req.overwrite:
             raise HTTPException(400, detail="Directory processing requires overwrite")
 
         save_to = None if is_dir else (req.path if req.overwrite else req.save_to)

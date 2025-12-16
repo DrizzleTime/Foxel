@@ -81,19 +81,29 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
     const targetEntries = entries.filter(e => targetNames.includes(e.name));
 
     let processorSubMenu: ActionMenuItem[] = [];
-    if (!entry.is_dir && processorTypes.length > 0) {
-      const ext = entry.name.split('.').pop()?.toLowerCase() || '';
-      processorSubMenu = processorTypes
-        .filter(pt => {
-          const exts = pt.supported_exts;
-          if (!Array.isArray(exts) || exts.length === 0) return true;
-          return exts.includes(ext);
-        })
-        .map(pt => ({
-          key: 'processor-' + pt.type,
-          label: pt.name,
-          onClick: () => actions.onProcess(entry, pt.type),
-        }));
+    if (processorTypes.length > 0) {
+      if (entry.is_dir) {
+        processorSubMenu = processorTypes
+          .filter(pt => !!pt.supports_directory)
+          .map(pt => ({
+            key: 'processor-' + pt.type,
+            label: pt.name,
+            onClick: () => actions.onProcess(entry, pt.type),
+          }));
+      } else {
+        const ext = entry.name.split('.').pop()?.toLowerCase() || '';
+        processorSubMenu = processorTypes
+          .filter(pt => {
+            const exts = pt.supported_exts;
+            if (!Array.isArray(exts) || exts.length === 0) return true;
+            return exts.includes(ext);
+          })
+          .map(pt => ({
+            key: 'processor-' + pt.type,
+            label: pt.name,
+            onClick: () => actions.onProcess(entry, pt.type),
+          }));
+      }
     }
 
     const menuItems: (ActionMenuItem | null)[] = [
@@ -113,7 +123,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
           onClick: () => actions.onOpenWith(entry, a.key),
         })),
       } : null,
-      !entry.is_dir && processorSubMenu.length > 0 ? {
+      processorSubMenu.length > 0 ? {
         key: 'process',
         label: t('Processor'),
         icon: <AppstoreAddOutlined />,

@@ -16,6 +16,7 @@ export interface ProcessorTypeMeta {
   supported_exts: string[];
   config_schema: ProcessorTypeField[];
   produces_file: boolean;
+  supports_directory?: boolean;
   module_path?: string | null;
 }
 

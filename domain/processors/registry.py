@@ -74,6 +74,10 @@ def discover_processors(force_reload: bool = False) -> list[str]:
         if produces_file is None and hasattr(sample, "produces_file"):
             produces_file = getattr(sample, "produces_file")
 
+        supports_directory = getattr(module, "supports_directory", None)
+        if supports_directory is None and hasattr(sample, "supports_directory"):
+            supports_directory = getattr(sample, "supports_directory")
+
         module_file = getattr(module, "__file__", None)
         module_path: Optional[str] = None
         if module_file:
@@ -101,6 +105,7 @@ def discover_processors(force_reload: bool = False) -> list[str]:
                 "supported_exts": normalized_exts,
                 "config_schema": schema,
                 "produces_file": produces_file if produces_file is not None else False,
+                "supports_directory": supports_directory if supports_directory is not None else False,
                 "module_path": module_path,
             }
 

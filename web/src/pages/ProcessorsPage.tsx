@@ -145,6 +145,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
   }, [selectedProcessorMeta, form]);
 
   const producesFile = selectedProcessorMeta?.produces_file ?? false;
+  const supportsDirectory = selectedProcessorMeta?.supports_directory ?? false;
   const overwriteWatch = Form.useWatch('overwrite', form);
   const overwriteValue = producesFile ? !!overwriteWatch : false;
   const directoryScope = Form.useWatch('directory_scope', form) ?? 'current';
@@ -250,23 +251,33 @@ const ProcessorsPage = memo(function ProcessorsPage() {
       setRunning(true);
       const overwriteFlag = producesFile ? !!values.overwrite : false;
       if (isDirectory) {
-        const scope: 'current' | 'recursive' = values.directory_scope || 'current';
-        let maxDepth: number | null = scope === 'current' ? 0 : null;
-        if (scope === 'recursive' && typeof values.max_depth === 'number') {
-          maxDepth = values.max_depth;
+        if (supportsDirectory) {
+          const resp = await processorsApi.process({
+            path: values.path,
+            processor_type: selectedType,
+            config: finalConfig,
+            overwrite: overwriteFlag,
+          });
+          messageApi.success(`${t('Task submitted')}: ${resp.task_id}`);
+        } else {
+          const scope: 'current' | 'recursive' = values.directory_scope || 'current';
+          let maxDepth: number | null = scope === 'current' ? 0 : null;
+          if (scope === 'recursive' && typeof values.max_depth === 'number') {
+            maxDepth = values.max_depth;
+          }
+          const suffixValue = producesFile && !overwriteFlag && typeof values.suffix === 'string'
+            ? values.suffix.trim() || null
+            : null;
+          const resp = await processorsApi.processDirectory({
+            path: values.path,
+            processor_type: selectedType,
+            config: finalConfig,
+            overwrite: overwriteFlag,
+            max_depth: maxDepth,
+            suffix: suffixValue,
+          });
+          messageApi.success(`${t('Task submitted')}: ${resp.scheduled}`);
         }
-        const suffixValue = producesFile && !overwriteFlag && typeof values.suffix === 'string'
-          ? values.suffix.trim() || null
-          : null;
-        const resp = await processorsApi.processDirectory({
-          path: values.path,
-          processor_type: selectedType,
-          config: finalConfig,
-          overwrite: overwriteFlag,
-          max_depth: maxDepth,
-          suffix: suffixValue,
-        });
-        messageApi.success(`${t('Task submitted')}: ${resp.scheduled}`);
       } else {
         const payload: any = {
           path: values.path,
@@ -288,7 +299,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
     } finally {
       setRunning(false);
     }
-  }, [form, isDirectory, messageApi, producesFile, selectedProcessorMeta, selectedType, t]);
+  }, [form, isDirectory, messageApi, producesFile, selectedType, supportsDirectory, selectedProcessorMeta, t]);
 
   const selectedConfigPath = pathModalField === 'path'
     ? (selectedType ? form.getFieldValue('path') : undefined) || '/'
@@ -434,7 +445,16 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                   <Button onClick={() => openPathSelector('path', 'directory')}>{t('Select Directory')}</Button>
                 </Flex>
               </Form.Item>
-              {isDirectory && (
+              {isDirectory && supportsDirectory && (
+                <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
+                  <Alert
+                    type="info"
+                    showIcon
+                    message={t('Directory execution will enqueue one task for the directory itself')}
+                  />
+                </Space>
+              )}
+              {isDirectory && !supportsDirectory && (
                 <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
                   <Alert
                     type="info"
@@ -477,7 +497,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                 </Form.Item>
               )}
 
-              {isDirectory && producesFile && !overwriteValue && (
+              {isDirectory && !supportsDirectory && producesFile && !overwriteValue && (
                 <Form.Item
                   name="suffix"
                   label={t('Output suffix')}

@@ -105,7 +105,10 @@ class TaskQueueService:
                     if not processor:
                         raise ValueError(f"Processor {processor_type} not found for task {auto_task.id}")
 
-                file_content = await VirtualFSService.read_file(path)
+                requires_input_bytes = bool(getattr(processor, "requires_input_bytes", True))
+                file_content = b""
+                if requires_input_bytes:
+                    file_content = await VirtualFSService.read_file(path)
                 result = await processor.process(file_content, path, auto_task.processor_config)
                 
                 save_to = auto_task.processor_config.get("save_to")

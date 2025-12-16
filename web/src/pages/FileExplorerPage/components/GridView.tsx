@@ -67,6 +67,24 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, pa
   const [selecting, setSelecting] = useState(false);
 
   useEffect(() => {
+    const grid = containerRef.current;
+    const scrollContainer = grid?.parentElement;
+    if (!scrollContainer) return;
+
+    const onBlankMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      if (e.target !== scrollContainer) return;
+      startRef.current = { x: e.clientX, y: e.clientY };
+      setSelecting(true);
+      setRect({ left: e.clientX, top: e.clientY, width: 0, height: 0 });
+      e.preventDefault();
+    };
+
+    scrollContainer.addEventListener('mousedown', onBlankMouseDown);
+    return () => scrollContainer.removeEventListener('mousedown', onBlankMouseDown);
+  }, []);
+
+  useEffect(() => {
     const onMove = (ev: MouseEvent) => {
       if (!startRef.current) return;
       const cx = ev.clientX;

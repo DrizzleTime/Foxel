@@ -95,6 +95,23 @@ def _build_request_params(request: Request | None) -> Dict[str, Any] | None:
     return params or None
 
 
+def _get_client_ip(request: Request | None) -> str | None:
+    if not request:
+        return None
+    x_real_ip = request.headers.get("x-real-ip") or request.headers.get("X-Real-IP")
+    if x_real_ip:
+        ip = x_real_ip.strip()
+        if ip:
+            return ip
+    x_forwarded_for = request.headers.get("x-forwarded-for") or request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        for part in x_forwarded_for.split(","):
+            ip = part.strip()
+            if ip and ip.lower() != "unknown":
+                return ip
+    return request.client.host if request.client else None
+
+
 def _status_code_from_response(response: Any) -> int:
     if hasattr(response, "status_code"):
         try:
@@ -142,7 +159,7 @@ def audit(
                         description=description,
                         user_id=user_id,
                         username=username,
-                        client_ip=request.client.host if request and request.client else None,
+                        client_ip=_get_client_ip(request),
                         method=request.method if request else "",
                         path=request.url.path if request else func.__name__,
                         status_code=status_code,
@@ -163,7 +180,7 @@ def audit(
                     description=description,
                     user_id=user_id,
                     username=username,
-                    client_ip=request.client.host if request and request.client else None,
+                    client_ip=_get_client_ip(request),
                     method=request.method if request else "",
                     path=request.url.path if request else func.__name__,
                     status_code=status_code,

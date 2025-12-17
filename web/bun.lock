@@ -10,7 +10,7 @@
         "@monaco-editor/react": "^4.7.0",
         "@uiw/react-md-editor": "^4.0.8",
         "antd": "^5.27.0",
-        "artplayer": "^5.2.5",
+        "artplayer": "^5.3.0",
         "date-fns": "^4.1.0",
         "monaco-editor": "^0.53.0",
         "react": "^19.1.1",
@@ -326,7 +326,7 @@
 
     "argparse": ["argparse@2.0.1", "", {}, "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="],
 
-    "artplayer": ["artplayer@5.2.5", "", { "dependencies": { "option-validator": "^2.0.6" } }, "sha512-Ogym5rvkAJ4VLncM4Apl3TJ/a/ozM3csvY4IKuuMR++hUmEZgj/HaGsNonwx8r56nsqiZYE7O4vS1HFZl+NBSg=="],
+    "artplayer": ["artplayer@5.3.0", "", { "dependencies": { "option-validator": "^2.0.6" } }, "sha512-yExO39MpEg4P+bxgChxx1eJfiUPE4q1QQRLCmqGhlsj+ANuaoEkR8hF93LdI5ZyrAcIbJkuEndxEiUoKobifDw=="],
 
     "bail": ["bail@2.0.2", "", {}, "sha512-0xO6mYd7JB2YesxDKplafRpsiOzPt9V02ddPCLbY1xYGPOX24NTyN50qnUxgCPcSoYMhKpAuBTjQoRZCAkUDRw=="],
 

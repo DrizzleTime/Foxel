@@ -545,17 +545,16 @@ export const VideoLibraryApp: React.FC<AppOpenComponentProps> = () => {
         style={{
           padding: 14,
           borderRadius: 12,
-          background: 'linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,41,59,0.85) 40%, rgba(17,24,39,0.9) 100%)',
-          color: 'rgba(255,255,255,0.92)',
-          boxShadow: token.boxShadowTertiary,
+          background: token.colorBgContainer,
+          border: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
         <Flex align="center" justify="space-between" gap={12} wrap>
           <div style={{ minWidth: 240 }}>
-            <Typography.Title level={4} style={{ margin: 0, color: 'rgba(255,255,255,0.92)' }}>
+            <Typography.Title level={4} style={{ margin: 0 }}>
               {t('Video Library')}
             </Typography.Title>
-            <Typography.Text style={{ color: 'rgba(255,255,255,0.72)' }}>
+            <Typography.Text type="secondary">
               {t('Total')}: {stats.total} · {t('Movies')}: {stats.movie} · {t('TV')}: {stats.tv}
             </Typography.Text>
           </div>

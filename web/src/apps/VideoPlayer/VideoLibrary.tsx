@@ -141,43 +141,88 @@ export const VideoLibraryApp: React.FC<AppOpenComponentProps> = () => {
 
   const renderCover = (item: VideoLibraryItem) => {
     const label = item.type === 'tv' ? 'TV' : 'Movie';
-    const subtitle = item.type === 'tv'
-      ? `${item.seasons_count || 0} ${t('Seasons')} · ${item.episodes_count || 0} ${t('Episodes')}`
-      : (item.year ? String(item.year) : '');
+    const coverUrl = tmdbImage(item.poster_path, 'w342') || tmdbImage(item.backdrop_path, 'w780');
     return (
       <div
         style={{
-          height: 150,
+          position: 'relative',
+          width: '100%',
+          aspectRatio: '2 / 3',
           background: 'linear-gradient(135deg, #0b1020 0%, #22314a 55%, #2b3b5c 100%)',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: 12,
-          color: 'rgba(255,255,255,0.92)',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        {coverUrl ? (
+          <Image
+            src={coverUrl}
+            alt={item.title || label}
+            preview={false}
+            wrapperStyle={{ width: '100%', height: '100%', display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            fallback="/logo.svg"
+          />
+        ) : (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'rgba(255,255,255,0.7)',
+            }}
+          >
+            <VideoCameraOutlined style={{ fontSize: 28 }} />
+          </div>
+        )}
+
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.12) 40%, rgba(0,0,0,0.45) 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            right: 10,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 8,
+            pointerEvents: 'none',
+          }}
+        >
           <Tag color={item.type === 'tv' ? 'geekblue' : 'gold'} style={{ marginInlineEnd: 0 }}>
             {label}
           </Tag>
-          <VideoCameraOutlined style={{ fontSize: 18, opacity: 0.9 }} />
+          <VideoCameraOutlined style={{ fontSize: 18, opacity: 0.9, color: 'rgba(255,255,255,0.9)' }} />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <PlayCircleOutlined style={{ fontSize: 32, opacity: 0.9 }} />
-          <div style={{ minWidth: 0 }}>
-            <Typography.Text
-              strong
-              style={{ color: 'rgba(255,255,255,0.92)', display: 'block' }}
-              ellipsis
-            >
-              {item.title || '--'}
-            </Typography.Text>
-            {subtitle && (
-              <Typography.Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 12 }}>
-                {subtitle}
-              </Typography.Text>
-            )}
-          </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 10,
+            bottom: 10,
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            background: 'rgba(2,6,23,0.55)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'rgba(255,255,255,0.92)',
+            boxShadow: token.boxShadowTertiary,
+            pointerEvents: 'none',
+          }}
+        >
+          <PlayCircleOutlined style={{ fontSize: 20 }} />
         </div>
       </div>
     );
@@ -543,14 +588,18 @@ export const VideoLibraryApp: React.FC<AppOpenComponentProps> = () => {
         {loading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 12 }}>
             {Array.from({ length: 10 }).map((_, idx) => (
-              <Card
-                key={idx}
-                size="small"
-                style={{ borderRadius: 12, overflow: 'hidden' }}
-                cover={<Skeleton.Image active style={{ width: '100%', height: 150 }} />}
-              >
-                <Skeleton active paragraph={{ rows: 2 }} />
-              </Card>
+	              <Card
+	                key={idx}
+	                size="small"
+	                style={{ borderRadius: 12, overflow: 'hidden' }}
+	                cover={(
+	                  <div style={{ width: '100%', aspectRatio: '2 / 3' }}>
+	                    <Skeleton.Image active style={{ width: '100%', height: '100%' }} />
+	                  </div>
+	                )}
+	              >
+	                <Skeleton active paragraph={{ rows: 2 }} />
+	              </Card>
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -604,7 +653,7 @@ export const VideoLibraryApp: React.FC<AppOpenComponentProps> = () => {
         title={detailTitle || selected?.title || t('Details')}
         open={detailOpen}
         onClose={closeDetail}
-        width={900}
+        width="100%"
         destroyOnHidden
         getContainer={false}
         styles={{ body: { padding: 0 } }}

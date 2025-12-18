@@ -109,7 +109,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
     const menuItems: (ActionMenuItem | null)[] = [
       (entry.is_dir || apps.length > 0) ? {
         key: 'open',
-        label: defaultApp ? `${t('Open')} (${defaultApp.name})` : t('Open'),
+        label: t('Open'),
         icon: <FolderFilled />,
         onClick: () => actions.onOpen(entry),
       } : null,

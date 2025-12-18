@@ -47,7 +47,7 @@ export function useAppWindows(path: string) {
     }
     const defaultApp = getDefaultAppForEntry(entry) || apps[0];
     openWithApp(entry, defaultApp);
-  }, [openWithApp]);
+  }, [openWithApp, t]);
 
   const confirmOpenWithApp = useCallback((entry: VfsEntry, appKey: string) => {
     const app = getAppByKey(appKey);
@@ -72,7 +72,7 @@ export function useAppWindows(path: string) {
         openWithApp(entry, app);
       }
     });
-  }, [openWithApp]);
+  }, [openWithApp, t]);
 
   const closeWindow = (id: string) => setAppWindows(ws => ws.filter(w => w.id !== id));
   const toggleMax = (id: string) => setAppWindows(ws => ws.map(w => w.id === id ? { ...w, maximized: !w.maximized } : w));

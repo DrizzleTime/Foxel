@@ -6,6 +6,7 @@ import { useSystemStatus } from '../../contexts/SystemContext';
 
 export const OfficeViewerApp: React.FC<AppComponentProps> = ({ filePath, onRequestClose }) => {
   const systemStatus = useSystemStatus();
+  const fileDomain = systemStatus?.file_domain;
   const [url, setUrl] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
@@ -19,7 +20,7 @@ export const OfficeViewerApp: React.FC<AppComponentProps> = ({ filePath, onReque
     vfsApi.getTempLinkToken(filePath.replace(/^\/+/, ''))
       .then(res => {
         if (cancelled) return;
-        const baseUrl = systemStatus?.file_domain || window.location.origin;
+        const baseUrl = fileDomain || window.location.origin;
         const fullUrl = new URL(res.url, baseUrl).href;
         const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fullUrl)}`;
         setUrl(officeUrl);
@@ -38,7 +39,7 @@ export const OfficeViewerApp: React.FC<AppComponentProps> = ({ filePath, onReque
     return () => {
       cancelled = true;
     };
-  }, [filePath]);
+  }, [filePath, fileDomain]);
 
   if (loading) {
     return (

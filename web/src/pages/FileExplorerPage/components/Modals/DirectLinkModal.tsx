@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useCallback } from 'react';
 import { Modal, Radio, message, Button, Typography, Input, Space } from 'antd';
 import { CopyOutlined, FileMarkdownOutlined } from '@ant-design/icons';
 import type { VfsEntry } from '../../../../api/client';
@@ -33,14 +33,7 @@ export const DirectLinkModal = memo(function DirectLinkModal({ entry, path, open
   const [link, setLink] = useState('');
   const { t } = useI18n();
 
-  useEffect(() => {
-    if (open && entry) {
-      setLink('');
-      generateLink();
-    }
-  }, [open, entry, expiresIn]);
-
-  const generateLink = async () => {
+  const generateLink = useCallback(async () => {
     if (!entry) return;
     setLoading(true);
     try {
@@ -57,7 +50,14 @@ export const DirectLinkModal = memo(function DirectLinkModal({ entry, path, open
     } finally {
       setLoading(false);
     }
-  };
+  }, [entry, expiresIn, path, t]);
+
+  useEffect(() => {
+    if (open && entry) {
+      setLink('');
+      void generateLink();
+    }
+  }, [open, entry, generateLink]);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);

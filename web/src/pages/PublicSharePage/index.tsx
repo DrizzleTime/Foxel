@@ -17,10 +17,10 @@ const PublicSharePage = memo(function PublicSharePage() {
   const [verified, setVerified] = useState(false);
   const { t } = useI18n();
 
-  const loadData = useCallback(async (pwd?: string) => {
-    if (!token) return;
-    setLoading(true);
-    setError('');
+	  const loadData = useCallback(async (pwd?: string) => {
+	    if (!token) return;
+	    setLoading(true);
+	    setError('');
     try {
       let info = shareInfo;
       if (!info) {
@@ -50,10 +50,10 @@ const PublicSharePage = memo(function PublicSharePage() {
       if (e.message === '需要密码') {
         setVerified(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [token, shareInfo, password, verified]);
+	    } finally {
+	      setLoading(false);
+	    }
+	  }, [password, shareInfo, t, token, verified]);
 
   useEffect(() => {
     loadData();

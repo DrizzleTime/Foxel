@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Modal, Form, Input, Tag, message, Card, Typography, Popconfirm, Empty, Skeleton, theme, Divider, Tabs, Select, Pagination } from 'antd';
 import { GithubOutlined, LinkOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
@@ -38,7 +38,7 @@ const PluginsPage = memo(function PluginsPage() {
       try {
         await ensureAppsLoaded();
         setSystemApps(listSystemApps());
-      } catch {}
+      } catch { void 0; }
     })();
   }, []);
 
@@ -48,23 +48,23 @@ const PluginsPage = memo(function PluginsPage() {
     return set;
   }, [data]);
 
-  const reloadRepo = async () => {
+  const reloadRepo = useCallback(async () => {
     try {
       setRepoLoading(true);
       const res = await fetchRepoList({ query: repoQ || undefined, sort: repoSort, page: repoPage, pageSize: repoPageSize });
       setRepoItems(res.items || []);
       setRepoTotal(res.total || 0);
-    } catch (e) {
+    } catch {
       setRepoItems([]);
       setRepoTotal(0);
     } finally {
       setRepoLoading(false);
     }
-  };
+  }, [repoPage, repoPageSize, repoQ, repoSort]);
 
   useEffect(() => {
     if (tab === 'discover') reloadRepo();
-  }, [tab, repoQ, repoSort, repoPage, repoPageSize]);
+  }, [reloadRepo, tab]);
 
   const handleAdd = async () => {
     try {
@@ -73,13 +73,13 @@ const PluginsPage = memo(function PluginsPage() {
       try {
         const p = await loadPlugin(created);
         await ensureManifest(created.id, p);
-      } catch {}
+      } catch { void 0; }
       setAdding(false);
       form.resetFields();
       await reload();
       await reloadPluginApps();
       message.success(t('Installed successfully'));
-    } catch {}
+    } catch { void 0; }
   };
 
   const filtered = useMemo(() => {
@@ -290,7 +290,7 @@ const PluginsPage = memo(function PluginsPage() {
                 try {
                   const p = await loadPlugin(created);
                   await ensureManifest(created.id, p);
-                } catch {}
+                } catch { void 0; }
                 await reload();
                 await reloadPluginApps();
                 message.success(t('Installed successfully'));

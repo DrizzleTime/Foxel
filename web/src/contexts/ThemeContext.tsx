@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
@@ -85,15 +85,22 @@ function buildThemeConfig(state: ThemeState, systemDark: boolean): ThemeConfig {
   const baseComponents = { ...(baseTheme.components as any) };
   if (resolvedMode === 'dark' && baseComponents) {
     if (baseComponents.Menu) {
-      const { itemHoverColor, itemHoverBg, itemSelectedBg, itemSelectedColor, ...rest } = baseComponents.Menu;
+      const rest = { ...baseComponents.Menu };
+      delete rest.itemHoverColor;
+      delete rest.itemHoverBg;
+      delete rest.itemSelectedBg;
+      delete rest.itemSelectedColor;
       baseComponents.Menu = rest;
     }
     if (baseComponents.Dropdown) {
-      const { controlItemBgHover, ...rest } = baseComponents.Dropdown;
+      const rest = { ...baseComponents.Dropdown };
+      delete rest.controlItemBgHover;
       baseComponents.Dropdown = rest;
     }
     if (baseComponents.Table) {
-      const { headerBg, rowHoverBg, ...rest } = baseComponents.Table;
+      const rest = { ...baseComponents.Table };
+      delete rest.headerBg;
+      delete rest.rowHoverBg;
       baseComponents.Table = rest;
     }
   }
@@ -106,9 +113,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { lang } = useI18n();
   const systemDark = useSystemDarkPreferred();
   const [state, setState] = useState<ThemeState>({ mode: 'light' });
+  const stateRef = useRef(state);
   const styleTagRef = useRef<HTMLStyleElement | null>(null);
 
-  const ensureStyleTag = () => {
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const ensureStyleTag = useCallback(() => {
     if (styleTagRef.current) return styleTagRef.current;
     let styleEl = document.getElementById('foxel-custom-css') as HTMLStyleElement | null;
     if (!styleEl) {
@@ -118,22 +130,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
     styleTagRef.current = styleEl;
     return styleEl;
-  };
+  }, []);
 
-  const applyCustomCSS = (cssText: string | null | undefined) => {
+  const applyCustomCSS = useCallback((cssText: string | null | undefined) => {
     const el = ensureStyleTag();
     el.textContent = cssText || '';
-  };
+  }, [ensureStyleTag]);
 
-  const applyHtmlDataTheme = (mode: ThemeMode) => {
+  const applyHtmlDataTheme = useCallback((mode: ThemeMode) => {
     const finalMode = mode === 'system' ? (systemDark ? 'dark' : 'light') : mode;
     document.documentElement.setAttribute('data-theme', finalMode);
-  };
+  }, [systemDark]);
 
-  const refreshTheme = async () => {
+  const refreshTheme = useCallback(async () => {
     if (!isAuthenticated) {
-      applyHtmlDataTheme(state.mode || 'light');
-      applyCustomCSS(state.customCSS || '');
+      applyHtmlDataTheme(stateRef.current.mode || 'light');
+      applyCustomCSS(stateRef.current.customCSS || '');
       return;
     }
     try {
@@ -147,22 +159,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setState({ mode, primaryColor: primary, borderRadius: radius, customTokens, customCSS });
       applyHtmlDataTheme(mode);
       applyCustomCSS(customCSS);
-    } catch (e) {
+    } catch {
       applyHtmlDataTheme('light');
       applyCustomCSS('');
     }
-  };
+  }, [applyCustomCSS, applyHtmlDataTheme, isAuthenticated]);
 
-  const previewTheme = (patch: Partial<ThemeState>) => {
-    const next: ThemeState = { ...state, ...patch };
+  const previewTheme = useCallback((patch: Partial<ThemeState>) => {
+    const next: ThemeState = { ...stateRef.current, ...patch };
+    stateRef.current = next;
     setState(next);
     applyHtmlDataTheme(next.mode || 'light');
     applyCustomCSS(next.customCSS || '');
-  };
+  }, [applyCustomCSS, applyHtmlDataTheme]);
 
   useEffect(() => {
-    refreshTheme();
-  }, [isAuthenticated, systemDark]);
+    void refreshTheme();
+  }, [refreshTheme]);
 
   const themeConfig = useMemo(() => buildThemeConfig(state, systemDark), [state, systemDark]);
   const resolvedMode: ThemeMode = useMemo(() => (state.mode === 'system' ? (systemDark ? 'dark' : 'light') : state.mode), [state.mode, systemDark]);
@@ -173,7 +186,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     previewTheme,
     mode: state.mode,
     resolvedMode,
-  }), [state.mode, resolvedMode]);
+  }), [previewTheme, refreshTheme, resolvedMode, state.mode]);
 
   return (
     <Ctx.Provider value={ctxValue}>

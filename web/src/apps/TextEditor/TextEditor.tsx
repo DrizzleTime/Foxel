@@ -9,13 +9,14 @@ const MarkdownEditor = React.lazy(() => import('@uiw/react-md-editor'));
 
 const { Header, Content } = Layout;
 
+const MAX_PREVIEW_BYTES = 1024 * 1024; // 1MB
+
 export const TextEditorApp: React.FC<AppComponentProps> = ({ filePath, entry, onRequestClose }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [content, setContent] = useState('');
   const [initialContent, setInitialContent] = useState('');
   const [truncated, setTruncated] = useState(false);
-  const MAX_PREVIEW_BYTES = 1024 * 1024; // 1MB
   const isDirty = content !== initialContent;
   const onRequestCloseRef = useRef(onRequestClose);
   onRequestCloseRef.current = onRequestClose;

@@ -47,28 +47,24 @@ const AuditLogsPage = memo(function AuditLogsPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
   const { t } = useI18n();
 
-  const buildParams = () => {
-    const params: any = { ...filters };
-    if (!params.action) delete params.action;
-    if (params.success === '') delete params.success;
-    if (!params.username) delete params.username;
-    if (!params.path) delete params.path;
-    if (!params.start_time) delete params.start_time;
-    if (!params.end_time) delete params.end_time;
-    return params;
-  };
-
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await auditApi.list(buildParams());
+      const params: any = { ...filters };
+      if (!params.action) delete params.action;
+      if (params.success === '') delete params.success;
+      if (!params.username) delete params.username;
+      if (!params.path) delete params.path;
+      if (!params.start_time) delete params.start_time;
+      if (!params.end_time) delete params.end_time;
+      const res = await auditApi.list(params);
       setData(res);
     } catch (e: any) {
       message.error(e.message || t('Load failed'));
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, t]);
 
   useEffect(() => {
     fetchList();

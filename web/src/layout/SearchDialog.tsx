@@ -302,7 +302,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ open, onClose }) => {
       } else {
         setHasMore(false);
       }
-    } catch (e) {
+    } catch {
       if (requestId !== requestIdRef.current) {
         return;
       }

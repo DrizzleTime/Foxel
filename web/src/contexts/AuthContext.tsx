@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const res = await authApi.login({ username, password });
         if (res) {
             setToken(res.access_token);
-            try { await refreshUser(); } catch (_) {}
+            try { await refreshUser(); } catch { void 0; }
         }
     };
 
@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
             setUser(null);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token]);
 
     return (

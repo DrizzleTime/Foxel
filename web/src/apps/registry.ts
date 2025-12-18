@@ -21,8 +21,7 @@ async function loadApps() {
   try {
     const items = await pluginsApi.list();
     items.filter(p => p.enabled !== false).forEach((p) => registerPluginAsApp(p));
-  } catch (e) {
-  }
+  } catch { void 0; }
 }
 
 function registerPluginAsApp(p: PluginItem) {
@@ -104,5 +103,5 @@ export async function reloadPluginApps() {
           : undefined;
       }
     });
-  } catch { }
+  } catch { void 0; }
 }

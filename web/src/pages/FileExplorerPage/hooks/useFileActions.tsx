@@ -35,7 +35,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     } catch (e: any) {
       message.error(e.message);
     }
-  }, [path, refresh]);
+  }, [path, refresh, t]);
 
   const doDelete = useCallback(async (entries: VfsEntry[]) => {
     Modal.confirm({
@@ -51,7 +51,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
         }
       }
     });
-  }, [path, refresh, clearSelection]);
+  }, [path, refresh, clearSelection, t]);
 
   const doRename = useCallback(async (entry: VfsEntry, newName: string) => {
     if (!newName.trim() || newName.trim() === entry.name) {
@@ -173,7 +173,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     } catch (e: any) {
       message.error(e.message || t('Download failed'));
     }
-  }, [path]);
+  }, [path, t]);
 
   const doShare = useCallback((entries: VfsEntry[]) => {
     if (entries.length === 0) {
@@ -181,7 +181,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
       return;
     }
     onShare(entries);
-  }, [onShare]);
+  }, [onShare, t]);
 
   const doGetDirectLink = useCallback((entry: VfsEntry) => {
     if (entry.is_dir) {
@@ -189,7 +189,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
       return;
     }
     onGetDirectLink(entry);
-  }, [onGetDirectLink]);
+  }, [onGetDirectLink, t]);
 
   return {
     doCreateDir,

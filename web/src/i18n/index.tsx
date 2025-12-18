@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
 import type { PropsWithChildren } from 'react';
 import en from './locales/en.json';
 import zhOverrides from './locales/zh.json';
@@ -27,22 +27,22 @@ function interpolate(template: string, params?: Record<string, string | number>)
 export function I18nProvider({ children }: PropsWithChildren) {
   const [lang, setLangState] = useState<Lang>(() => (localStorage.getItem('lang') as Lang) || 'zh');
 
-  const setLang = (l: Lang) => {
+  const setLang = useCallback((l: Lang) => {
     setLangState(l);
     localStorage.setItem('lang', l);
-  };
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  const t = (key: string, params?: Record<string, string | number>) => {
+  const t = useCallback((key: string, params?: Record<string, string | number>) => {
     const dict = dicts[lang] || {};
     const raw = dict[key] ?? key; // fallback to key (English)
     return interpolate(raw, params);
-  };
+  }, [lang]);
 
-  const value = useMemo<I18nContextValue>(() => ({ lang, setLang, t }), [lang]);
+  const value = useMemo<I18nContextValue>(() => ({ lang, setLang, t }), [lang, setLang, t]);
 
   return (
     <I18nContext.Provider value={value}>

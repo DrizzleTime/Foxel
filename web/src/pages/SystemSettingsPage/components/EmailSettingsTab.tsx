@@ -78,7 +78,7 @@ function parseEmailConfig(raw?: string | null): EmailFormValues {
       timeout: data?.timeout !== undefined ? Number(data.timeout) : DEFAULT_FORM.timeout,
       security: (data?.security ?? DEFAULT_FORM.security) as EmailFormValues['security'],
     };
-  } catch (_err) {
+  } catch {
     return { ...DEFAULT_FORM };
   }
 }

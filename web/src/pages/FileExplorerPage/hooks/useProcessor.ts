@@ -58,7 +58,7 @@ export function useProcessor({ path, processorTypes, refresh }: ProcessorParams)
     } finally {
       setLoading(false);
     }
-  }, [modal.entry, selectedProcessor, processorTypes, config, path, overwrite, savingPath, refresh]);
+  }, [modal.entry, selectedProcessor, processorTypes, config, path, overwrite, savingPath, refresh, t]);
 
   const handleCancel = useCallback(() => {
     setModal({ entry: null, visible: false });

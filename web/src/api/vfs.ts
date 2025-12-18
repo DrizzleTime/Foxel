@@ -107,7 +107,7 @@ export const vfsApi = {
               const json = JSON.parse(xhr.responseText);
               if (json.code === 0) return resolve(json.data);
               return reject(new Error(json.msg || json.message || 'Upload failed'));
-            } catch (e) {
+            } catch {
               return reject(new Error('Invalid response'));
             }
           } else {
@@ -115,7 +115,7 @@ export const vfsApi = {
             try {
               const json = JSON.parse(xhr.responseText);
               err = json.detail || json.msg || json.message || err;
-            } catch (_) {}
+            } catch { void 0; }
             reject(new Error(err));
           }
         }

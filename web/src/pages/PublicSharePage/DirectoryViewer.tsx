@@ -22,19 +22,19 @@ export const DirectoryViewer = memo(function DirectoryViewer({ token, shareInfo,
     const [error, setError] = useState('');
     const { t } = useI18n();
 
-    const loadData = useCallback(async (p: string) => {
-        setLoading(true);
-        setError('');
-        try {
-            const listing = await shareApi.listDir(token, p, password);
-            setEntries(listing.entries || []);
-            setCurrentPath(p);
-        } catch (e: any) {
-            setError(e.message || t('Share load failed'));
-        } finally {
-            setLoading(false);
-        }
-    }, [token, password]);
+	    const loadData = useCallback(async (p: string) => {
+	        setLoading(true);
+	        setError('');
+	        try {
+	            const listing = await shareApi.listDir(token, p, password);
+	            setEntries(listing.entries || []);
+	            setCurrentPath(p);
+	        } catch (e: any) {
+	            setError(e.message || t('Share load failed'));
+	        } finally {
+	            setLoading(false);
+	        }
+	    }, [password, t, token]);
 
     useEffect(() => {
         loadData(currentPath);

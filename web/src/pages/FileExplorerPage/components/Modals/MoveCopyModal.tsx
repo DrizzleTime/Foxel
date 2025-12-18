@@ -41,9 +41,7 @@ export function MoveCopyModal({ mode, entries, open, defaultPath, onOk, onCancel
     try {
       await onOk(trimmed);
       onCancel();
-    } catch (e) {
-      // 上层已处理提示，这里只需保持对话框
-    } finally {
+    } catch { void 0; } finally {
       setLoading(false);
     }
   };

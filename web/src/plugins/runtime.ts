@@ -133,12 +133,13 @@ export async function ensureManifest(pluginId: number, plugin: RegisteredPlugin)
     website: plugin.website,
     github: plugin.github,
   };
-  try { console.debug('[foxel] report manifest', pluginId, manifest); } catch { }
+  try { console.debug('[foxel] report manifest', pluginId, manifest); } catch { void 0; }
   const key = `foxel:manifestReported:${pluginId}`;
   if (sessionStorage.getItem(key) === '1') return;
   try {
     await pluginsApi.updateManifest(pluginId, manifest);
     sessionStorage.setItem(key, '1');
   } catch {
+    void 0;
   }
 }

@@ -49,7 +49,7 @@ async function request<T = any>(url: string, options: RequestOptions = {}): Prom
       } else {
         errMsg = (typeof data?.detail === 'string') ? data.detail : (data.detail ? JSON.stringify(data.detail) : JSON.stringify(data));
       }
-    } catch (_) { }
+    } catch { void 0; }
     throw new Error(errMsg || `Request failed: ${resp.status}`);
   }
 

@@ -23,7 +23,7 @@ const SharePage = memo(function SharePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 

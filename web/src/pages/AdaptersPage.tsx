@@ -27,7 +27,7 @@ const AdaptersPage = memo(function AdaptersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 

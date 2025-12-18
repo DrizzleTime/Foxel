@@ -47,7 +47,7 @@ export const PluginAppHost: React.FC<PluginAppHostProps> = ({ plugin, filePath, 
         if (pluginRef.current?.unmount && containerRef.current) {
           pluginRef.current.unmount(containerRef.current);
         }
-      } catch {}
+      } catch { void 0; }
     },
   );
 
@@ -96,7 +96,7 @@ export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, on
         const p = pluginRef.current;
         if (p?.unmountApp) return p.unmountApp(containerRef.current);
         if (p?.unmount) return p.unmount(containerRef.current);
-      } catch { }
+      } catch { void 0; }
     },
   );
 

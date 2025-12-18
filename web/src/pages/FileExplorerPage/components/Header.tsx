@@ -41,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { t } = useI18n();
   const [editingPath, setEditingPath] = useState(false);
   const [pathInputValue, setPathInputValue] = useState('');
+  const pathEditorHeight = token.fontSizeSM * token.lineHeight + token.paddingXXS * 2;
 
   const handlePathEdit = () => {
     setEditingPath(true);
@@ -71,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
           onBlur={handlePathCancel}
           onKeyDown={(e) => e.key === 'Escape' && handlePathCancel()}
           autoFocus
-          style={{ flex: 1 }}
+          style={{ flex: 1, height: pathEditorHeight, boxSizing: 'border-box' }}
         />
       );
     }
@@ -89,12 +90,23 @@ export const Header: React.FC<HeaderProps> = ({
 
     return (
       <div
-        style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: token.borderRadius, transition: 'background-color 0.2s', flex: 1, overflow: 'hidden' }}
+        style={{
+          cursor: 'pointer',
+          padding: `${token.paddingXXS}px ${token.paddingXS}px`,
+          borderRadius: token.borderRadius,
+          transition: 'background-color 0.2s',
+          flex: 1,
+          overflow: 'hidden',
+          height: pathEditorHeight,
+          boxSizing: 'border-box',
+          display: 'flex',
+          alignItems: 'center'
+        }}
         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = token.colorFillTertiary; }}
         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
         onClick={handlePathEdit}
       >
-        <Breadcrumb items={breadcrumbItems} separator="/" style={{ fontSize: 12 }} />
+        <Breadcrumb items={breadcrumbItems} separator="/" style={{ fontSize: token.fontSizeSM }} />
       </div>
     );
   };

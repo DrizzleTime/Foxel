@@ -338,6 +338,7 @@
   "File Domain": "文件域名",
   "Configure Access Key and Secret to enable S3 mapping.": "配置 Access Key 与 Secret 后才能启用 S3 映射。",
   "Mount point inside the virtual file system (e.g. / or /workspace).": "虚拟文件系统中的挂载路径，例如 / 或 /workspace。",
+  "Leave blank to accept any region.": "留空表示接受任意 Region。",
   "Please input bucket name": "请输入 Bucket 名",
   "Please input region": "请输入 Region",
   "Please input access key": "请输入 Access Key",

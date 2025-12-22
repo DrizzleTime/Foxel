@@ -69,7 +69,7 @@ async def _ensure_enabled() -> Optional[Response]:
 
 async def _get_settings() -> Tuple[Optional[S3Settings], Optional[Response]]:
     bucket = (await ConfigService.get("S3_MAPPING_BUCKET", "foxel")) or "foxel"
-    region = (await ConfigService.get("S3_MAPPING_REGION", "us-east-1")) or "us-east-1"
+    region = ((await ConfigService.get("S3_MAPPING_REGION", "")) or "").strip()
     base_path = (await ConfigService.get("S3_MAPPING_BASE_PATH", "/")) or "/"
     access_key = (await ConfigService.get("S3_MAPPING_ACCESS_KEY")) or ""
     secret_key = (await ConfigService.get("S3_MAPPING_SECRET_KEY")) or ""
@@ -145,7 +145,7 @@ async def _authorize_sigv4(request: Request, settings: S3Settings) -> Optional[R
         return _s3_error("InvalidAccessKeyId", "The AWS Access Key Id you provided does not exist in our records.", status=403)
     if service != "s3":
         return _s3_error("InvalidRequest", "Only service 's3' is supported", status=400)
-    if region != settings["region"]:
+    if settings.get("region") and region != settings["region"]:
         return _s3_error("AuthorizationHeaderMalformed", f"Region '{region}' is invalid", status=400)
 
     amz_date = request.headers.get("x-amz-date")

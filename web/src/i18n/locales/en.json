@@ -319,6 +319,7 @@
   "File Domain": "File Domain",
   "Configure Access Key and Secret to enable S3 mapping.": "Configure Access Key and Secret to enable S3 mapping.",
   "Mount point inside the virtual file system (e.g. / or /workspace).": "Mount point inside the virtual file system (e.g. / or /workspace).",
+  "Leave blank to accept any region.": "Leave blank to accept any region.",
   "Please input bucket name": "Please input bucket name",
   "Please input region": "Please input region",
   "Please input access key": "Please input access key",

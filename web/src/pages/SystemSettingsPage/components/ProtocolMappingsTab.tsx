@@ -39,7 +39,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
     setS3Enabled(truthy.has((config[S3_KEYS.ENABLED] ?? '1').toLowerCase()));
     s3Form.setFieldsValue({
       bucket: config[S3_KEYS.BUCKET] ?? 'foxel',
-      region: config[S3_KEYS.REGION] ?? 'us-east-1',
+      region: config[S3_KEYS.REGION] ?? '',
       basePath: config[S3_KEYS.BASE_PATH] ?? '/',
       accessKey: config[S3_KEYS.ACCESS_KEY] ?? '',
       secretKey: config[S3_KEYS.SECRET_KEY] ?? '',
@@ -97,7 +97,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
     return trimmed.replace(/\/+$/, '') || '/';
   };
 
-  const regionValue = (watchRegion ?? config[S3_KEYS.REGION] ?? 'us-east-1').trim() || 'us-east-1';
+  const regionValue = (watchRegion ?? config[S3_KEYS.REGION] ?? '').trim();
   const basePathValue = normalizeBasePath(watchBasePath ?? config[S3_KEYS.BASE_PATH] ?? '/');
   const accessKeyValue = (watchAccessKey ?? config[S3_KEYS.ACCESS_KEY] ?? '').trim();
   const secretValue = (watchSecretKey ?? config[S3_KEYS.SECRET_KEY] ?? '').trim();
@@ -108,7 +108,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
     try {
       await onSave({
         [S3_KEYS.BUCKET]: values.bucket?.trim() || 'foxel',
-        [S3_KEYS.REGION]: values.region?.trim() || 'us-east-1',
+        [S3_KEYS.REGION]: values.region?.trim() || '',
         [S3_KEYS.BASE_PATH]: normalizeBasePath(values.basePath),
         [S3_KEYS.ACCESS_KEY]: values.accessKey?.trim() || '',
         [S3_KEYS.SECRET_KEY]: values.secretKey?.trim() || '',
@@ -229,7 +229,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
               {
                 key: 'region',
                 label: t('Region'),
-                children: regionValue,
+                children: regionValue || t('Not set'),
               },
               {
                 key: 'base-path',
@@ -262,9 +262,9 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
             <Form.Item
               name="region"
               label={t('Region')}
-              rules={[{ required: true, message: t('Please input region') }]}
+              extra={t('Leave blank to accept any region.')}
             >
-              <Input disabled={!s3Enabled || loading} />
+              <Input disabled={!s3Enabled || loading} placeholder="us-east-1" />
             </Form.Item>
             <Form.Item
               name="basePath"

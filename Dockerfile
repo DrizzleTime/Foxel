@@ -33,6 +33,8 @@ COPY . .
 
 RUN mkdir -p data/db data/mount && \
     chmod 777 data/db data/mount && \
+    chmod +x setup/foxel_cli.py && \
+    ln -sf /app/setup/foxel_cli.py /usr/local/bin/foxel && \
     rm -rf /var/log/apt /var/cache/apt/archives
     
 EXPOSE 80

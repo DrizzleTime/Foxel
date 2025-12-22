@@ -499,6 +499,7 @@
   "/ or /drive": "/ or /drive",
   "Adapter Config": "Adapter Config",
   "adapter.type.local": "Local Filesystem",
+  "adapter.type.dropbox": "Dropbox",
   "adapter.type.webdav": "WebDAV",
   "adapter.type.googledrive": "Google Drive",
   "adapter.type.onedrive": "OneDrive",

@@ -487,6 +487,7 @@
   "/ or /drive": "/或/drive",
   "Adapter Config": "适配器配置",
   "adapter.type.local": "本地文件系统",
+  "adapter.type.dropbox": "Dropbox",
   "adapter.type.quark": "夸克网盘",
   "adapter.type.alist": "AList",
   "adapter.type.openlist": "OpenList",

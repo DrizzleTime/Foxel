@@ -506,6 +506,8 @@
   "adapter.type.sftp": "SFTP",
   "adapter.type.telegram": "Telegram",
   "adapter.type.quark": "Quark Drive",
+  "adapter.type.alist": "AList",
+  "adapter.type.openlist": "OpenList",
   "Automation Tasks": "Automation Tasks",
   "Create Task": "Create Task",
   "Edit Task": "Edit Task",

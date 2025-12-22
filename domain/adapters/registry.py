@@ -33,6 +33,27 @@ def discover_adapters():
             module = import_module(full_name)
         except Exception:
             continue
+
+        adapter_types = getattr(module, "ADAPTER_TYPES", None)
+        if isinstance(adapter_types, dict):
+            default_schema = getattr(module, "CONFIG_SCHEMA", None)
+            schema_map = getattr(module, "CONFIG_SCHEMA_MAP", None)
+            if not isinstance(schema_map, dict):
+                schema_map = None
+
+            for adapter_type, factory in adapter_types.items():
+                normalized_type = normalize_adapter_type(adapter_type)
+                if not normalized_type:
+                    continue
+                if not callable(factory):
+                    continue
+                TYPE_MAP[normalized_type] = factory
+
+                schema = schema_map.get(normalized_type) if schema_map else default_schema
+                if isinstance(schema, list):
+                    CONFIG_SCHEMAS[normalized_type] = schema
+            continue
+
         adapter_type = normalize_adapter_type(getattr(module, "ADAPTER_TYPE", None))
         schema = getattr(module, "CONFIG_SCHEMA", None)
         factory = getattr(module, "ADAPTER_FACTORY", None)

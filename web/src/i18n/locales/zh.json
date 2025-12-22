@@ -487,6 +487,8 @@
   "Adapter Config": "适配器配置",
   "adapter.type.local": "本地文件系统",
   "adapter.type.quark": "夸克网盘",
+  "adapter.type.alist": "AList",
+  "adapter.type.openlist": "OpenList",
   "Automation Tasks": "自动化任务",
   "Running Tasks": "运行中的任务",
   "Create Task": "新建任务",

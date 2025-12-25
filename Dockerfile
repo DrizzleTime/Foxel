@@ -9,7 +9,7 @@ COPY web/ ./
 
 RUN bun run build
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 

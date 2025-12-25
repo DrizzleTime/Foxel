@@ -5,7 +5,13 @@ from fastapi import HTTPException, UploadFile
 from fastapi.responses import Response
 
 from domain.config.service import ConfigService
-from domain.virtual_fs.thumbnail import get_or_create_thumb, is_image_filename, is_raw_filename, is_video_filename
+from domain.virtual_fs.thumbnail import (
+    get_or_create_thumb,
+    is_image_filename,
+    is_raw_filename,
+    is_video_filename,
+    raw_bytes_to_jpeg,
+)
 
 from .temp_link import VirtualFSTempLinkMixin
 
@@ -16,19 +22,9 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
         full_path = cls._normalize_path(full_path)
 
         if is_raw_filename(full_path):
-            import io
-
-            import rawpy
-            from PIL import Image
-
             try:
                 raw_data = await cls.read_file(full_path)
-                with rawpy.imread(io.BytesIO(raw_data)) as raw:
-                    rgb = raw.postprocess(use_camera_wb=True, output_bps=8)
-                im = Image.fromarray(rgb)
-                buf = io.BytesIO()
-                im.save(buf, "JPEG", quality=90)
-                content = buf.getvalue()
+                content = raw_bytes_to_jpeg(raw_data, filename=full_path)
                 return Response(content=content, media_type="image/jpeg")
             except FileNotFoundError:
                 raise HTTPException(404, detail="File not found")

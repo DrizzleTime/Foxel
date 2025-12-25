@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from fastapi.responses import Response
 
 from domain.tasks.service import TaskService
-from domain.virtual_fs.thumbnail import is_raw_filename
+from domain.virtual_fs.thumbnail import is_raw_filename, raw_bytes_to_jpeg
 
 from .listing import VirtualFSListingMixin
 
@@ -82,32 +82,9 @@ class VirtualFSFileOpsMixin(VirtualFSListingMixin):
         if not rel or rel.endswith("/"):
             raise HTTPException(400, detail="Path is a directory")
         if is_raw_filename(rel):
-            import io
-
-            import rawpy
-            from PIL import Image
-
             try:
                 raw_data = await cls.read_file(path)
-                try:
-                    with rawpy.imread(io.BytesIO(raw_data)) as raw:
-                        try:
-                            thumb = raw.extract_thumb()
-                        except rawpy.LibRawNoThumbnailError:
-                            thumb = None
-
-                        if thumb is not None and thumb.format in [rawpy.ThumbFormat.JPEG, rawpy.ThumbFormat.BITMAP]:
-                            im = Image.open(io.BytesIO(thumb.data))
-                        else:
-                            rgb = raw.postprocess(use_camera_wb=False, use_auto_wb=True, output_bps=8)
-                            im = Image.fromarray(rgb)
-                except Exception as exc:
-                    print(f"rawpy processing failed: {exc}")
-                    raise exc
-
-                buf = io.BytesIO()
-                im.save(buf, "JPEG", quality=90)
-                content = buf.getvalue()
+                content = raw_bytes_to_jpeg(raw_data, filename=rel)
                 return Response(content=content, media_type="image/jpeg")
             except Exception as exc:
                 raise HTTPException(500, detail=f"RAW file processing failed: {exc}")

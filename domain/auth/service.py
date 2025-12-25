@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
-from passlib.context import CryptContext
 
 from domain.auth.types import (
     PasswordResetConfirm,
@@ -97,11 +97,14 @@ class PasswordResetStore:
 
 
 class AuthService:
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
     algorithm = ALGORITHM
     access_token_expire_minutes = ACCESS_TOKEN_EXPIRE_MINUTES
     password_reset_token_expire_minutes = PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+
+    @staticmethod
+    def _to_bytes(value: str) -> bytes:
+        return value.encode("utf-8")
 
     @classmethod
     async def get_secret_key(cls) -> str:
@@ -113,11 +116,17 @@ class AuthService:
 
     @classmethod
     def verify_password(cls, plain_password: str, hashed_password: str) -> bool:
-        return cls.pwd_context.verify(plain_password, hashed_password)
+        try:
+            return bcrypt.checkpw(cls._to_bytes(plain_password), hashed_password.encode("utf-8"))
+        except (ValueError, TypeError):
+            return False
 
     @classmethod
     def get_password_hash(cls, password: str) -> str:
-        return cls.pwd_context.hash(password)
+        encoded = cls._to_bytes(password)
+        if len(encoded) > 72:
+            raise HTTPException(status_code=400, detail="密码过长")
+        return bcrypt.hashpw(encoded, bcrypt.gensalt()).decode("utf-8")
 
     @classmethod
     async def get_user_db(cls, username_or_email: str) -> UserInDB | None:

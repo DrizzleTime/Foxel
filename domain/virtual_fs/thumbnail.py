@@ -2,10 +2,13 @@ import asyncio
 import inspect
 import io
 import hashlib
+import subprocess
 import tempfile
 from contextlib import suppress
 from pathlib import Path
 from typing import Tuple
+
+from PIL import Image
 from fastapi import HTTPException
 
 ALLOWED_EXT = {"jpg", "jpeg", "png", "webp", "gif", "bmp",
@@ -58,7 +61,6 @@ def _ensure_cache_dir(p: Path):
 
 
 def _image_to_webp(im, w: int, h: int, fit: str) -> Tuple[bytes, str]:
-    from PIL import Image
     if im.mode not in ("RGB", "RGBA"):
         im = im.convert("RGBA" if im.mode in ("P", "LA") else "RGB")
     if fit == 'cover':
@@ -81,30 +83,91 @@ def _image_to_webp(im, w: int, h: int, fit: str) -> Tuple[bytes, str]:
     return buf.getvalue(), 'image/webp'
 
 
-def generate_thumb(data: bytes, w: int, h: int, fit: str, is_raw: bool = False) -> Tuple[bytes, str]:
-    from PIL import Image
-    if is_raw:
+def _load_image_with_pillow(data: bytes):
+    im = Image.open(io.BytesIO(data))
+    im.load()
+    return im
+
+
+def _load_raw_with_ffmpeg(data: bytes, filename: str | None) -> "Image.Image":
+    src_path: str | None = None
+    dst_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=Path(filename or "").suffix or ".raw", delete=False) as src_tmp:
+            src_tmp.write(data)
+            src_path = src_tmp.name
+        dst_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        dst_path = dst_tmp.name
+        dst_tmp.close()
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel", "error",
+            "-i", src_path,
+            "-frames:v", "1",
+            dst_path,
+        ]
         try:
-            import rawpy
-            with rawpy.imread(io.BytesIO(data)) as raw:
-                try:
-                    thumb = raw.extract_thumb()
-                except rawpy.LibRawNoThumbnailError:
-                    thumb = None
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+        except FileNotFoundError as e:
+            raise RuntimeError("未找到 ffmpeg，可执行文件需要在 PATH 中") from e
+        except subprocess.CalledProcessError as e:
+            stderr = (e.stderr or b"").decode().strip()
+            stdout = (e.stdout or b"").decode().strip()
+            message = stderr or stdout or "ffmpeg 转换 RAW 失败"
+            raise RuntimeError(message) from e
 
-                if thumb is not None and thumb.format in [rawpy.ThumbFormat.JPEG, rawpy.ThumbFormat.BITMAP]:
-                    im = Image.open(io.BytesIO(thumb.data))
-                else:
-                    rgb = raw.postprocess(
-                        use_camera_wb=False, use_auto_wb=True, output_bps=8)
-                    im = Image.fromarray(rgb)
-        except Exception as e:
-            print(f"rawpy processing failed: {e}")
-            raise e
+        with open(dst_path, "rb") as f:
+            img_bytes = f.read()
+        im = Image.open(io.BytesIO(img_bytes))
+        im.load()
+        return im
+    finally:
+        if dst_path:
+            with suppress(FileNotFoundError):
+                Path(dst_path).unlink()
+        if src_path:
+            with suppress(FileNotFoundError):
+                Path(src_path).unlink()
 
-    else:
-        im = Image.open(io.BytesIO(data))
 
+def load_image_from_bytes(data: bytes, *, filename: str | None = None, is_raw: bool = False):
+    if not is_raw:
+        return _load_image_with_pillow(data)
+
+    first_error: Exception | None = None
+    try:
+        return _load_image_with_pillow(data)
+    except Exception as exc:
+        first_error = exc
+
+    try:
+        return _load_raw_with_ffmpeg(data, filename)
+    except Exception as exc:
+        msg = f"RAW 解码失败: ffmpeg 处理异常 {exc}"
+        if first_error:
+            msg = f"RAW 解码失败: Pillow 异常 {first_error}; ffmpeg 异常 {exc}"
+        raise RuntimeError(msg) from exc
+
+
+def raw_bytes_to_jpeg(data: bytes, filename: str | None = None) -> bytes:
+    im = load_image_from_bytes(data, filename=filename, is_raw=True)
+    if im.mode != "RGB":
+        im = im.convert("RGB")
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=90)
+    return buf.getvalue()
+
+
+def generate_thumb(data: bytes, w: int, h: int, fit: str, is_raw: bool = False, filename: str | None = None) -> Tuple[bytes, str]:
+    im = load_image_from_bytes(data, filename=filename, is_raw=is_raw)
     return _image_to_webp(im, w, h, fit)
 
 
@@ -434,7 +497,7 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
             read_data = await adapter.read_file(root, rel)
             try:
                 thumb_bytes, mime = generate_thumb(
-                    read_data, w, h, fit, is_raw=is_raw_filename(rel))
+                    read_data, w, h, fit, is_raw=is_raw_filename(rel), filename=rel)
             except Exception as e:
                 print(e)
                 raise HTTPException(

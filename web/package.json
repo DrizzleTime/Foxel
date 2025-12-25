@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
-    "@ant-design/v5-patch-for-react-19": "^1.0.3",
     "@monaco-editor/react": "^4.7.0",
     "@uiw/react-md-editor": "^4.0.11",
     "antd": "^5.29.3",

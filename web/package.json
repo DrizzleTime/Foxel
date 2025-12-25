@@ -17,7 +17,7 @@
     "antd": "^5.27.0",
     "artplayer": "^5.3.0",
     "date-fns": "^4.1.0",
-    "monaco-editor": "^0.53.0",
+    "monaco-editor": "^0.55.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",

@@ -1,13 +1,13 @@
 import request from './client';
 
 export async function getConfig(key: string) {
-  return request<{ key: string; value: string }>('/config?key=' + encodeURIComponent(key));
+  return request<{ key: string; value: string }>('/config/?key=' + encodeURIComponent(key));
 }
 
-export async function setConfig(key: string, value: string) {
+export async function setConfig(key: string, value?: string | null) {
   const form = new FormData();
   form.append('key', key);
-  form.append('value', value);
+  form.append('value', value ?? '');
   return request('/config/', { method: 'POST', formData: form });
 }
 

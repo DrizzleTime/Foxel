@@ -29,7 +29,7 @@ async def set_config(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     key: str = Form(...),
-    value: str = Form(...),
+    value: str = Form(""),
 ):
     await ConfigService.set(key, value)
     return success(ConfigItem(key=key, value=value).model_dump())

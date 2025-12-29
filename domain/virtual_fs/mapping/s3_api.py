@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from fastapi import APIRouter, Request, Response
 from fastapi import HTTPException
 
+from domain.audit import AuditAction, audit
 from domain.config.service import ConfigService
 from domain.virtual_fs.service import VirtualFSService
 
@@ -314,6 +315,7 @@ def _resource_path(bucket: str, key: Optional[str] = None) -> str:
 
 
 @router.get("")
+@audit(action=AuditAction.READ, description="S3: 列出桶")
 async def list_buckets(request: Request):
     if (resp := await _ensure_enabled()) is not None:
         return resp
@@ -336,6 +338,7 @@ async def list_buckets(request: Request):
 
 
 @router.get("/{bucket}")
+@audit(action=AuditAction.READ, description="S3: 列出对象")
 async def list_objects(request: Request, bucket: str):
     if (resp := await _ensure_enabled()) is not None:
         return resp
@@ -476,6 +479,7 @@ async def _stat_object(settings: S3Settings, key: str) -> Tuple[Optional[Dict], 
 
 
 @router.api_route("/{bucket}/{object_path:path}", methods=["GET", "HEAD"])
+@audit(action=AuditAction.DOWNLOAD, description="S3: 获取对象")
 async def object_get_head(request: Request, bucket: str, object_path: str):
     settings, error = await _ensure_bucket_and_auth(request, bucket)
     if error:
@@ -500,6 +504,7 @@ async def object_get_head(request: Request, bucket: str, object_path: str):
 
 
 @router.put("/{bucket}/{object_path:path}")
+@audit(action=AuditAction.UPLOAD, description="S3: 上传对象")
 async def put_object(request: Request, bucket: str, object_path: str):
     settings, error = await _ensure_bucket_and_auth(request, bucket)
     if error:
@@ -520,6 +525,7 @@ async def put_object(request: Request, bucket: str, object_path: str):
 
 
 @router.delete("/{bucket}/{object_path:path}")
+@audit(action=AuditAction.DELETE, description="S3: 删除对象")
 async def delete_object(request: Request, bucket: str, object_path: str):
     settings, error = await _ensure_bucket_and_auth(request, bucket)
     if error:

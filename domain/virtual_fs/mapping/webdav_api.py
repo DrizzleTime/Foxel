@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Request, Response, HTTPException, Depends
 import xml.etree.ElementTree as ET
 
+from domain.audit import AuditAction, audit
 from domain.auth.service import AuthService
 from domain.auth.types import User, UserInDB
 from domain.virtual_fs.service import VirtualFSService
@@ -141,11 +142,13 @@ def _normalize_fs_path(path: str) -> str:
 
 
 @router.options("/{path:path}")
-async def options_root(path: str = "", _enabled: None = Depends(_ensure_webdav_enabled)):
+@audit(action=AuditAction.READ, description="WebDAV: OPTIONS", user_kw="user")
+async def options_root(_request: Request, path: str = "", _enabled: None = Depends(_ensure_webdav_enabled)):
     return Response(status_code=200, headers=_dav_headers())
 
 
 @router.api_route("/{path:path}", methods=["PROPFIND"])
+@audit(action=AuditAction.READ, description="WebDAV: PROPFIND", user_kw="user")
 async def propfind(
     request: Request,
     path: str,
@@ -193,6 +196,7 @@ async def propfind(
 
 
 @router.get("/{path:path}")
+@audit(action=AuditAction.DOWNLOAD, description="WebDAV: GET", user_kw="user")
 async def dav_get(
     path: str,
     request: Request,
@@ -205,8 +209,10 @@ async def dav_get(
 
 
 @router.head("/{path:path}")
+@audit(action=AuditAction.READ, description="WebDAV: HEAD", user_kw="user")
 async def dav_head(
     path: str,
+    _request: Request,
     _enabled: None = Depends(_ensure_webdav_enabled),
     user: User = Depends(_get_basic_user),
 ):
@@ -231,6 +237,7 @@ async def dav_head(
 
 
 @router.api_route("/{path:path}", methods=["PUT"])
+@audit(action=AuditAction.UPLOAD, description="WebDAV: PUT", user_kw="user")
 async def dav_put(
     path: str,
     request: Request,
@@ -247,8 +254,10 @@ async def dav_put(
 
 
 @router.api_route("/{path:path}", methods=["DELETE"])
+@audit(action=AuditAction.DELETE, description="WebDAV: DELETE", user_kw="user")
 async def dav_delete(
     path: str,
+    _request: Request,
     _enabled: None = Depends(_ensure_webdav_enabled),
     user: User = Depends(_get_basic_user),
 ):
@@ -258,8 +267,10 @@ async def dav_delete(
 
 
 @router.api_route("/{path:path}", methods=["MKCOL"])
+@audit(action=AuditAction.CREATE, description="WebDAV: MKCOL", user_kw="user")
 async def dav_mkcol(
     path: str,
+    _request: Request,
     _enabled: None = Depends(_ensure_webdav_enabled),
     user: User = Depends(_get_basic_user),
 ):
@@ -281,7 +292,13 @@ def _parse_destination(dest: str) -> str:
 
 
 @router.api_route("/{path:path}", methods=["MOVE"])
-async def dav_move(path: str, request: Request, user: User = Depends(_get_basic_user)):
+@audit(action=AuditAction.UPDATE, description="WebDAV: MOVE", user_kw="user")
+async def dav_move(
+    path: str,
+    request: Request,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
     full_src = _normalize_fs_path(path)
     dest_header = request.headers.get("Destination")
     dst = _parse_destination(dest_header or "")
@@ -291,7 +308,13 @@ async def dav_move(path: str, request: Request, user: User = Depends(_get_basic_
 
 
 @router.api_route("/{path:path}", methods=["COPY"])
-async def dav_copy(path: str, request: Request, user: User = Depends(_get_basic_user)):
+@audit(action=AuditAction.CREATE, description="WebDAV: COPY", user_kw="user")
+async def dav_copy(
+    path: str,
+    request: Request,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
     full_src = _normalize_fs_path(path)
     dest_header = request.headers.get("Destination")
     dst = _parse_destination(dest_header or "")

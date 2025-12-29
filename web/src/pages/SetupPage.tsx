@@ -8,7 +8,6 @@ import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const { Title, Text } = Typography;
-const { Step } = Steps;
 
 const SetupPage = () => {
   const [loading, setLoading] = useState(false);
@@ -243,11 +242,11 @@ const SetupPage = () => {
           <img src="/logo.svg" alt="Foxel Logo" style={{ width: 48, marginBottom: 16 }} />
           <Title level={2}>{t('System Initialization')}</Title>
         </div>
-        <Steps current={currentStep} style={{ marginBottom: 32 }}>
-          {steps.map(item => (
-            <Step key={item.title} title={item.title} />
-          ))}
-        </Steps>
+        <Steps
+          current={currentStep}
+          style={{ marginBottom: 32 }}
+          items={steps.map((item) => ({ title: item.title }))}
+        />
 
         <Form form={form} name="setup" onFinish={onFinish} layout="vertical">
           {steps.map((step, index) => (

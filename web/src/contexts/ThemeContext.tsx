@@ -190,7 +190,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider value={ctxValue}>
-      <ConfigProvider theme={{ ...themeConfig, cssVar: true }} locale={locale}>
+      <ConfigProvider theme={{ ...themeConfig, cssVar: {} }} locale={locale}>
         {children}
       </ConfigProvider>
     </Ctx.Provider>

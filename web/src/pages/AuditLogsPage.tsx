@@ -22,6 +22,30 @@ const ACTION_OPTIONS = [
   'other'
 ];
 
+const HTTP_METHOD_COLOR_MAP: Record<string, string> = {
+  GET: 'green',
+  POST: 'blue',
+  PUT: 'orange',
+  PATCH: 'gold',
+  DELETE: 'red',
+  HEAD: 'cyan',
+  OPTIONS: 'purple',
+};
+
+const renderHttpMethodTag = (method: string) => {
+  const upper = method.toUpperCase();
+  const color = HTTP_METHOD_COLOR_MAP[upper] || 'default';
+  return (
+    <Tag
+      bordered={false}
+      color={color}
+      style={{ margin: 0, paddingInline: 8, minWidth: 56, textAlign: 'center', fontWeight: 500 }}
+    >
+      {upper}
+    </Tag>
+  );
+};
+
 const AuditLogsPage = memo(function AuditLogsPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<PaginatedAuditLogs | null>(null);
@@ -118,7 +142,7 @@ const AuditLogsPage = memo(function AuditLogsPage() {
       ellipsis: true,
       render: (path: string, rec: AuditLogItem) => (
         <Space size={4}>
-          <Tag bordered={false} color="default" style={{ margin: 0, paddingInline: 8 }}>{rec.method}</Tag>
+          {renderHttpMethodTag(rec.method)}
           <span style={{ maxWidth: 320, display: 'inline-block' }}>{path}</span>
         </Space>
       ),
@@ -256,7 +280,7 @@ const AuditLogsPage = memo(function AuditLogsPage() {
               </Descriptions.Item>
               <Descriptions.Item label={t('Path')} span={2}>
                 <Space size={6} wrap style={{ wordBreak: 'break-all' }}>
-                  <Tag bordered={false} color="default" style={{ margin: 0, paddingInline: 8 }}>{selectedLog.method}</Tag>
+                  {renderHttpMethodTag(selectedLog.method)}
                   <Typography.Text copyable style={{ wordBreak: 'break-all' }}>{selectedLog.path}</Typography.Text>
                 </Space>
               </Descriptions.Item>

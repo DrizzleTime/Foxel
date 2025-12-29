@@ -305,7 +305,7 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
                 />
               )}
 
-              <Divider orientation="left" plain>{t('Changelog')}</Divider>
+              <Divider titlePlacement="left" plain>{t('Changelog')}</Divider>
               <div style={{
                 maxHeight: '40vh',
                 overflowY: 'auto',

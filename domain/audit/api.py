@@ -62,7 +62,5 @@ async def clear_audit_logs(
 ):
     start_dt = _parse_iso(start_time, "start_time")
     end_dt = _parse_iso(end_time, "end_time")
-    if start_dt is None and end_dt is None:
-        raise HTTPException(status_code=400, detail="start_time 或 end_time 至少提供一个")
     deleted_count = await AuditService.clear_logs(start_time=start_dt, end_time=end_dt)
     return response.success({"deleted_count": deleted_count})

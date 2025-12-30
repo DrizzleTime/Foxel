@@ -509,6 +509,7 @@
   "Status": "状态",
   "Confirm clear logs?": "确认清理日志?",
   "This will delete logs in selected range irreversibly.": "该操作将删除选定时间范围内的所有日志，且不可恢复。",
+  "This will delete all logs irreversibly.": "将删除全部日志且不可恢复",
   "Cleared {count} logs": "成功清理 {count} 条日志",
   "Time": "时间",
   "Level": "级别",

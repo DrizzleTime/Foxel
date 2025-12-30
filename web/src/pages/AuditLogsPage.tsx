@@ -95,13 +95,12 @@ const AuditLogsPage = memo(function AuditLogsPage() {
   }, [fetchList]);
 
   const handleClearLogs = () => {
-    if (!filters.start_time && !filters.end_time) {
-      message.warning(t('Please select time range'));
-      return;
-    }
+    const hasRange = !!(filters.start_time || filters.end_time);
     Modal.confirm({
       title: t('Confirm clear logs?'),
-      content: t('This will delete logs in selected range irreversibly.'),
+      content: hasRange
+        ? t('This will delete logs in selected range irreversibly.')
+        : t('This will delete all logs irreversibly.'),
       onOk: async () => {
         try {
           const params: any = {};

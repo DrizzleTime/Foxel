@@ -527,6 +527,7 @@
   "Status": "Status",
   "Confirm clear logs?": "Confirm clear logs?",
   "This will delete logs in selected range irreversibly.": "This will delete logs in selected range irreversibly.",
+  "This will delete all logs irreversibly.": "This will delete all logs irreversibly.",
   "Cleared {count} logs": "Cleared {count} logs",
   "Time": "Time",
   "Level": "Level",

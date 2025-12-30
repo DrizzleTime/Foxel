@@ -232,7 +232,7 @@ install_new_foxel() {
         if ss -tuln | grep -q ":${new_port}\b"; then
             warn "端口 $new_port 已被占用，请换一个。"
         else
-            sed -i -E "s|\"[0-9]{1,5}:80\"|\"$new_port:80\"|" compose.yaml
+            sed -i -E "s|(FOXEL_HOST_PORT:-)[0-9]{1,5}|\\1$new_port|" compose.yaml
             info "端口已成功修改为 $new_port。"
             break
         fi

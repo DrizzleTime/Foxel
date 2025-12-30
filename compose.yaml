@@ -5,9 +5,10 @@ services:
     container_name: foxel
     restart: unless-stopped
     ports:
-      - "8088:80"
+      - "${FOXEL_HOST_PORT:-8088}:${FOXEL_PORT:-80}"
     environment:
       - TZ=Asia/Shanghai
+      - FOXEL_PORT=${FOXEL_PORT:-80}
       - SECRET_KEY=EnsRhL9NFPxgFVc+7t96/y70DIOR+9SpntcIqQa90TU=
       - TEMP_LINK_SECRET_KEY=EnsRhL9NFPxgFVc+7t96/y70DIOR+9SpntcIqQa90TU=
     volumes:

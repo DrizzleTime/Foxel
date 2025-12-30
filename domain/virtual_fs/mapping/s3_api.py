@@ -120,42 +120,136 @@ def _sign(key: bytes, msg: str) -> bytes:
 
 async def _authorize_sigv4(request: Request, settings: S3Settings) -> Optional[Response]:
     auth = request.headers.get("authorization")
-    if not auth:
-        return _s3_error("AccessDenied", "Missing Authorization header", status=403)
     scheme = "AWS4-HMAC-SHA256"
-    if not auth.startswith(scheme + " "):
+    if auth:
+        if not auth.startswith(scheme + " "):
+            return _s3_error("InvalidRequest", "Signature Version 4 is required", status=400)
+
+        parts: Dict[str, str] = {}
+        for segment in auth[len(scheme) + 1 :].split(","):
+            k, _, v = segment.strip().partition("=")
+            parts[k] = v
+
+        credential = parts.get("Credential")
+        signed_headers = parts.get("SignedHeaders")
+        signature = parts.get("Signature")
+        if not credential or not signed_headers or not signature:
+            return _s3_error("InvalidRequest", "Authorization header is malformed", status=400)
+
+        cred_parts = credential.split("/")
+        if len(cred_parts) != 5 or cred_parts[-1] != "aws4_request":
+            return _s3_error("InvalidRequest", "Credential scope is invalid", status=400)
+
+        access_key, datestamp, region, service, _ = cred_parts
+        if access_key != settings["access_key"]:
+            return _s3_error(
+                "InvalidAccessKeyId",
+                "The AWS Access Key Id you provided does not exist in our records.",
+                status=403,
+            )
+        if service != "s3":
+            return _s3_error("InvalidRequest", "Only service 's3' is supported", status=400)
+        if settings.get("region") and region != settings["region"]:
+            return _s3_error("AuthorizationHeaderMalformed", f"Region '{region}' is invalid", status=400)
+
+        amz_date = request.headers.get("x-amz-date")
+        if not amz_date or not amz_date.startswith(datestamp):
+            return _s3_error("AuthorizationHeaderMalformed", "x-amz-date does not match credential scope", status=400)
+
+        payload_hash = request.headers.get("x-amz-content-sha256")
+        if not payload_hash:
+            return _s3_error("AuthorizationHeaderMalformed", "Missing x-amz-content-sha256", status=400)
+        if payload_hash.upper().startswith("STREAMING-AWS4-HMAC-SHA256"):
+            return _s3_error("NotImplemented", "Chunked uploads are not supported", status=400)
+
+        signed_header_names = [h.strip().lower() for h in signed_headers.split(";") if h.strip()]
+        headers = {k.lower(): v for k, v in request.headers.items()}
+        canonical_headers = []
+        for name in signed_header_names:
+            value = headers.get(name)
+            if value is None:
+                return _s3_error("AuthorizationHeaderMalformed", f"Signed header '{name}' missing", status=400)
+            canonical_headers.append(f"{name}:{_normalize_ws(value)}\n")
+
+        canonical_request = "\n".join(
+            [
+                request.method,
+                _canonical_uri(request.url.path),
+                _canonical_query(request.query_params.multi_items()),
+                "".join(canonical_headers),
+                ";".join(signed_header_names),
+                payload_hash,
+            ]
+        )
+
+        hashed_request = hashlib.sha256(canonical_request.encode("utf-8")).hexdigest()
+        scope = "/".join([datestamp, region, "s3", "aws4_request"])
+        string_to_sign = "\n".join([scheme, amz_date, scope, hashed_request])
+
+        k_date = _sign(("AWS4" + settings["secret_key"]).encode("utf-8"), datestamp)
+        k_region = hmac.new(k_date, region.encode("utf-8"), hashlib.sha256).digest()
+        k_service = hmac.new(k_region, b"s3", hashlib.sha256).digest()
+        k_signing = hmac.new(k_service, b"aws4_request", hashlib.sha256).digest()
+        expected = hmac.new(k_signing, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+        if expected != signature:
+            return _s3_error(
+                "SignatureDoesNotMatch",
+                "The request signature we calculated does not match the signature you provided.",
+                status=403,
+            )
+        return None
+
+    params = request.query_params
+    q_multi = params.multi_items()
+    q_lower = {k.lower(): v for k, v in q_multi}
+    signature = q_lower.get("x-amz-signature")
+    if not signature:
+        return _s3_error("AccessDenied", "Missing Authorization header", status=403)
+
+    algorithm = q_lower.get("x-amz-algorithm")
+    if not algorithm or algorithm != scheme:
         return _s3_error("InvalidRequest", "Signature Version 4 is required", status=400)
 
-    parts: Dict[str, str] = {}
-    for segment in auth[len(scheme) + 1 :].split(","):
-        k, _, v = segment.strip().partition("=")
-        parts[k] = v
-
-    credential = parts.get("Credential")
-    signed_headers = parts.get("SignedHeaders")
-    signature = parts.get("Signature")
-    if not credential or not signed_headers or not signature:
-        return _s3_error("InvalidRequest", "Authorization header is malformed", status=400)
+    credential = q_lower.get("x-amz-credential")
+    signed_headers = q_lower.get("x-amz-signedheaders")
+    amz_date = q_lower.get("x-amz-date")
+    expires_raw = q_lower.get("x-amz-expires")
+    if not credential or not signed_headers or not amz_date:
+        return _s3_error("AuthorizationQueryParametersError", "Query-string authentication is malformed", status=400)
 
     cred_parts = credential.split("/")
     if len(cred_parts) != 5 or cred_parts[-1] != "aws4_request":
-        return _s3_error("InvalidRequest", "Credential scope is invalid", status=400)
+        return _s3_error("AuthorizationQueryParametersError", "Credential scope is invalid", status=400)
 
     access_key, datestamp, region, service, _ = cred_parts
     if access_key != settings["access_key"]:
-        return _s3_error("InvalidAccessKeyId", "The AWS Access Key Id you provided does not exist in our records.", status=403)
+        return _s3_error(
+            "InvalidAccessKeyId",
+            "The AWS Access Key Id you provided does not exist in our records.",
+            status=403,
+        )
     if service != "s3":
         return _s3_error("InvalidRequest", "Only service 's3' is supported", status=400)
     if settings.get("region") and region != settings["region"]:
         return _s3_error("AuthorizationHeaderMalformed", f"Region '{region}' is invalid", status=400)
 
-    amz_date = request.headers.get("x-amz-date")
-    if not amz_date or not amz_date.startswith(datestamp):
-        return _s3_error("AuthorizationHeaderMalformed", "x-amz-date does not match credential scope", status=400)
+    if not amz_date.startswith(datestamp):
+        return _s3_error("AuthorizationQueryParametersError", "X-Amz-Date does not match credential scope", status=400)
 
-    payload_hash = request.headers.get("x-amz-content-sha256")
-    if not payload_hash:
-        return _s3_error("AuthorizationHeaderMalformed", "Missing x-amz-content-sha256", status=400)
+    if expires_raw:
+        try:
+            expires = int(expires_raw)
+        except ValueError:
+            expires = 0
+        if expires > 0:
+            try:
+                signed_at = dt.datetime.strptime(amz_date, "%Y%m%dT%H%M%SZ")
+                if dt.datetime.utcnow() > signed_at + dt.timedelta(seconds=expires):
+                    return _s3_error("AccessDenied", "Request has expired", status=403)
+            except Exception:
+                pass
+
+    payload_hash = request.headers.get("x-amz-content-sha256") or "UNSIGNED-PAYLOAD"
     if payload_hash.upper().startswith("STREAMING-AWS4-HMAC-SHA256"):
         return _s3_error("NotImplemented", "Chunked uploads are not supported", status=400)
 
@@ -165,14 +259,15 @@ async def _authorize_sigv4(request: Request, settings: S3Settings) -> Optional[R
     for name in signed_header_names:
         value = headers.get(name)
         if value is None:
-            return _s3_error("AuthorizationHeaderMalformed", f"Signed header '{name}' missing", status=400)
+            return _s3_error("AuthorizationQueryParametersError", f"Signed header '{name}' missing", status=400)
         canonical_headers.append(f"{name}:{_normalize_ws(value)}\n")
 
+    canonical_query_items = [(k, v) for k, v in q_multi if k.lower() != "x-amz-signature"]
     canonical_request = "\n".join(
         [
             request.method,
             _canonical_uri(request.url.path),
-            _canonical_query(request.query_params.multi_items()),
+            _canonical_query(canonical_query_items),
             "".join(canonical_headers),
             ";".join(signed_header_names),
             payload_hash,
@@ -189,7 +284,11 @@ async def _authorize_sigv4(request: Request, settings: S3Settings) -> Optional[R
     k_signing = hmac.new(k_service, b"aws4_request", hashlib.sha256).digest()
     expected = hmac.new(k_signing, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
     if expected != signature:
-        return _s3_error("SignatureDoesNotMatch", "The request signature we calculated does not match the signature you provided.", status=403)
+        return _s3_error(
+            "SignatureDoesNotMatch",
+            "The request signature we calculated does not match the signature you provided.",
+            status=403,
+        )
     return None
 
 

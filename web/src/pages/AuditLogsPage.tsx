@@ -126,35 +126,38 @@ const AuditLogsPage = memo(function AuditLogsPage() {
     {
       title: t('Action'),
       dataIndex: 'action',
-      width: 140,
+      width: 100,
       render: (action: string) => <Tag color="blue">{action}</Tag>,
     },
     {
       title: t('User'),
       dataIndex: 'username',
-      width: 160,
+      width: 100,
       render: (_: any, rec: AuditLogItem) => rec.username || rec.user_id || '-',
     },
     {
       title: t('Path'),
       dataIndex: 'path',
+      width: 350,
       ellipsis: true,
       render: (path: string, rec: AuditLogItem) => (
         <Space size={4}>
           {renderHttpMethodTag(rec.method)}
-          <span style={{ maxWidth: 320, display: 'inline-block' }}>{path}</span>
+          <span style={{ maxWidth: 280, display: 'inline-block' }}>{path}</span>
         </Space>
       ),
     },
     {
       title: t('Status Code'),
       dataIndex: 'status_code',
-      width: 100,
+      width: 80,
+      align: 'center' as const,
     },
     {
       title: t('Duration (ms)'),
       dataIndex: 'duration_ms',
-      width: 120,
+      width: 110,
+      align: 'right' as const,
       render: (ms?: number | null) => (ms !== null && ms !== undefined ? ms : '-'),
     },
     {
@@ -166,7 +169,8 @@ const AuditLogsPage = memo(function AuditLogsPage() {
     {
       title: t('Result'),
       dataIndex: 'success',
-      width: 100,
+      width: 80,
+      align: 'center' as const,
       render: (success: boolean) => (
         <Tag color={success ? 'green' : 'red'}>
           {success ? t('Success') : t('Failure')}
@@ -175,7 +179,8 @@ const AuditLogsPage = memo(function AuditLogsPage() {
     },
     {
       title: t('Actions'),
-      width: 100,
+      width: 80,
+      align: 'center' as const,
       render: (_: any, rec: AuditLogItem) => (
         <Button size="small" onClick={() => setSelectedLog(rec)}>{t('Details')}</Button>
       ),

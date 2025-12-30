@@ -1,11 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Modal, Form, Input, Tag, message, Card, Typography, Popconfirm, Empty, Skeleton, theme, Divider, Tabs, Select, Pagination } from 'antd';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { Button, Modal, Form, Input, Tag, message, Card, Typography, Popconfirm, Empty, Skeleton, theme, Divider, Tabs } from 'antd';
 import { GithubOutlined, LinkOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
 import { loadPlugin, ensureManifest } from '../plugins/runtime';
 import { getAppByKey, reloadPluginApps, ensureAppsLoaded, listSystemApps, type AppDescriptor } from '../apps/registry';
 import { useI18n } from '../i18n';
-import { fetchRepoList, type RepoItem, buildCenterUrl } from '../api/pluginCenter';
 import { useAppWindows } from '../contexts/AppWindowsContext';
 
 const PluginsPage = memo(function PluginsPage() {
@@ -15,14 +14,6 @@ const PluginsPage = memo(function PluginsPage() {
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'installed' | 'discover'>('installed');
-  const [repoLoading, setRepoLoading] = useState(false);
-  const [repoQ, setRepoQ] = useState('');
-  const [repoSort, setRepoSort] = useState<'createdAt' | 'downloads'>('createdAt');
-  const [repoPage, setRepoPage] = useState(1);
-  const [repoPageSize, setRepoPageSize] = useState(12);
-  const [repoTotal, setRepoTotal] = useState(0);
-  const [repoItems, setRepoItems] = useState<RepoItem[]>([]);
-  const [installingKeys, setInstallingKeys] = useState<Record<string, boolean>>({});
   const [form] = Form.useForm<{ url: string }>();
   const { token } = theme.useToken();
   const { t } = useI18n();
@@ -41,30 +32,6 @@ const PluginsPage = memo(function PluginsPage() {
       } catch { void 0; }
     })();
   }, []);
-
-  const installedKeySet = useMemo(() => {
-    const set = new Set<string>();
-    data.forEach(p => { if (p.key) set.add(p.key); });
-    return set;
-  }, [data]);
-
-  const reloadRepo = useCallback(async () => {
-    try {
-      setRepoLoading(true);
-      const res = await fetchRepoList({ query: repoQ || undefined, sort: repoSort, page: repoPage, pageSize: repoPageSize });
-      setRepoItems(res.items || []);
-      setRepoTotal(res.total || 0);
-    } catch {
-      setRepoItems([]);
-      setRepoTotal(0);
-    } finally {
-      setRepoLoading(false);
-    }
-  }, [repoPage, repoPageSize, repoQ, repoSort]);
-
-  useEffect(() => {
-    if (tab === 'discover') reloadRepo();
-  }, [reloadRepo, tab]);
 
   const handleAdd = async () => {
     try {
@@ -246,99 +213,6 @@ const PluginsPage = memo(function PluginsPage() {
     );
   };
 
-  const renderRepoCard = (item: RepoItem) => {
-    const icon = item.icon || '/plugins/demo-text-viewer.svg';
-    const name = item.name || item.key;
-    const exts = (item.supportedExts || []).slice(0, 6);
-    const more = (item.supportedExts || []).length - exts.length;
-    const installed = installedKeySet.has(item.key);
-    const installing = !!installingKeys[item.key];
-    const title = (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <img src={icon} alt={name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/plugins/demo-text-viewer.svg'; }} />
-        <span>{name}</span>
-        {item.version && <Tag color="blue" style={{ marginLeft: 'auto' }}>{item.version}</Tag>}
-      </div>
-    );
-    return (
-      <Card
-        key={item.key + '@' + (item.version || '')}
-        title={title}
-        hoverable
-        size="small"
-        styles={{ body: { padding: 12 } } as any}
-        style={{ borderRadius: 10, boxShadow: token.boxShadowTertiary }}
-        actions={[
-          typeof item.downloads === 'number' ? (
-            <span key="dl" style={{ color: token.colorTextTertiary, fontSize: 12 }}>
-              {t('Downloads')}: {item.downloads}
-            </span>
-          ) : (
-            <span key="dl-gap" />
-          ),
-          <Button
-            key="install"
-            type="link"
-            size="small"
-            disabled={installed || installing}
-            loading={installing}
-            onClick={async () => {
-              try {
-                setInstallingKeys(s => ({ ...s, [item.key]: true }));
-                const url = buildCenterUrl(item.directUrl);
-                const created = await pluginsApi.create({ url });
-                try {
-                  const p = await loadPlugin(created);
-                  await ensureManifest(created.id, p);
-                } catch { void 0; }
-                await reload();
-                await reloadPluginApps();
-                message.success(t('Installed successfully'));
-              } catch (e: any) {
-                message.error(e?.message || 'Install failed');
-              } finally {
-                setInstallingKeys(s => ({ ...s, [item.key]: false }));
-              }
-            }}
-          >
-            {installed ? t('Installed already') : t('Install')}
-          </Button>
-        ]}
-      >
-        <Typography.Paragraph
-          style={{ marginBottom: 8, minHeight: 44, lineHeight: '22px' }}
-          ellipsis={{ rows: 2 }}
-        >
-          {item.description || '（暂无描述）'}
-        </Typography.Paragraph>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
-            {(exts.length > 0 ? exts : ['任意']).map(e => <Tag key={e} style={{ flex: 'none' }}>{e}</Tag>)}
-          </div>
-          {more > 0 && <Tag style={{ flex: 'none' }}>+{more}</Tag>}
-        </div>
-        <Divider style={{ margin: '8px 0' }} />
-        {(item.author || item.github || item.website) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextTertiary, fontSize: 12 }}>
-            {item.author && <span>{t('Author')}: {item.author}</span>}
-            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              {item.github && (
-                <a href={item.github || undefined} target="_blank" rel="noreferrer" title="GitHub">
-                  <GithubOutlined style={{ fontSize: 16, color: token.colorTextTertiary }} />
-                </a>
-              )}
-              {item.website && (
-                <a href={item.website || undefined} target="_blank" rel="noreferrer" title={t('Website')}>
-                  <LinkOutlined style={{ fontSize: 16, color: token.colorTextTertiary }} />
-                </a>
-              )}
-            </span>
-          </div>
-        )}
-      </Card>
-    );
-  };
-
   return (
     <div style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -392,63 +266,8 @@ const PluginsPage = memo(function PluginsPage() {
             key: 'discover',
             label: t('Discover'),
             children: (
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                  <Input
-                    placeholder={t('Search apps')}
-                    value={repoQ}
-                    onChange={e => { setRepoQ(e.target.value); setRepoPage(1); }}
-                    allowClear
-                    style={{ maxWidth: 360 }}
-                    onPressEnter={() => { setRepoPage(1); reloadRepo(); }}
-                  />
-                  <Select
-                    value={repoSort}
-                    style={{ width: 200 }}
-                    onChange={(v) => { setRepoSort(v); setRepoPage(1); }}
-                    options={[
-                      { value: 'createdAt', label: t('Created (newest)') },
-                      { value: 'downloads', label: t('Downloads') },
-                    ]}
-                  />
-                  <Button
-                    icon={<LinkOutlined />}
-                    href="https://center.foxel.cc"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Foxel Center
-                  </Button>
-                </div>
-                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
-                  {repoLoading ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <Card key={i} style={{ borderRadius: 10 }}>
-                          <Skeleton active avatar paragraph={{ rows: 3 }} />
-                        </Card>
-                      ))}
-                    </div>
-                  ) : repoItems.length === 0 ? (
-                    <Empty description={t('No results')} />
-                  ) : (
-                    <>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
-                        {repoItems.map(renderRepoCard)}
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-                        <Pagination
-                          current={repoPage}
-                          pageSize={repoPageSize}
-                          total={repoTotal}
-                          showSizeChanger
-                          pageSizeOptions={[12, 24, 48].map(String)}
-                          onChange={(p, ps) => { setRepoPage(p); setRepoPageSize(ps); }}
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Empty description={`${t('Coming soon')} v2`} />
               </div>
             )
           }

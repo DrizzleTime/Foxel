@@ -98,6 +98,11 @@ def _build_request_params(request: Request | None) -> Dict[str, Any] | None:
 def _get_client_ip(request: Request | None) -> str | None:
     if not request:
         return None
+    cf_connecting_ip = request.headers.get("cf-connecting-ip") or request.headers.get("CF-Connecting-IP")
+    if cf_connecting_ip:
+        ip = cf_connecting_ip.strip()
+        if ip:
+            return ip
     x_real_ip = request.headers.get("x-real-ip") or request.headers.get("X-Real-IP")
     if x_real_ip:
         ip = x_real_ip.strip()

@@ -17,7 +17,7 @@
   <blockquote>
     <em><strong>The ocean of data is boundless, let the eye of insight guide the voyage, yet its intricate connections lie deep, not fully discernible from the surface.</strong></em>
   </blockquote>
-  <img src="https://foxel.cc/image/ad-min.png" alt="UI Screenshot">
+  <img src="https://foxel.cc/image/ad-min-en.png" alt="UI Screenshot">
 </div>
 
 ## 👀 Online Demo

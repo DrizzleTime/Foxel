@@ -8,15 +8,15 @@
 
 **一个面向个人和团队的、高度可扩展的私有云盘解决方案，支持 AI 语义搜索。**
 
-![Python Version](https://img.shields.io/badge/Python-3.13+-blue.svg)
+![Python Version](https://img.shields.io/badge/Python-3.14+-blue.svg)
 ![React](https://img.shields.io/badge/React-19.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+
 ![GitHub stars](https://img.shields.io/github/stars/DrizzleTime/foxel?style=social)
 
 ---
   <blockquote>
     <em><strong>数据之洋浩瀚无涯，当以洞察之目引航，然其脉络深隐，非表象所能尽窥。</strong></em><br>
-    <em><strong>The ocean of data is boundless, let the eye of insight guide the voyage, yet its intricate connections lie deep, not fully discernible from the surface.</strong></em>
   </blockquote>
   <img src="https://foxel.cc/image/ad-min-zh.png" alt="UI Screenshot">
 </div>
@@ -40,36 +40,37 @@
 
 使用 Docker Compose 是启动 Foxel 最推荐的方式。
 
-1. **创建数据目录**:
-新建 `data` 文件夹用于持久化数据：
+1. **创建数据目录**
 
-```bash
-mkdir -p data/db
-mkdir -p data/mount
-chmod 777 data/db data/mount
-```
+   新建 `data` 文件夹用于持久化数据：
 
-2. **下载 Docker Compose 文件**：
+   ```bash
+   mkdir -p data/db
+   mkdir -p data/mount
+   chmod 777 data/db data/mount
+   ```
 
-  ```bash
-  curl -L -O https://github.com/DrizzleTime/Foxel/raw/main/compose.yaml
-  ```
+2. **下载 Docker Compose 文件**
 
-  下载完成后，**强烈建议**修改 `compose.yaml` 文件中的环境变量以确保安全：
+   ```bash
+   curl -L -O https://github.com/DrizzleTime/Foxel/raw/main/compose.yaml
+   ```
 
-- 修改 `SECRET_KEY` 和 `TEMP_LINK_SECRET_KEY`：将默认的密钥替换为随机生成的强密钥
+   下载完成后，**强烈建议**修改 `compose.yaml` 文件中的环境变量以确保安全：
 
-3. **启动服务**:
+   - 修改 `SECRET_KEY` 和 `TEMP_LINK_SECRET_KEY`：将默认的密钥替换为随机生成的强密钥
 
-  ```bash
-  docker-compose up -d
-  ```
+3. **启动服务**
 
-4. **访问应用**:
+   ```bash
+   docker-compose up -d
+   ```
 
-  服务启动后，在浏览器中打开页面。
+4. **访问应用**
 
-  > 首次启动，请根据引导页面完成管理员账号的初始化设置。
+   服务启动后，在浏览器中打开页面。
+
+   > 首次启动，请根据引导页面完成管理员账号的初始化设置。
 
 ## 🤝 如何贡献
 

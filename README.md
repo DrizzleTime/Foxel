@@ -8,9 +8,10 @@
 
 **A highly extensible private cloud storage solution for individuals and teams, featuring AI-powered semantic search.**
 
-![Python Version](https://img.shields.io/badge/Python-3.13+-blue.svg)
+![Python Version](https://img.shields.io/badge/Python-3.14+-blue.svg)
 ![React](https://img.shields.io/badge/React-19.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+
 ![GitHub stars](https://img.shields.io/github/stars/DrizzleTime/foxel?style=social)
 
 ---
@@ -39,36 +40,37 @@
 
 Using Docker Compose is the most recommended way to start Foxel.
 
-1. **Create Data Directories**:
-Create a `data` folder for persistent data:
+1. **Create Data Directories**
 
-```bash
-mkdir -p data/db
-mkdir -p data/mount
-chmod 777 data/db data/mount
-```
+   Create a `data` folder for persistent data:
 
-2. **Download Docker Compose File**:
+   ```bash
+   mkdir -p data/db
+   mkdir -p data/mount
+   chmod 777 data/db data/mount
+   ```
 
-  ```bash
-  curl -L -O https://github.com/DrizzleTime/Foxel/raw/main/compose.yaml
-  ```
+2. **Download Docker Compose File**
 
-  After downloading, it is **strongly recommended** to modify the environment variables in the `compose.yaml` file to ensure security:
+   ```bash
+   curl -L -O https://github.com/DrizzleTime/Foxel/raw/main/compose.yaml
+   ```
 
-- Modify `SECRET_KEY` and `TEMP_LINK_SECRET_KEY`: Replace the default keys with randomly generated strong keys.
+   After downloading, it is **strongly recommended** to modify the environment variables in the `compose.yaml` file to ensure security:
 
-3. **Start the Services**:
+   - Modify `SECRET_KEY` and `TEMP_LINK_SECRET_KEY`: Replace the default keys with randomly generated strong keys.
 
-  ```bash
-  docker-compose up -d
-  ```
+3. **Start the Services**
 
-4. **Access the Application**:
+   ```bash
+   docker-compose up -d
+   ```
 
-  Once the services are running, open the page in your browser.
+4. **Access the Application**
 
-  > On the first launch, please follow the setup guide to initialize the administrator account.
+   Once the services are running, open the page in your browser.
+
+   > On the first launch, please follow the setup guide to initialize the administrator account.
 
 ## 🤝 How to Contribute
 

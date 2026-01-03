@@ -19,6 +19,8 @@ from .vector_providers import (
 )
 
 DEFAULT_VECTOR_DIMENSION = 4096
+VECTOR_COLLECTION_NAME = "vector_collection"
+FILE_COLLECTION_NAME = "file_collection"
 
 OPENAI_EMBEDDING_DIMS = {
     "text-embedding-3-large": 3072,

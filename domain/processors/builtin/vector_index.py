@@ -9,7 +9,12 @@ from PIL import Image
 
 from ..base import BaseProcessor
 from domain.ai.inference import describe_image_base64, get_text_embedding, provider_service
-from domain.ai.service import VectorDBService, DEFAULT_VECTOR_DIMENSION
+from domain.ai.service import (
+    VectorDBService,
+    DEFAULT_VECTOR_DIMENSION,
+    VECTOR_COLLECTION_NAME,
+    FILE_COLLECTION_NAME,
+)
 
 
 CHUNK_SIZE = 800
@@ -112,18 +117,20 @@ class VectorIndexProcessor:
         action = config.get("action", "create")
         index_type = config.get("index_type", "vector")
         vector_db = VectorDBService()
-        collection_name = "vector_collection"
+        vector_collection = VECTOR_COLLECTION_NAME
+        file_collection = FILE_COLLECTION_NAME
 
         if action == "destroy":
-            await vector_db.delete_vector(collection_name, path)
+            target_collection = file_collection if index_type == "simple" else vector_collection
+            await vector_db.delete_vector(target_collection, path)
             return Response(content=f"文件 {path} 的 {index_type} 索引已销毁", media_type="text/plain")
 
         mime_type = _guess_mime(path)
 
         if index_type == "simple":
-            await vector_db.ensure_collection(collection_name, vector=False)
-            await vector_db.delete_vector(collection_name, path)
-            await vector_db.upsert_vector(collection_name, {
+            await vector_db.ensure_collection(file_collection, vector=False)
+            await vector_db.delete_vector(file_collection, path)
+            await vector_db.upsert_vector(file_collection, {
                 "path": path,
                 "source_path": path,
                 "chunk_id": "filename",
@@ -146,8 +153,8 @@ class VectorIndexProcessor:
             if vector_dim <= 0:
                 vector_dim = DEFAULT_VECTOR_DIMENSION
 
-        await vector_db.ensure_collection(collection_name, vector=True, dim=vector_dim)
-        await vector_db.delete_vector(collection_name, path)
+        await vector_db.ensure_collection(vector_collection, vector=True, dim=vector_dim)
+        await vector_db.delete_vector(vector_collection, path)
 
         if file_ext in ["jpg", "jpeg", "png", "bmp"]:
             processed_bytes, compression = _compress_image_for_embedding(input_bytes)
@@ -155,7 +162,7 @@ class VectorIndexProcessor:
             description = await describe_image_base64(base64_image)
             embedding = await get_text_embedding(description)
             image_mime = "image/jpeg" if compression else mime_type
-            await vector_db.upsert_vector(collection_name, {
+            await vector_db.upsert_vector(vector_collection, {
                 "path": _chunk_key(path, "image"),
                 "source_path": path,
                 "chunk_id": "image",
@@ -177,7 +184,7 @@ class VectorIndexProcessor:
 
             chunks = _chunk_text(text)
             if not chunks:
-                await vector_db.upsert_vector(collection_name, {
+                await vector_db.upsert_vector(vector_collection, {
                     "path": _chunk_key(path, "0"),
                     "source_path": path,
                     "chunk_id": "0",
@@ -194,7 +201,7 @@ class VectorIndexProcessor:
             chunk_count = 0
             for chunk_id, chunk_text, start, end in chunks:
                 embedding = await get_text_embedding(chunk_text)
-                await vector_db.upsert_vector(collection_name, {
+                await vector_db.upsert_vector(vector_collection, {
                     "path": _chunk_key(path, str(chunk_id)),
                     "source_path": path,
                     "chunk_id": str(chunk_id),
@@ -213,15 +220,15 @@ class VectorIndexProcessor:
             return Response(content="文本文件已索引", media_type="text/plain")
 
         # 其他类型暂未支持向量索引，回退为文件名索引
-        await vector_db.delete_vector(collection_name, path)
-        await vector_db.upsert_vector(collection_name, {
-            "path": _chunk_key(path, "fallback"),
+        await vector_db.ensure_collection(file_collection, vector=False)
+        await vector_db.delete_vector(file_collection, path)
+        await vector_db.upsert_vector(file_collection, {
+            "path": path,
             "source_path": path,
             "chunk_id": "filename",
             "mime": mime_type,
             "type": "filename",
             "name": os.path.basename(path),
-            "embedding": [0.0] * vector_dim,
         })
         return Response(content="暂不支持该类型的向量索引，已创建文件名索引", media_type="text/plain")
 

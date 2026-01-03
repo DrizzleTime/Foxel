@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Tuple
 
 from domain.virtual_fs.types import SearchResultItem
 from domain.ai.inference import get_text_embedding
-from domain.ai.service import VectorDBService
+from domain.ai.service import VectorDBService, VECTOR_COLLECTION_NAME, FILE_COLLECTION_NAME
 
 
 def _normalize_result(raw: Dict[str, Any], source: str, fallback_score: float = 0.0) -> SearchResultItem:
@@ -53,7 +53,7 @@ async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
         return []
 
     try:
-        raw_results = await vector_db.search_vectors("vector_collection", embedding, max(top_k, 10))
+        raw_results = await vector_db.search_vectors(VECTOR_COLLECTION_NAME, embedding, max(top_k, 10))
     except Exception:
         return []
 
@@ -68,12 +68,15 @@ async def _filename_search(query: str, page: int, page_size: int) -> Tuple[List[
     vector_db = VectorDBService()
     limit = max(page * page_size + 1, page_size * (page + 2))
     limit = min(limit, 2000)
-    try:
-        raw_results = await vector_db.search_by_path("vector_collection", query, limit)
-    except Exception:
-        return [], False
+    records: List[Dict[str, Any]] = []
+    for collection_name in (FILE_COLLECTION_NAME, VECTOR_COLLECTION_NAME):
+        try:
+            raw_results = await vector_db.search_by_path(collection_name, query, limit)
+        except Exception:
+            continue
+        if raw_results:
+            records.extend(raw_results[0] or [])
 
-    records = raw_results[0] if raw_results else []
     deduped: List[SearchResultItem] = []
     seen_paths: set[str] = set()
     for record in records or []:

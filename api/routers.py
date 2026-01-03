@@ -19,8 +19,8 @@ from domain.audit import router as audit
 
 def include_routers(app: FastAPI):
     app.include_router(adapters.router)
-    app.include_router(virtual_fs.router)
     app.include_router(search_api.router)
+    app.include_router(virtual_fs.router)
     app.include_router(auth.router)
     app.include_router(config.router)
     app.include_router(processors.router)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from api.response import success
 from domain.auth.service import get_current_active_user
 from domain.auth.types import User
 from domain.virtual_fs.search.search_service import VirtualFSSearchService
@@ -17,10 +18,11 @@ async def search_files(
     user: User = Depends(get_current_active_user),
 ):
     if not q.strip():
-        return {"items": [], "query": q}
+        return success({"items": [], "query": q, "mode": mode})
 
     top_k = max(top_k, 1)
     page = max(page, 1)
     page_size = max(min(page_size, 100), 1)
 
-    return await VirtualFSSearchService.search(q, top_k, mode, page, page_size)
+    data = await VirtualFSSearchService.search(q, top_k, mode, page, page_size)
+    return success(data)

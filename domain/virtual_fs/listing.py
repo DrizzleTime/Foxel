@@ -4,7 +4,7 @@ from fastapi import HTTPException
 
 from api.response import page
 from domain.adapters.registry import runtime_registry
-from domain.ai.service import VectorDBService
+from domain.ai.service import VectorDBService, VECTOR_COLLECTION_NAME, FILE_COLLECTION_NAME
 from domain.virtual_fs.thumbnail import is_image_filename, is_video_filename
 from models import StorageAdapter
 
@@ -161,13 +161,19 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
     @classmethod
     async def _gather_vector_index(cls, full_path: str, limit: int = 20):
         vector_db = VectorDBService()
-        try:
-            raw_results = await vector_db.search_by_path("vector_collection", full_path, max(limit * 2, 20))
-        except Exception:
-            return None
-
         matched = []
-        if raw_results:
+        had_success = False
+        fetch_limit = max(limit * 2, 20)
+        for collection_name in (VECTOR_COLLECTION_NAME, FILE_COLLECTION_NAME):
+            try:
+                raw_results = await vector_db.search_by_path(collection_name, full_path, fetch_limit)
+            except Exception:
+                continue
+
+            if not raw_results:
+                had_success = True
+                continue
+            had_success = True
             buckets = raw_results if isinstance(raw_results, list) else [raw_results]
             for bucket in buckets:
                 if not bucket:
@@ -192,6 +198,9 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
                         entry["preview"] = text[:preview_limit]
                         entry["preview_truncated"] = len(text) > preview_limit
                     matched.append(entry)
+
+        if not had_success:
+            return None
 
         if not matched:
             return {"total": 0, "entries": [], "by_type": {}, "has_more": False}

@@ -7,6 +7,7 @@ import { useFileActions } from './hooks/useFileActions.tsx';
 import { useAppWindows } from '../../contexts/AppWindowsContext';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useProcessor } from './hooks/useProcessor';
+import { useFileSearch } from './hooks/useFileSearch';
 import { useThumbnails } from './hooks/useThumbnails';
 import { useUploader } from './hooks/useUploader';
 import { Header } from './components/Header';
@@ -23,6 +24,7 @@ import { ShareModal } from './components/Modals/ShareModal';
 import { DirectLinkModal } from './components/Modals/DirectLinkModal';
 import { FileDetailModal } from './components/FileDetailModal';
 import { MoveCopyModal } from './components/Modals/MoveCopyModal';
+import { SearchResultsView } from './components/SearchResultsView';
 import type { ViewMode } from './types';
 import { vfsApi, type VfsEntry } from '../../api/client';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
@@ -39,12 +41,10 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   // --- Hooks ---
   const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange } = useFileExplorer(navKey);
   const { selectedEntries, handleSelect, handleSelectRange, clearSelection, setSelectedEntries } = useFileSelection();
-  const { doCreateDir, doDelete, doRename, doDownload, doShare, doGetDirectLink, doMove, doCopy } = useFileActions({ path, refresh, clearSelection, onShare: (entries) => setSharingEntries(entries), onGetDirectLink: (entry) => setDirectLinkEntry(entry) });
   const { openFileWithDefaultApp, confirmOpenWithApp } = useAppWindows();
   const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, closeContextMenus } = useContextMenu();
   const uploader = useUploader(path, refresh);
   const { handleFileDrop, openFilePicker, openDirectoryPicker, handleFileInputChange, handleDirectoryInputChange } = uploader;
-  const processorHook = useProcessor({ path, processorTypes, refresh });
   const { thumbs } = useThumbnails(entries, path);
 
   // --- State for Modals ---
@@ -58,12 +58,56 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [movingEntries, setMovingEntries] = useState<VfsEntry[]>([]);
   const [copyingEntries, setCopyingEntries] = useState<VfsEntry[]>([]);
 
+  // --- Search ---
+  const fileSearch = useFileSearch({
+    currentPath: path,
+    navigateTo,
+    openFileWithDefaultApp,
+    openContextMenu,
+    closeContextMenus,
+    activeEntry: ctxMenu?.entry ?? null,
+  });
+
+  const {
+    isSearching,
+    actionPath,
+    loading: searchLoading,
+    mode: searchMode,
+    query: searchQuery,
+    page: searchPage,
+    pageSize: searchPageSize,
+    displayItems: searchItems,
+    selectedPaths: searchSelectedPaths,
+    selectedNames: searchSelectedNames,
+    contextEntries: searchContextEntries,
+    entrySnapshot: searchEntrySnapshot,
+    showPagination: showSearchPagination,
+    totalItems: searchTotalItems,
+    clearSearchParams,
+    updateSearchPage,
+    refreshSearch,
+    openResult: openSearchResult,
+    selectResult: selectSearchResult,
+    openResultContextMenu: openSearchContextMenu,
+    clearSelection: clearSearchSelection,
+  } = fileSearch;
+
+  const entryBasePath = isSearching ? actionPath : path;
+
   // --- Effects ---
   const routePath = '/' + (restPath || '').replace(/^\/+/, '');
 
   useEffect(() => {
     load(routePath, 1, pagination.pageSize, sortBy, sortOrder);
   }, [routePath, navKey, load, pagination.pageSize, sortBy, sortOrder]);
+
+  const effectiveRefresh = useCallback(() => {
+    if (isSearching) {
+      refreshSearch();
+      return;
+    }
+    refresh();
+  }, [isSearching, refresh, refreshSearch]);
 
   useEffect(() => {
     if (skeletonTimerRef.current !== null) {
@@ -89,20 +133,43 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   }, [loading]);
 
   // --- Handlers ---
+  const clearAllSelection = useCallback(() => {
+    clearSelection();
+    clearSearchSelection();
+  }, [clearSearchSelection, clearSelection]);
+
+  const { doCreateDir: doCreateDirInCurrentDir } = useFileActions({
+    path,
+    refresh,
+    clearSelection,
+    onShare: (entriesToShare) => setSharingEntries(entriesToShare),
+    onGetDirectLink: (entry) => setDirectLinkEntry(entry),
+  });
+
+  const { doDelete, doRename, doDownload, doShare, doGetDirectLink, doMove, doCopy } = useFileActions({
+    path: entryBasePath,
+    refresh: effectiveRefresh,
+    clearSelection: clearAllSelection,
+    onShare: (entriesToShare) => setSharingEntries(entriesToShare),
+    onGetDirectLink: (entry) => setDirectLinkEntry(entry),
+  });
+
+  const processorHook = useProcessor({ path: entryBasePath, processorTypes, refresh: effectiveRefresh });
+
   const handleOpenEntry = (entry: VfsEntry) => {
     if (entry.is_dir) {
-      const next = (path === '/' ? '' : path) + '/' + entry.name;
+      const next = (entryBasePath === '/' ? '' : entryBasePath) + '/' + entry.name;
       navigateTo(next.replace(/\/+/g, '/'));
     } else {
-      openFileWithDefaultApp(entry, path);
-      }
+      openFileWithDefaultApp(entry, entryBasePath);
+    }
   };
 
   const openDetail = async (entry: VfsEntry) => {
     setDetailEntry(entry);
     setDetailLoading(true);
     try {
-      const fullPath = (path === '/' ? '' : path) + '/' + entry.name;
+      const fullPath = (entryBasePath === '/' ? '' : entryBasePath) + '/' + entry.name;
       const stat = await vfsApi.stat(fullPath);
       setDetailData(stat as Record<string, unknown>);
     } catch (error) {
@@ -116,17 +183,19 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const buildDefaultDestination = useCallback((targetEntries: VfsEntry[]) => {
     if (!targetEntries || targetEntries.length === 0) return '';
     if (targetEntries.length > 1) {
-      return path || '/';
+      return entryBasePath || '/';
     }
     const entry = targetEntries[0];
-    const base = path === '/' ? '' : path;
+    const base = entryBasePath === '/' ? '' : entryBasePath;
     const segments = [base, entry.name].filter(Boolean);
     const joined = segments.join('/');
     if (!joined) {
       return '/';
     }
     return joined.startsWith('/') ? joined : `/${joined}`;
-  }, [path]);
+  }, [entryBasePath]);
+  const showFsPagination = !isSearching && pagination.total > 0;
+  const shouldReserveBottomBar = showSearchPagination || showFsPagination;
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -179,13 +248,13 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       <Header
         navKey={navKey}
         path={path}
-        loading={loading}
+        loading={isSearching ? searchLoading : loading}
         viewMode={viewMode}
         sortBy={sortBy}
         sortOrder={sortOrder}
         onGoUp={goUp}
         onNavigate={navigateTo}
-        onRefresh={refresh}
+        onRefresh={effectiveRefresh}
         onCreateDir={() => setCreatingDir(true)}
         onUploadFile={openFilePicker}
         onUploadDirectory={openDirectoryPicker}
@@ -208,8 +277,22 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onChange={handleDirectoryInputChange}
       />
 
-      <div style={{ flex: 1, overflow: 'auto', paddingBottom: pagination.total > 0 ? '80px' : '0' }} onContextMenu={openBlankContextMenu}>
-        {showSkeleton && loading && (entries.length === 0 || path !== routePath) ? (
+      <div style={{ flex: 1, overflow: 'auto', paddingBottom: shouldReserveBottomBar ? '80px' : '0' }} onContextMenu={openBlankContextMenu}>
+        {isSearching ? (
+          <SearchResultsView
+            viewMode={viewMode}
+            loading={searchLoading}
+            mode={searchMode}
+            query={searchQuery}
+            items={searchItems}
+            selectedPaths={searchSelectedPaths}
+            entrySnapshot={searchEntrySnapshot}
+            onClearSearch={clearSearchParams}
+            onSelect={selectSearchResult}
+            onOpen={(fullPath) => { void openSearchResult(fullPath); }}
+            onContextMenu={(e, fullPath) => { void openSearchContextMenu(e, fullPath); }}
+          />
+        ) : showSkeleton && loading && (entries.length === 0 || path !== routePath) ? (
           <LoadingSkeleton mode={viewMode} />
         ) : !loading && entries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40 }}><EmptyState isRoot={path === '/'} /></div>
@@ -239,14 +322,27 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         )}
       </div>
 
-      {pagination.total > 0 && (
+      {showFsPagination && (
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
           <Pagination {...pagination} onChange={handlePaginationChange} onShowSizeChange={handlePaginationChange} />
         </div>
       )}
 
+      {showSearchPagination && (
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
+          <Pagination
+            current={searchPage}
+            pageSize={searchPageSize}
+            total={Math.max(searchTotalItems, 1)}
+            showSizeChanger={false}
+            size="small"
+            onChange={(nextPage) => updateSearchPage(nextPage)}
+          />
+        </div>
+      )}
+
       {/* --- Modals & Context Menus --- */}
-      <CreateDirModal open={creatingDir} onOk={(name) => { doCreateDir(name); setCreatingDir(false); }} onCancel={() => setCreatingDir(false)} />
+      <CreateDirModal open={creatingDir} onOk={(name) => { doCreateDirInCurrentDir(name); setCreatingDir(false); }} onCancel={() => setCreatingDir(false)} />
       <RenameModal entry={renaming} onOk={(entry, newName) => { doRename(entry, newName); setRenaming(null); }} onCancel={() => setRenaming(null)} />
       <FileDetailModal entry={detailEntry} loading={detailLoading} data={detailData} onClose={() => setDetailEntry(null)} />
       <MoveCopyModal
@@ -275,7 +371,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       />
       {sharingEntries.length > 0 && (
         <ShareModal
-          path={path}
+          path={entryBasePath}
           entries={sharingEntries}
           open={sharingEntries.length > 0}
           onOk={() => setSharingEntries([])}
@@ -284,7 +380,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       )}
       <DirectLinkModal
         entry={directLinkEntry}
-        path={path}
+        path={entryBasePath}
         open={!!directLinkEntry}
         onCancel={() => setDirectLinkEntry(null)}
       />
@@ -310,12 +406,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           x={ctxMenu?.x || blankCtxMenu!.x}
           y={ctxMenu?.y || blankCtxMenu!.y}
           entry={ctxMenu?.entry}
-          entries={entries}
-          selectedEntries={selectedEntries}
+          entries={isSearching ? searchContextEntries : entries}
+          selectedEntries={isSearching ? searchSelectedNames : selectedEntries}
           processorTypes={processorTypes}
           onClose={closeContextMenus}
           onOpen={handleOpenEntry}
-          onOpenWith={(entry, appKey) => confirmOpenWithApp(entry, appKey, path)}
+          onOpenWith={(entry, appKey) => confirmOpenWithApp(entry, appKey, entryBasePath)}
           onDownload={doDownload}
           onRename={setRenaming}
           onDelete={(entriesToDelete) => doDelete(entriesToDelete)}

@@ -80,14 +80,16 @@ class PluginLoader:
         if not manifest_data.get("name"):
             errors.append("manifest 缺少必需字段: name")
 
-        # key 格式检查
+        # key 格式检查（Java 命名空间格式）
         key = manifest_data.get("key", "")
         if key:
             import re
 
-            if not re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", key):
+            # 格式: com.example.plugin (至少两级，每级以小写字母开头，可包含小写字母和数字)
+            if not re.match(r"^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$", key):
                 errors.append(
-                    "key 格式无效：必须以字母开头，只能包含字母、数字、下划线和连字符"
+                    "key 格式无效：必须使用命名空间格式（如 com.example.plugin），"
+                    "每个部分以小写字母开头，只能包含小写字母和数字，至少两级"
                 )
 
         # 版本格式检查（简单检查）

@@ -23,14 +23,57 @@ build_plugin() {
         return 1
     fi
 
+    # 检查是否是 TypeScript 项目（存在 package.json 和 src 目录）
+    if [ -f "${PLUGIN_DIR}/package.json" ] && [ -d "${PLUGIN_DIR}/src" ]; then
+        echo "🔨 构建 ${PLUGIN_NAME} (TypeScript)..."
+        cd "${PLUGIN_DIR}"
+        
+        # 检查是否安装了依赖
+        if [ ! -d "node_modules" ]; then
+            echo "📦 安装依赖..."
+            if command -v bun &> /dev/null; then
+                bun install
+            else
+                npm install
+            fi
+        fi
+        
+        # 构建项目
+        if command -v bun &> /dev/null; then
+            bun run build
+        else
+            npm run build
+        fi
+        
+        # 检查构建输出
+        if [ ! -f "frontend/index.js" ]; then
+            echo "❌ 构建失败: 未生成 frontend/index.js"
+            return 1
+        fi
+        echo "✅ 构建完成"
+    fi
+
     local OUTPUT_FILE="${OUTPUT_DIR}/${PLUGIN_NAME}.foxpkg"
 
     # 删除旧的打包文件
     rm -f "${OUTPUT_FILE}"
 
-    # 打包
+    # 打包（排除开发文件）
     cd "${PLUGIN_DIR}"
-    zip -r "${OUTPUT_FILE}" . -x "*.DS_Store" -x "__pycache__/*" -x "*.pyc" -x "node_modules/*"
+    zip -r "${OUTPUT_FILE}" . \
+        -x "*.DS_Store" \
+        -x "__pycache__/*" \
+        -x "*.pyc" \
+        -x "node_modules/*" \
+        -x "src/*" \
+        -x "tsconfig.json" \
+        -x "vite.config.ts" \
+        -x "bun.lock" \
+        -x "package-lock.json" \
+        -x ".gitignore" \
+        -x "build.sh" \
+        -x "README.md" \
+        -x "CHANGELOG.md"
 
     echo "✓ ${PLUGIN_NAME}: $(du -h "${OUTPUT_FILE}" | cut -f1)"
 }

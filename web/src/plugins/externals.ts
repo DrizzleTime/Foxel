@@ -11,8 +11,7 @@ import * as antd from 'antd';
 import * as AntdIcons from '@ant-design/icons';
 
 // 代码编辑器（懒加载包装）
-const MonacoEditor = React.lazy(() => import('@monaco-editor/react'));
-const MarkdownEditor = React.lazy(() => import('@uiw/react-md-editor'));
+// 编辑器组件已移除，由插件自己提供
 
 // API 模块
 import request, { vfsApi, API_BASE_URL } from '../api/client';
@@ -146,10 +145,6 @@ export interface FoxelExternals {
   antd: typeof antd;
   AntdIcons: typeof AntdIcons;
 
-  // 代码编辑器（懒加载组件）
-  MonacoEditor: typeof MonacoEditor;
-  MarkdownEditor: typeof MarkdownEditor;
-
   // Foxel API
   foxelApi: {
     /** HTTP 请求函数 */
@@ -190,10 +185,6 @@ export function initExternals(): void {
     // UI 库
     antd,
     AntdIcons,
-
-    // 代码编辑器（懒加载组件）
-    MonacoEditor,
-    MarkdownEditor,
 
     // Foxel API
     foxelApi: {

@@ -1,0 +1,24 @@
+{
+  "name": "foxel-plugin-office-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Foxel Office 文档查看器插件",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist frontend/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "antd": "6",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.0"
+  }
+}

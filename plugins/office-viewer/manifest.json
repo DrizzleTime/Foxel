@@ -1,6 +1,6 @@
 {
   "foxpkg": "1.0",
-  "key": "office-viewer",
+  "key": "cc.foxel.officeviewer",
   "name": "Office 文档查看器",
   "version": "1.0.0",
   "description": "Office 文档查看器，支持 Word/Excel/PowerPoint 文件预览（通过 Microsoft Office Online）。",

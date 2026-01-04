@@ -1,6 +1,6 @@
 {
   "foxpkg": "1.0",
-  "key": "image-viewer",
+  "key": "cc.foxel.imageviewer",
   "name": "图片查看器",
   "version": "1.0.0",
   "description": "内置图片查看器，支持常见图片与部分 RAW 格式预览，包含 EXIF 信息和直方图显示。",

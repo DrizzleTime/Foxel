@@ -1,6 +1,6 @@
 {
   "foxpkg": "1.0",
-  "key": "video-library",
+  "key": "cc.foxel.videolibrary",
   "name": "视频库",
   "version": "1.0.0",
   "description": "影视刮削与媒体库管理，支持从 TMDB 获取电影和电视剧的元数据信息",

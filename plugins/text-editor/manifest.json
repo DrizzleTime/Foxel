@@ -1,6 +1,6 @@
 {
   "foxpkg": "1.0",
-  "key": "text-editor",
+  "key": "cc.foxel.texteditor",
   "name": "文本编辑器",
   "version": "1.0.0",
   "description": "内置文本/代码编辑器，支持常见文本与代码格式，Markdown 实时预览。",

@@ -1,6 +1,6 @@
 {
   "foxpkg": "1.0",
-  "key": "pdf-viewer",
+  "key": "cc.foxel.pdfviewer",
   "name": "PDF 查看器",
   "version": "1.0.0",
   "description": "内置 PDF 查看器，使用浏览器原生 PDF 渲染能力。",

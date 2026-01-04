@@ -95,14 +95,30 @@ if [ "$1" = "all" ] || [ -z "$1" ]; then
     
     PLUGINS=$(get_all_plugins)
     COUNT=0
+    FAILED=0
+    
+    # 临时禁用 set -e，避免单个插件失败导致整个脚本退出
+    set +e
     
     for plugin in $PLUGINS; do
-        build_plugin "$plugin"
-        ((COUNT++))
+        echo ""
+        if build_plugin "$plugin"; then
+            ((COUNT++))
+        else
+            echo "❌ ${plugin} 打包失败 (退出码: $?)"
+            ((FAILED++))
+        fi
     done
     
+    # 恢复 set -e
+    set -e
+    
+    echo ""
     echo "===================="
-    echo "完成! 共打包 ${COUNT} 个插件"
+    echo "完成! 成功打包 ${COUNT} 个插件"
+    if [ $FAILED -gt 0 ]; then
+        echo "失败: ${FAILED} 个插件"
+    fi
 else
     build_plugin "$1"
     echo "打包完成: ${OUTPUT_DIR}/$1.foxpkg"

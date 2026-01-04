@@ -26,7 +26,7 @@
       setUrl(undefined);
 
       const cleaned = filePath.replace(/^\/+/, '');
-      foxelApi.request(`/fs/temp-link/${encodeURI(cleaned)}`)
+      foxelApi.vfs.getTempLinkToken(cleaned)
         .then(res => {
           if (cancelled) return;
           // 获取系统状态中的 file_domain

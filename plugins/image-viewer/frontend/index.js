@@ -545,13 +545,12 @@
       const cleaned = activePath.replace(/^\/+/, '');
 
       Promise.all([
-        foxelApi.request(`/fs/temp-link/${encodeURI(cleaned)}`),
-        foxelApi.request(`/fs/stat/${encodeURI(cleaned)}`),
+        foxelApi.vfs.getTempLinkToken(cleaned),
+        foxelApi.vfs.stat(activePath),
       ])
         .then(([tokenRes, metadata]) => {
           if (cancelled) return;
-          const publicUrl = `${foxelApi.baseUrl}/fs/temp/${tokenRes.token}`;
-          setImageUrl(publicUrl);
+          setImageUrl(foxelApi.vfs.getTempPublicUrl(tokenRes.token));
           setStat(metadata);
           setScale(1);
           setRotate(0);

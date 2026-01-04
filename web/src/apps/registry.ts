@@ -35,6 +35,12 @@ function resolvePluginIcon(p: PluginItem): string | undefined {
   return getPluginAssetUrl(p.key, p.icon);
 }
 
+function resolvePluginUseSystemWindow(p: PluginItem): boolean | undefined {
+  const frontend = (p.manifest as any)?.frontend as any;
+  const value = frontend?.use_system_window ?? frontend?.useSystemWindow;
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 function registerPluginAsApp(p: PluginItem) {
   const key = getPluginAppKey(p);
   if (apps.find((a) => a.key === key)) return;
@@ -58,6 +64,7 @@ function registerPluginAsApp(p: PluginItem) {
     default: false,
     defaultBounds: p.default_bounds || undefined,
     defaultMaximized: p.default_maximized || undefined,
+    useSystemWindow: resolvePluginUseSystemWindow(p),
     description: p.description || undefined,
     author: p.author || undefined,
     supportedExts: p.supported_exts || undefined,
@@ -133,6 +140,7 @@ export async function reloadPluginApps() {
         existing.name = p.name || `插件 ${p.key}`;
         existing.defaultBounds = p.default_bounds || undefined;
         existing.defaultMaximized = p.default_maximized || undefined;
+        existing.useSystemWindow = resolvePluginUseSystemWindow(p);
         existing.iconUrl = resolvePluginIcon(p);
         existing.description = p.description || undefined;
         existing.author = p.author || undefined;

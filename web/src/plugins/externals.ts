@@ -130,6 +130,8 @@ const vfsApiWrapper = {
   streamUrl: vfsApi.streamUrl,
   getTempLinkToken: vfsApi.getTempLinkToken,
   getTempPublicUrl: vfsApi.getTempPublicUrl,
+  readFile: vfsApi.readFile,
+  uploadFile: vfsApi.uploadFile,
 };
 
 /**

@@ -103,6 +103,9 @@ class PluginLoader:
             supported_exts = frontend.get("supportedExts") or frontend.get("supported_exts")
             if supported_exts and not isinstance(supported_exts, list):
                 errors.append("frontend.supportedExts 必须是数组")
+            use_system_window = frontend.get("useSystemWindow") or frontend.get("use_system_window")
+            if use_system_window is not None and not isinstance(use_system_window, bool):
+                errors.append("frontend.useSystemWindow 必须是布尔值")
 
         # 验证 backend 配置
         backend = manifest_data.get("backend")
@@ -437,4 +440,3 @@ class PluginLoader:
             return PluginManifest.model_validate(data)
         except Exception:
             return None
-

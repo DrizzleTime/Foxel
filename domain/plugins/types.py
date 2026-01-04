@@ -33,6 +33,11 @@ class ManifestFrontend(BaseModel):
         description="是否默认最大化",
     )
     icon: Optional[str] = Field(default=None, description="图标路径")
+    use_system_window: Optional[bool] = Field(
+        default=None,
+        alias="useSystemWindow",
+        description="是否使用系统窗口",
+    )
 
 
 class ManifestRouteConfig(BaseModel):

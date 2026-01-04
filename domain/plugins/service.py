@@ -189,12 +189,25 @@ class PluginService:
     async def list_plugins(cls) -> List[PluginOut]:
         """获取所有插件列表"""
         rows = await Plugin.all().order_by("-id")
+        for rec in rows:
+            try:
+                manifest = PluginLoader.read_manifest(rec.key)
+                if manifest:
+                    rec.manifest = manifest.model_dump(mode="json")
+            except Exception:
+                continue
         return [PluginOut.model_validate(r) for r in rows]
 
     @classmethod
     async def get_plugin(cls, key_or_id: Union[str, int]) -> PluginOut:
         """获取单个插件详情"""
         rec = await cls._get_by_key_or_id(key_or_id)
+        try:
+            manifest = PluginLoader.read_manifest(rec.key)
+            if manifest:
+                rec.manifest = manifest.model_dump(mode="json")
+        except Exception:
+            pass
         return PluginOut.model_validate(rec)
 
     @classmethod

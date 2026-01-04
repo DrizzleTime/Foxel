@@ -212,6 +212,7 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
             <div
               key={w.id}
               ref={el => { windowEls.current[w.id] = el; }}
+              onMouseDown={() => onBringToFront(w.id)}
               style={{
                 position: 'fixed',
                 top: w.maximized ? 0 : w.y,

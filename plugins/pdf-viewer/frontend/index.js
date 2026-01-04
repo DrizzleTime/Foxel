@@ -26,10 +26,10 @@
       setUrl(undefined);
 
       const cleaned = filePath.replace(/^\/+/, '');
-      foxelApi.request(`/fs/temp-link/${encodeURI(cleaned)}`)
+      foxelApi.vfs.getTempLinkToken(cleaned)
         .then(res => {
           if (cancelled) return;
-          const publicUrl = `${foxelApi.baseUrl}/fs/temp/${res.token}`;
+          const publicUrl = foxelApi.vfs.getTempPublicUrl(res.token);
           setUrl(publicUrl + '#toolbar=1&navpanes=1');
         })
         .catch(e => {

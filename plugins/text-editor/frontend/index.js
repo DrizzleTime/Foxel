@@ -157,13 +157,14 @@
           setLoading(true);
           setTruncated(false);
           const shouldTruncate = (entry.size || 0) > MAX_PREVIEW_BYTES;
-          const cleaned = filePath.replace(/^\/+/, '');
           
           if (shouldTruncate) {
-            const resp = await fetch(`${foxelApi.baseUrl}/fs/file/${encodeURI(cleaned)}`, {
+            // 大文件使用 Range 请求读取部分内容
+            const cleaned = filePath.replace(/^\/+/, '');
+            const resp = await foxelApi.request(`/fs/file/${encodeURI(cleaned)}`, {
               method: 'GET',
               headers: { Range: `bytes=0-${MAX_PREVIEW_BYTES - 1}` },
-              credentials: 'include',
+              rawResponse: true,
             });
             const buf = await resp.arrayBuffer();
             const text = new TextDecoder().decode(buf);
@@ -171,10 +172,8 @@
             setInitialContent(text);
             setTruncated(true);
           } else {
-            const resp = await fetch(`${foxelApi.baseUrl}/fs/file/${encodeURI(cleaned)}`, {
-              credentials: 'include',
-            });
-            const text = await resp.text();
+            const data = await foxelApi.vfs.readFile(filePath);
+            const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
             setContent(text);
             setInitialContent(text);
           }
@@ -196,17 +195,8 @@
       if (!isDirty) return;
       try {
         setSaving(true);
-        const cleaned = filePath.replace(/^\/+/, '');
         const blob = new Blob([content], { type: 'text/plain' });
-        const formData = new FormData();
-        formData.append('file', blob, entry.name);
-        
-        await fetch(`${foxelApi.baseUrl}/fs/upload/${encodeURI(cleaned)}`, {
-          method: 'POST',
-          body: formData,
-          credentials: 'include',
-        });
-        
+        await foxelApi.vfs.uploadFile(filePath, blob);
         setInitialContent(content);
         message.success('保存成功');
       } catch (error) {
@@ -214,7 +204,7 @@
       } finally {
         setSaving(false);
       }
-    }, [content, filePath, isDirty, truncated, entry.name]);
+    }, [content, filePath, isDirty, truncated]);
 
     useEffect(() => {
       const handleKeyDown = (event) => {

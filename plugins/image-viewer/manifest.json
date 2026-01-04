@@ -14,7 +14,7 @@
     "supportedExts": ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif", "arw", "cr2", "cr3", "nef", "rw2", "orf", "pef", "dng"],
     "defaultBounds": { "width": 1024, "height": 720, "x": 140, "y": 96 },
     "defaultMaximized": true,
+    "useSystemWindow": false,
     "icon": "assets/icon.svg"
   }
 }
-

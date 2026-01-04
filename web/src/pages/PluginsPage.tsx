@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Button, Tag, message, Card, Typography, Popconfirm, Empty, Skeleton, theme, Divider, Tabs, Upload } from 'antd';
+import { Alert, Button, Card, Divider, Empty, List, Modal, Popconfirm, Progress, Skeleton, Space, Tabs, Tag, Typography, Upload, message, theme } from 'antd';
 import { GithubOutlined, LinkOutlined, UploadOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
 import { getAppByKey, reloadPluginApps } from '../apps/registry';
@@ -8,6 +8,13 @@ import { useAppWindows } from '../contexts/AppWindowsContext';
 import { getPluginAssetUrl } from '../plugins/runtime';
 import type { UploadFile } from 'antd';
 
+type InstallStatus = 'pending' | 'installing' | 'success' | 'failed' | 'skipped';
+type InstallState = Partial<{
+  status: InstallStatus;
+  message: string;
+  errors: string[];
+}>;
+
 const PluginsPage = memo(function PluginsPage() {
   const [data, setData] = useState<PluginItem[]>([]);
   const [installing, setInstalling] = useState(false);
@@ -15,6 +22,10 @@ const PluginsPage = memo(function PluginsPage() {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'installed' | 'discover'>('installed');
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+  const [installDone, setInstallDone] = useState(false);
+  const [installStopReason, setInstallStopReason] = useState<string | undefined>(undefined);
+  const [installFileState, setInstallFileState] = useState<Record<string, InstallState>>({});
   const { token } = theme.useToken();
   const { t } = useI18n();
   const { openApp } = useAppWindows();
@@ -25,34 +36,115 @@ const PluginsPage = memo(function PluginsPage() {
 
   useEffect(() => { reload(); }, []);
 
+  const resetInstallUi = () => {
+    setInstallDone(false);
+    setInstallStopReason(undefined);
+    setInstallFileState({});
+  };
+
+  const closeInstallModal = () => {
+    if (installing) return;
+    setInstallModalOpen(false);
+    setFileList([]);
+    resetInstallUi();
+  };
+
+  const removeSelectedFile = (uid: string) => {
+    if (installing || installDone) return;
+    setFileList(prev => {
+      const next = prev.filter(f => f.uid !== uid);
+      if (next.length === 0) {
+        setInstallModalOpen(false);
+        resetInstallUi();
+      }
+      return next;
+    });
+    setInstallFileState(prev => {
+      const next = { ...prev };
+      delete next[uid];
+      return next;
+    });
+  };
+
   const handleInstall = async () => {
     if (fileList.length === 0) {
       message.warning(t('Please select a .foxpkg file'));
       return;
     }
 
-    const file = fileList[0];
-    if (!file.originFileObj) {
-      message.error(t('Invalid file'));
-      return;
-    }
+    const setState = (uid: string, patch: InstallState) => {
+      setInstallFileState(prev => ({
+        ...prev,
+        [uid]: { ...(prev[uid] || {}), ...patch },
+      }));
+    };
 
     try {
       setInstalling(true);
-      const result = await pluginsApi.install(file.originFileObj);
-      if (result.success) {
-        message.success(result.message || t('Installed successfully'));
-        setFileList([]);
-        await reload();
-        await reloadPluginApps();
-      } else {
-        message.error(result.message || t('Installation failed'));
-        if (result.errors?.length) {
-          result.errors.forEach(err => message.error(err));
+      setInstallDone(false);
+      setInstallStopReason(undefined);
+
+      let stopReason: string | undefined;
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const uid = file.uid;
+        setState(uid, { status: 'installing' });
+
+        if (!file.originFileObj) {
+          stopReason = t('Invalid file');
+          setState(uid, { status: 'failed', message: stopReason });
+          for (let j = i + 1; j < fileList.length; j++) {
+            setState(fileList[j].uid, { status: 'skipped' });
+          }
+          break;
+        }
+
+        try {
+          const result = await pluginsApi.install(file.originFileObj);
+          if (result.success) {
+            setState(uid, {
+              status: 'success',
+              message: result.message || t('Installed successfully'),
+              errors: result.errors,
+            });
+            continue;
+          }
+
+          stopReason = result.message || t('Installation failed');
+          setState(uid, {
+            status: 'failed',
+            message: stopReason,
+            errors: result.errors,
+          });
+          for (let j = i + 1; j < fileList.length; j++) {
+            setState(fileList[j].uid, { status: 'skipped' });
+          }
+          break;
+        } catch (e: any) {
+          stopReason = e?.message || t('Installation failed');
+          setState(uid, { status: 'failed', message: stopReason });
+          for (let j = i + 1; j < fileList.length; j++) {
+            setState(fileList[j].uid, { status: 'skipped' });
+          }
+          break;
         }
       }
+
+      await reload();
+      await reloadPluginApps();
+
+      setInstallStopReason(stopReason);
+      setInstallDone(true);
+      if (stopReason) {
+        message.error(stopReason);
+      } else {
+        message.success(t('Installed successfully'));
+      }
     } catch (e: any) {
-      message.error(e?.message || t('Installation failed'));
+      const msg = e?.message || t('Installation failed');
+      setInstallStopReason(msg);
+      setInstallDone(true);
+      message.error(msg);
     } finally {
       setInstalling(false);
     }
@@ -169,22 +261,22 @@ const PluginsPage = memo(function PluginsPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <Upload
           accept=".foxpkg"
-          maxCount={1}
+          multiple
+          disabled={installing}
           fileList={fileList}
-          onChange={({ fileList }) => setFileList(fileList)}
+          onChange={({ fileList: newFileList }) => {
+            setFileList(newFileList);
+            if (newFileList.length > 0) {
+              setInstallModalOpen(true);
+              resetInstallUi();
+            }
+          }}
           beforeUpload={() => false}
           showUploadList={false}
         >
           <Button icon={<UploadOutlined />} type="primary">{t('Install Plugin')}</Button>
         </Upload>
-        {fileList.length > 0 && (
-          <>
-            <span style={{ color: token.colorTextSecondary }}>{fileList[0].name}</span>
-            <Button onClick={handleInstall} loading={installing} type="primary">{t('Confirm Install')}</Button>
-            <Button onClick={() => setFileList([])}>{t('Cancel')}</Button>
-          </>
-        )}
-        {tab === 'installed' && fileList.length === 0 && <Button onClick={reload} loading={loading}>{t('Refresh')}</Button>}
+        {tab === 'installed' && <Button onClick={reload} loading={loading} disabled={installing}>{t('Refresh')}</Button>}
         <div style={{ marginLeft: 'auto' }} />
       </div>
 
@@ -246,6 +338,131 @@ const PluginsPage = memo(function PluginsPage() {
           }
         ]}
       />
+
+      <Modal
+        title={t('Confirm Install')}
+        open={installModalOpen}
+        onCancel={closeInstallModal}
+        maskClosable={!installing}
+        closable={!installing}
+        width={640}
+        footer={(() => {
+          if (fileList.length === 0) {
+            return <Button type="primary" onClick={closeInstallModal}>{t('Close')}</Button>;
+          }
+          if (installing) {
+            return <Button type="primary" loading>{t('Installing')}</Button>;
+          }
+          if (installDone) {
+            return <Button type="primary" onClick={closeInstallModal}>{t('Close')}</Button>;
+          }
+          return (
+            <Space>
+              <Button onClick={closeInstallModal}>{t('Cancel')}</Button>
+              <Button type="primary" onClick={handleInstall}>{t('Confirm Install')}</Button>
+            </Space>
+          );
+        })()}
+      >
+        {fileList.length === 0 ? (
+          <Empty description={t('Please select a .foxpkg file')} />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <Typography.Text>{t('Selected {count} files', { count: fileList.length })}</Typography.Text>
+              <div style={{ marginTop: 4 }}>
+                <Typography.Text type="secondary">{t('Installation will stop on first failure')}</Typography.Text>
+              </div>
+            </div>
+
+            {installStopReason ? (
+              <Alert type="error" showIcon message={installStopReason} />
+            ) : null}
+
+            <Progress
+              percent={(() => {
+                const finished = fileList.filter(f => {
+                  const status = installFileState[f.uid]?.status;
+                  return status === 'success' || status === 'failed';
+                }).length;
+                return fileList.length === 0 ? 0 : Math.round((finished / fileList.length) * 100);
+              })()}
+              status={installStopReason ? 'exception' : (installDone ? 'success' : (installing ? 'active' : 'normal'))}
+              format={() => {
+                const finished = fileList.filter(f => {
+                  const status = installFileState[f.uid]?.status;
+                  return status === 'success' || status === 'failed';
+                }).length;
+                return `${finished}/${fileList.length}`;
+              }}
+            />
+
+            <List
+              dataSource={fileList}
+              bordered
+              renderItem={(file) => {
+                const st = (installFileState[file.uid]?.status || 'pending') as InstallStatus;
+                const msg = installFileState[file.uid]?.message;
+                const errors = installFileState[file.uid]?.errors || [];
+
+                const statusText = (() => {
+                  switch (st) {
+                    case 'pending': return t('Pending');
+                    case 'installing': return t('Installing');
+                    case 'success': return t('Success');
+                    case 'failed': return t('Failed');
+                    case 'skipped': return t('Skipped');
+                    default: return t('Pending');
+                  }
+                })();
+
+                const statusColor = (() => {
+                  switch (st) {
+                    case 'installing': return 'blue';
+                    case 'success': return 'green';
+                    case 'failed': return 'red';
+                    case 'skipped': return 'orange';
+                    default: return 'default';
+                  }
+                })();
+
+                return (
+                  <List.Item
+                    actions={[
+                      (!installing && !installDone) ? (
+                        <Button key="remove" type="link" danger onClick={() => removeSelectedFile(file.uid)}>
+                          {t('Remove')}
+                        </Button>
+                      ) : null,
+                      <Tag key="status" color={statusColor}>{statusText}</Tag>,
+                    ].filter(Boolean) as any}
+                  >
+                    <List.Item.Meta
+                      title={file.name}
+                      description={
+                        (msg || errors.length > 0) ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {msg ? (
+                              <Typography.Text type={st === 'failed' ? 'danger' : (st === 'success' ? 'success' : 'secondary')}>
+                                {msg}
+                              </Typography.Text>
+                            ) : null}
+                            {errors.length > 0 ? (
+                              <Typography.Text type={st === 'failed' ? 'danger' : 'secondary'} style={{ fontSize: 12 }}>
+                                {errors.join('; ')}
+                              </Typography.Text>
+                            ) : null}
+                          </div>
+                        ) : null
+                      }
+                    />
+                  </List.Item>
+                );
+              }}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 });

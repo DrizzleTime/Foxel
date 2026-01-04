@@ -1,0 +1,20 @@
+{
+  "foxpkg": "1.0",
+  "key": "pdf-viewer",
+  "name": "PDF 查看器",
+  "version": "1.0.0",
+  "description": "内置 PDF 查看器，使用浏览器原生 PDF 渲染能力。",
+  "author": "Foxel",
+  "website": "https://github.com/user/foxel",
+  "license": "MIT",
+
+  "frontend": {
+    "entry": "frontend/index.js",
+    "openApp": false,
+    "supportedExts": ["pdf"],
+    "defaultBounds": { "width": 1024, "height": 768, "x": 160, "y": 100 },
+    "defaultMaximized": false,
+    "icon": "assets/icon.svg"
+  }
+}
+

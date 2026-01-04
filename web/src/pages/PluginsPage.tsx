@@ -1,20 +1,20 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Button, Modal, Form, Input, Tag, message, Card, Typography, Popconfirm, Empty, Skeleton, theme, Divider, Tabs } from 'antd';
-import { GithubOutlined, LinkOutlined } from '@ant-design/icons';
+import { Button, Tag, message, Card, Typography, Popconfirm, Empty, Skeleton, theme, Divider, Tabs, Upload } from 'antd';
+import { GithubOutlined, LinkOutlined, UploadOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
-import { loadPlugin, ensureManifest } from '../plugins/runtime';
-import { getAppByKey, reloadPluginApps, ensureAppsLoaded, listSystemApps, type AppDescriptor } from '../apps/registry';
+import { getAppByKey, reloadPluginApps } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
+import { getPluginAssetUrl } from '../plugins/runtime';
+import type { UploadFile } from 'antd';
 
 const PluginsPage = memo(function PluginsPage() {
   const [data, setData] = useState<PluginItem[]>([]);
-  const [systemApps, setSystemApps] = useState<AppDescriptor[]>([]);
-  const [adding, setAdding] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'installed' | 'discover'>('installed');
-  const [form] = Form.useForm<{ url: string }>();
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const { token } = theme.useToken();
   const { t } = useI18n();
   const { openApp } = useAppWindows();
@@ -24,29 +24,49 @@ const PluginsPage = memo(function PluginsPage() {
   };
 
   useEffect(() => { reload(); }, []);
-  useEffect(() => {
-    (async () => {
-      try {
-        await ensureAppsLoaded();
-        setSystemApps(listSystemApps());
-      } catch { void 0; }
-    })();
-  }, []);
 
-  const handleAdd = async () => {
+  const handleInstall = async () => {
+    if (fileList.length === 0) {
+      message.warning(t('Please select a .foxpkg file'));
+      return;
+    }
+
+    const file = fileList[0];
+    if (!file.originFileObj) {
+      message.error(t('Invalid file'));
+      return;
+    }
+
     try {
-      const { url } = await form.validateFields();
-      const created = await pluginsApi.create({ url });
-      try {
-        const p = await loadPlugin(created);
-        await ensureManifest(created.id, p);
-      } catch { void 0; }
-      setAdding(false);
-      form.resetFields();
-      await reload();
-      await reloadPluginApps();
-      message.success(t('Installed successfully'));
-    } catch { void 0; }
+      setInstalling(true);
+      const result = await pluginsApi.install(file.originFileObj);
+      if (result.success) {
+        message.success(result.message || t('Installed successfully'));
+        setFileList([]);
+        await reload();
+        await reloadPluginApps();
+      } else {
+        message.error(result.message || t('Installation failed'));
+        if (result.errors?.length) {
+          result.errors.forEach(err => message.error(err));
+        }
+      }
+    } catch (e: any) {
+      message.error(e?.message || t('Installation failed'));
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  /**
+   * 解析插件图标 URL
+   */
+  const resolvePluginIcon = (p: PluginItem): string => {
+    if (!p.icon) return '/logo.svg';
+    if (p.icon.startsWith('http://') || p.icon.startsWith('https://') || p.icon.startsWith('/')) {
+      return p.icon;
+    }
+    return getPluginAssetUrl(p.key, p.icon);
   };
 
   const filtered = useMemo(() => {
@@ -55,43 +75,30 @@ const PluginsPage = memo(function PluginsPage() {
     return data.filter(p => (
       (p.name || '').toLowerCase().includes(s)
       || (p.author || '').toLowerCase().includes(s)
-      || (p.url || '').toLowerCase().includes(s)
+      || (p.key || '').toLowerCase().includes(s)
       || (p.description || '').toLowerCase().includes(s)
       || (p.supported_exts || []).some(e => e.toLowerCase().includes(s))
     ));
   }, [data, q]);
 
-  const filteredSystemApps = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return systemApps;
-    return systemApps.filter(a => (
-      (a.name || '').toLowerCase().includes(s)
-      || (a.author || '').toLowerCase().includes(s)
-      || (a.website || '').toLowerCase().includes(s)
-      || (a.github || '').toLowerCase().includes(s)
-      || (a.description || '').toLowerCase().includes(s)
-      || (a.supportedExts || []).some(e => e.toLowerCase().includes(s))
-      || (a.key || '').toLowerCase().includes(s)
-    ));
-  }, [systemApps, q]);
-
   const renderCard = (p: PluginItem) => {
-    const icon = p.icon || '/plugins/demo-text-viewer.svg';
-    const name = p.name || `${t('Plugin')} ${p.id}`;
+    const icon = resolvePluginIcon(p);
+    const name = p.name || `${t('Plugin')} ${p.key}`;
     const exts = (p.supported_exts || []).slice(0, 6);
     const more = (p.supported_exts || []).length - exts.length;
-    const app = getAppByKey('plugin:' + p.id);
+    const appKey = `plugin:${p.key}`;
+    const app = getAppByKey(appKey);
     const canOpenApp = !!p.open_app;
     const title = (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <img src={icon} alt={name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/plugins/demo-text-viewer.svg'; }} />
+        <img src={icon} alt={name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/logo.svg'; }} />
         <span>{name}</span>
         {p.version && <Tag color="blue" style={{ marginLeft: 'auto' }}>{p.version}</Tag>}
       </div>
     );
     return (
       <Card
-        key={p.id}
+        key={p.key}
         title={title}
         hoverable
         size="small"
@@ -104,19 +111,18 @@ const PluginsPage = memo(function PluginsPage() {
             size="small"
             disabled={!canOpenApp}
             onClick={async () => {
-              let target = app || getAppByKey('plugin:' + p.id);
+              let target = app || getAppByKey(appKey);
               if (!target) {
                 await reloadPluginApps();
-                target = getAppByKey('plugin:' + p.id);
+                target = getAppByKey(appKey);
               }
               if (target?.openAppComponent) openApp(target);
             }}
           >
             {t('Open App')}
           </Button>,
-          <Button key="update-app" type="link" size="small" onClick={() => message.info(t('Coming soon'))}>{t('Update App')}</Button>,
-          <Popconfirm key="del" title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.id); await reload(); await reloadPluginApps(); }}>
-            <Button type="link" danger size="small">{t('Delete')}</Button>
+          <Popconfirm key="del" title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.key); await reload(); await reloadPluginApps(); }}>
+            <Button type="link" danger size="small">{t('Uninstall')}</Button>
           </Popconfirm>
         ]}
       >
@@ -126,11 +132,11 @@ const PluginsPage = memo(function PluginsPage() {
               style={{ marginBottom: 8, minHeight: 44, lineHeight: '22px' }}
               ellipsis={{ rows: 2 }}
             >
-              {p.description || '（暂无描述）'}
+              {p.description || t('No description')}
             </Typography.Paragraph>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
-                {(exts.length > 0 ? exts : ['任意']).map(e => <Tag key={e} style={{ flex: 'none' }}>{e}</Tag>)}
+                {(exts.length > 0 ? exts : [t('Any')]).map(e => <Tag key={e} style={{ flex: 'none' }}>{e}</Tag>)}
               </div>
               {more > 0 && <Tag style={{ flex: 'none' }}>+{more}</Tag>}
             </div>
@@ -158,66 +164,27 @@ const PluginsPage = memo(function PluginsPage() {
     );
   };
 
-  const renderSystemCard = (a: AppDescriptor) => {
-    const icon = a.iconUrl || '/plugins/demo-text-viewer.svg';
-    const name = a.name || a.key;
-    const exts = (a.supportedExts || []).slice(0, 6);
-    const more = (a.supportedExts || []).length - exts.length;
-    const title = (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <img src={icon} alt={name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/plugins/demo-text-viewer.svg'; }} />
-        <span>{name}</span>
-        <Tag style={{ marginLeft: 'auto' }}>{t('System App')}</Tag>
-      </div>
-    );
-    return (
-      <Card
-        key={`system:${a.key}`}
-        title={title}
-        hoverable
-        size="small"
-        styles={{ body: { padding: 12 } } as any}
-        style={{ borderRadius: 10, boxShadow: token.boxShadowTertiary }}
-        actions={[
-          <Button
-            key="open-app"
-            type="link"
-            size="small"
-            disabled={!a.openAppComponent}
-            onClick={() => openApp(a)}
-          >
-            {t('Open App')}
-          </Button>,
-          <Button key="update-app" type="link" size="small" disabled onClick={() => message.info(t('Coming soon'))}>{t('Update App')}</Button>,
-          <Button key="del" type="link" danger size="small" disabled>{t('Delete')}</Button>
-        ]}
-      >
-        <Typography.Paragraph
-          style={{ marginBottom: 8, minHeight: 44, lineHeight: '22px' }}
-          ellipsis={{ rows: 2 }}
-        >
-          {a.description || '（暂无描述）'}
-        </Typography.Paragraph>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
-            {(exts.length > 0 ? exts : ['任意']).map(e => <Tag key={e} style={{ flex: 'none' }}>{e}</Tag>)}
-          </div>
-          {more > 0 && <Tag style={{ flex: 'none' }}>+{more}</Tag>}
-        </div>
-        <Divider style={{ margin: '8px 0' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextTertiary, fontSize: 12 }}>
-          <span>{t('Author')}: {a.author || 'Foxel'}</span>
-          <span style={{ marginLeft: 'auto', color: token.colorTextTertiary }}>{t('System App')}</span>
-        </div>
-      </Card>
-    );
-  };
-
   return (
     <div style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <Button type="primary" onClick={() => setAdding(true)}>{t('Install App')}</Button>
-        {tab === 'installed' && <Button onClick={reload} loading={loading}>{t('Refresh')}</Button>}
+        <Upload
+          accept=".foxpkg"
+          maxCount={1}
+          fileList={fileList}
+          onChange={({ fileList }) => setFileList(fileList)}
+          beforeUpload={() => false}
+          showUploadList={false}
+        >
+          <Button icon={<UploadOutlined />} type="primary">{t('Install Plugin')}</Button>
+        </Upload>
+        {fileList.length > 0 && (
+          <>
+            <span style={{ color: token.colorTextSecondary }}>{fileList[0].name}</span>
+            <Button onClick={handleInstall} loading={installing} type="primary">{t('Confirm Install')}</Button>
+            <Button onClick={() => setFileList([])}>{t('Cancel')}</Button>
+          </>
+        )}
+        {tab === 'installed' && fileList.length === 0 && <Button onClick={reload} loading={loading}>{t('Refresh')}</Button>}
         <div style={{ marginLeft: 'auto' }} />
       </div>
 
@@ -232,13 +199,20 @@ const PluginsPage = memo(function PluginsPage() {
             children: (
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Input
-                    placeholder={t('Search name/author/url/extension')}
+                  <input
+                    type="text"
+                    placeholder={t('Search name/author/extension')}
                     value={q}
                     onChange={e => setQ(e.target.value)}
-                    allowClear
-                    style={{ maxWidth: 360 }}
-                    onPressEnter={() => reload()}
+                    style={{
+                      maxWidth: 360,
+                      padding: '4px 11px',
+                      borderRadius: 6,
+                      border: `1px solid ${token.colorBorder}`,
+                      outline: 'none',
+                      background: token.colorBgContainer,
+                      color: token.colorText,
+                    }}
                   />
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
@@ -250,11 +224,10 @@ const PluginsPage = memo(function PluginsPage() {
                         </Card>
                       ))}
                     </div>
-                  ) : (filteredSystemApps.length + filtered.length) === 0 ? (
+                  ) : filtered.length === 0 ? (
                     <Empty description={t('No plugins')} />
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
-                      {filteredSystemApps.map(renderSystemCard)}
                       {filtered.map(renderCard)}
                     </div>
                   )}
@@ -273,20 +246,6 @@ const PluginsPage = memo(function PluginsPage() {
           }
         ]}
       />
-
-      <Modal
-        title={t('Install App')}
-        open={adding}
-        onCancel={() => setAdding(false)}
-        onOk={handleAdd}
-        okText={t('Install')}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item name="url" label={t('App URL')} rules={[{ required: true }, { type: 'url', message: t('Please input a valid URL') }]}>
-            <Input placeholder="https://example.com/plugin.js" />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 });

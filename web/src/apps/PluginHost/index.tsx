@@ -1,16 +1,71 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
+import { message } from 'antd';
 import type { AppComponentProps, AppOpenComponentProps } from '../types';
 import { vfsApi } from '../../api/vfs';
-import { loadPlugin, ensureManifest, type RegisteredPlugin } from '../../plugins/runtime';
+import {
+  loadPlugin,
+  type RegisteredPlugin,
+  type FoxelHostApi,
+} from '../../plugins/runtime';
 import type { PluginItem } from '../../api/plugins';
 import { useAsyncSafeEffect } from '../../hooks/useAsyncSafeEffect';
 import { useI18n } from '../../i18n';
+import request from '../../api/client';
 
 export interface PluginAppHostProps extends AppComponentProps {
   plugin: PluginItem;
 }
 
-export const PluginAppHost: React.FC<PluginAppHostProps> = ({ plugin, filePath, entry, onRequestClose }) => {
+/**
+ * 创建宿主 API
+ */
+function createHostApi(onClose: () => void): FoxelHostApi {
+  return {
+    close: onClose,
+
+    showMessage: (type, content) => {
+      switch (type) {
+        case 'success':
+          message.success(content);
+          break;
+        case 'error':
+          message.error(content);
+          break;
+        case 'warning':
+          message.warning(content);
+          break;
+        case 'info':
+        default:
+          message.info(content);
+          break;
+      }
+    },
+
+    callApi: async <T = unknown>(path: string, options?: RequestInit & { json?: unknown }) => {
+      return request<T>(path, options);
+    },
+
+    getTempLink: async (filePath: string) => {
+      const token = await vfsApi.getTempLinkToken(filePath);
+      return vfsApi.getTempPublicUrl(token.token);
+    },
+
+    getStreamUrl: (filePath: string) => {
+      const safePath = filePath.replace(/^\/+/, '');
+      return vfsApi.streamUrl(safePath);
+    },
+  };
+}
+
+/**
+ * 插件宿主组件 - 文件打开模式
+ */
+export const PluginAppHost: React.FC<PluginAppHostProps> = ({
+  plugin,
+  filePath,
+  entry,
+  onRequestClose,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const onCloseRef = useRef(onRequestClose);
@@ -18,6 +73,11 @@ export const PluginAppHost: React.FC<PluginAppHostProps> = ({ plugin, filePath, 
   const { t } = useI18n();
 
   const pluginRef = useRef<RegisteredPlugin | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  const handleClose = useCallback(() => {
+    onCloseRef.current();
+  }, []);
 
   useAsyncSafeEffect(
     async ({ isDisposed }) => {
@@ -25,44 +85,75 @@ export const PluginAppHost: React.FC<PluginAppHostProps> = ({ plugin, filePath, 
         const p = await loadPlugin(plugin);
         if (isDisposed()) return;
         pluginRef.current = p;
-        await ensureManifest(plugin.id, p);
-        if (isDisposed()) return;
+
         const token = await vfsApi.getTempLinkToken(filePath);
         if (isDisposed()) return;
+
         const downloadUrl = vfsApi.getTempPublicUrl(token.token);
+        const streamUrl = vfsApi.streamUrl(filePath.replace(/^\/+/, ''));
+
         if (isDisposed() || !containerRef.current) return;
-        await p.mount(containerRef.current, {
+
+        const hostApi = createHostApi(handleClose);
+
+        const result = await p.mount(containerRef.current, {
           filePath,
           entry,
-          urls: { downloadUrl },
-          host: { close: () => onCloseRef.current() },
+          urls: { downloadUrl, streamUrl },
+          host: hostApi,
         });
-      } catch (e: any) {
-        if (!isDisposed()) setError(e?.message || t('Plugin run failed'));
+
+        // 保存清理函数
+        if (typeof result === 'function') {
+          cleanupRef.current = result;
+        }
+      } catch (e: unknown) {
+        if (!isDisposed()) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setError(msg || t('Plugin run failed'));
+        }
       }
     },
-    [plugin.id, plugin.url, filePath],
+    [plugin.key, filePath, handleClose],
     () => {
       try {
-        if (pluginRef.current?.unmount && containerRef.current) {
+        // 优先使用 mount 返回的清理函数
+        if (cleanupRef.current) {
+          cleanupRef.current();
+          cleanupRef.current = null;
+        } else if (pluginRef.current?.unmount && containerRef.current) {
           pluginRef.current.unmount(containerRef.current);
         }
-      } catch { void 0; }
-    },
+      } catch {
+        void 0;
+      }
+    }
   );
 
   if (error) {
-    return <div style={{ padding: 12, color: 'red' }}>{t('Plugin Error')}: {error}</div>;
+    return (
+      <div style={{ padding: 12, color: 'red' }}>
+        {t('Plugin Error')}: {error}
+      </div>
+    );
   }
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'auto' }} />;
+  return (
+    <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'auto' }} />
+  );
 };
 
 export interface PluginAppOpenHostProps extends AppOpenComponentProps {
   plugin: PluginItem;
 }
 
-export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, onRequestClose }) => {
+/**
+ * 插件宿主组件 - 独立应用模式
+ */
+export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({
+  plugin,
+  onRequestClose,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const onCloseRef = useRef(onRequestClose);
@@ -70,6 +161,11 @@ export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, on
   const { t } = useI18n();
 
   const pluginRef = useRef<RegisteredPlugin | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  const handleClose = useCallback(() => {
+    onCloseRef.current();
+  }, []);
 
   useAsyncSafeEffect(
     async ({ isDisposed }) => {
@@ -77,32 +173,60 @@ export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, on
         const p = await loadPlugin(plugin);
         if (isDisposed()) return;
         pluginRef.current = p;
-        await ensureManifest(plugin.id, p);
+
         if (isDisposed() || !containerRef.current) return;
+
         if (typeof p.mountApp !== 'function') {
-          throw new Error('该插件不支持独立打开');
+          throw new Error(t('This plugin does not support standalone mode'));
         }
-        await p.mountApp(containerRef.current, {
-          host: { close: () => onCloseRef.current() },
+
+        const hostApi = createHostApi(handleClose);
+
+        const result = await p.mountApp(containerRef.current, {
+          host: hostApi,
         });
-      } catch (e: any) {
-        if (!isDisposed()) setError(e?.message || t('Plugin run failed'));
+
+        // 保存清理函数
+        if (typeof result === 'function') {
+          cleanupRef.current = result;
+        }
+      } catch (e: unknown) {
+        if (!isDisposed()) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setError(msg || t('Plugin run failed'));
+        }
       }
     },
-    [plugin.id, plugin.url],
+    [plugin.key, handleClose],
     () => {
       try {
-        if (!containerRef.current) return;
-        const p = pluginRef.current;
-        if (p?.unmountApp) return p.unmountApp(containerRef.current);
-        if (p?.unmount) return p.unmount(containerRef.current);
-      } catch { void 0; }
-    },
+        // 优先使用 mountApp 返回的清理函数
+        if (cleanupRef.current) {
+          cleanupRef.current();
+          cleanupRef.current = null;
+        } else if (containerRef.current) {
+          const p = pluginRef.current;
+          if (p?.unmountApp) {
+            p.unmountApp(containerRef.current);
+          } else if (p?.unmount) {
+            p.unmount(containerRef.current);
+          }
+        }
+      } catch {
+        void 0;
+      }
+    }
   );
 
   if (error) {
-    return <div style={{ padding: 12, color: 'red' }}>{t('Plugin Error')}: {error}</div>;
+    return (
+      <div style={{ padding: 12, color: 'red' }}>
+        {t('Plugin Error')}: {error}
+      </div>
+    );
   }
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'auto' }} />;
+  return (
+    <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'auto' }} />
+  );
 };

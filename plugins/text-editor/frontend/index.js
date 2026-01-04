@@ -1,0 +1,311 @@
+/**
+ * 文本编辑器插件前端入口
+ */
+(function () {
+  'use strict';
+
+  const externals = window.__FOXEL_EXTERNALS__;
+  if (!externals) {
+    console.error('[text-editor] Foxel externals not found');
+    return;
+  }
+
+  const { React, ReactDOM, antd, foxelApi, MonacoEditor, MarkdownEditor } = externals;
+  const { useState, useEffect, useCallback, useRef, useMemo, Suspense } = React;
+  const { Layout, Spin, Button, Space, message } = antd;
+
+  const { Header, Content } = Layout;
+  const MAX_PREVIEW_BYTES = 1024 * 1024; // 1MB
+
+  // 语言映射
+  function getMonacoLanguage(ext) {
+    switch (ext) {
+      // Web technologies
+      case 'js':
+      case 'jsx':
+        return 'javascript';
+      case 'ts':
+      case 'tsx':
+        return 'typescript';
+      case 'html':
+      case 'htm':
+        return 'html';
+      case 'css':
+        return 'css';
+      case 'scss':
+      case 'sass':
+        return 'scss';
+      case 'less':
+        return 'less';
+      case 'vue':
+        return 'html';
+      
+      // Data formats
+      case 'json':
+        return 'json';
+      case 'yaml':
+      case 'yml':
+        return 'yaml';
+      case 'xml':
+        return 'xml';
+      case 'toml':
+        return 'ini';
+      case 'ini':
+      case 'cfg':
+      case 'conf':
+        return 'ini';
+      
+      // Programming languages
+      case 'py':
+        return 'python';
+      case 'java':
+        return 'java';
+      case 'c':
+        return 'c';
+      case 'cpp':
+      case 'cc':
+      case 'cxx':
+        return 'cpp';
+      case 'h':
+      case 'hpp':
+      case 'hxx':
+        return 'cpp';
+      case 'php':
+        return 'php';
+      case 'rb':
+        return 'ruby';
+      case 'go':
+        return 'go';
+      case 'rs':
+        return 'rust';
+      case 'swift':
+        return 'swift';
+      case 'kt':
+        return 'kotlin';
+      case 'scala':
+        return 'scala';
+      case 'cs':
+        return 'csharp';
+      case 'fs':
+        return 'fsharp';
+      case 'vb':
+        return 'vb';
+      case 'pl':
+      case 'pm':
+        return 'perl';
+      case 'r':
+        return 'r';
+      case 'lua':
+        return 'lua';
+      case 'dart':
+        return 'dart';
+      
+      // Database
+      case 'sql':
+        return 'sql';
+      
+      // Shell and scripts
+      case 'sh':
+      case 'bash':
+      case 'zsh':
+      case 'fish':
+        return 'shell';
+      case 'ps1':
+        return 'powershell';
+      case 'bat':
+      case 'cmd':
+        return 'bat';
+      
+      // Build and config files
+      case 'dockerfile':
+        return 'dockerfile';
+      case 'makefile':
+        return 'makefile';
+      case 'gradle':
+        return 'groovy';
+      case 'cmake':
+        return 'cmake';
+      
+      // Markdown
+      case 'md':
+      case 'markdown':
+        return 'markdown';
+      
+      // Plain text and logs
+      default:
+        return 'plaintext';
+    }
+  }
+
+  function TextEditorApp({ filePath, entry, urls, host }) {
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [content, setContent] = useState('');
+    const [initialContent, setInitialContent] = useState('');
+    const [truncated, setTruncated] = useState(false);
+    const isDirty = content !== initialContent;
+    const hostRef = useRef(host);
+    hostRef.current = host;
+
+    const ext = useMemo(() => entry.name.split('.').pop()?.toLowerCase() || '', [entry.name]);
+    const isMarkdown = ext === 'md' || ext === 'markdown';
+    const monacoLanguage = useMemo(() => getMonacoLanguage(ext), [ext]);
+
+    useEffect(() => {
+      const loadFile = async () => {
+        try {
+          setLoading(true);
+          setTruncated(false);
+          const shouldTruncate = (entry.size || 0) > MAX_PREVIEW_BYTES;
+          const cleaned = filePath.replace(/^\/+/, '');
+          
+          if (shouldTruncate) {
+            const resp = await fetch(`${foxelApi.baseUrl}/fs/file/${encodeURI(cleaned)}`, {
+              method: 'GET',
+              headers: { Range: `bytes=0-${MAX_PREVIEW_BYTES - 1}` },
+              credentials: 'include',
+            });
+            const buf = await resp.arrayBuffer();
+            const text = new TextDecoder().decode(buf);
+            setContent(text);
+            setInitialContent(text);
+            setTruncated(true);
+          } else {
+            const resp = await fetch(`${foxelApi.baseUrl}/fs/file/${encodeURI(cleaned)}`, {
+              credentials: 'include',
+            });
+            const text = await resp.text();
+            setContent(text);
+            setInitialContent(text);
+          }
+        } catch (error) {
+          message.error(`加载文件失败: ${error instanceof Error ? error.message : '未知错误'}`);
+          hostRef.current.close();
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadFile();
+    }, [filePath, entry.size]);
+
+    const handleSave = useCallback(async () => {
+      if (truncated) {
+        message.warning('大文件仅预览前 1MB，已禁用保存');
+        return;
+      }
+      if (!isDirty) return;
+      try {
+        setSaving(true);
+        const cleaned = filePath.replace(/^\/+/, '');
+        const blob = new Blob([content], { type: 'text/plain' });
+        const formData = new FormData();
+        formData.append('file', blob, entry.name);
+        
+        await fetch(`${foxelApi.baseUrl}/fs/upload/${encodeURI(cleaned)}`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        
+        setInitialContent(content);
+        message.success('保存成功');
+      } catch (error) {
+        message.error(`保存文件失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      } finally {
+        setSaving(false);
+      }
+    }, [content, filePath, isDirty, truncated, entry.name]);
+
+    useEffect(() => {
+      const handleKeyDown = (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+          event.preventDefault();
+          handleSave();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }, [handleSave]);
+
+    const headerStyle = {
+      background: 'var(--ant-color-bg-layout, #f0f2f5)',
+      padding: '0 16px',
+      height: 40,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderBottom: '1px solid var(--ant-color-border-secondary, #d9d9d9)'
+    };
+
+    return React.createElement(Layout, {
+      style: { height: '100%', background: 'var(--ant-color-bg-container, #ffffff)' }
+    },
+      React.createElement(Header, { style: headerStyle },
+        React.createElement('span', {
+          style: { color: 'var(--ant-color-text, rgba(0,0,0,0.88))' }
+        },
+          entry.name,
+          isDirty ? ' *' : '',
+          truncated ? ' （大文件仅预览前 1MB，编辑与保存已禁用）' : ''
+        ),
+        React.createElement(Space, null,
+          React.createElement(Button, {
+            type: 'primary',
+            size: 'small',
+            onClick: handleSave,
+            loading: saving,
+            disabled: !isDirty || truncated
+          }, '保存')
+        )
+      ),
+      React.createElement(Content, {
+        style: { position: 'relative', overflow: 'auto', height: 'calc(100% - 40px)' }
+      },
+        loading
+          ? React.createElement('div', {
+              style: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }
+            }, React.createElement(Spin))
+          : isMarkdown
+            ? React.createElement(Suspense, {
+                fallback: React.createElement(Spin, { style: { marginTop: 24 } })
+              },
+                React.createElement(MarkdownEditor, {
+                  value: content,
+                  onChange: (val) => setContent(val || ''),
+                  height: '100%',
+                  preview: truncated ? 'preview' : 'live'
+                })
+              )
+            : React.createElement(Suspense, {
+                fallback: React.createElement(Spin, { style: { marginTop: 24 } })
+              },
+                React.createElement(MonacoEditor, {
+                  value: content,
+                  onChange: (val) => setContent(val || ''),
+                  height: '100%',
+                  language: monacoLanguage,
+                  options: {
+                    readOnly: truncated,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    fontSize: 13,
+                  }
+                })
+              )
+      )
+    );
+  }
+
+  // 注册插件
+  window.FoxelRegister({
+    mount: (container, ctx) => {
+      const root = ReactDOM.createRoot(container);
+      root.render(React.createElement(TextEditorApp, ctx));
+      return () => root.unmount();
+    },
+  });
+})();
+

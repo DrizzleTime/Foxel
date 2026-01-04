@@ -1,0 +1,20 @@
+{
+  "foxpkg": "1.0",
+  "key": "office-viewer",
+  "name": "Office 文档查看器",
+  "version": "1.0.0",
+  "description": "Office 文档查看器，支持 Word/Excel/PowerPoint 文件预览（通过 Microsoft Office Online）。",
+  "author": "Foxel",
+  "website": "https://github.com/user/foxel",
+  "license": "MIT",
+
+  "frontend": {
+    "entry": "frontend/index.js",
+    "openApp": false,
+    "supportedExts": ["docx", "xlsx", "pptx", "doc", "xls", "ppt"],
+    "defaultBounds": { "width": 1024, "height": 768, "x": 150, "y": 100 },
+    "defaultMaximized": false,
+    "icon": "assets/icon.svg"
+  }
+}
+

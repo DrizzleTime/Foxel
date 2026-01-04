@@ -1,0 +1,20 @@
+{
+  "foxpkg": "1.0",
+  "key": "image-viewer",
+  "name": "图片查看器",
+  "version": "1.0.0",
+  "description": "内置图片查看器，支持常见图片与部分 RAW 格式预览，包含 EXIF 信息和直方图显示。",
+  "author": "Foxel",
+  "website": "https://github.com/user/foxel",
+  "license": "MIT",
+
+  "frontend": {
+    "entry": "frontend/index.js",
+    "openApp": false,
+    "supportedExts": ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif", "arw", "cr2", "cr3", "nef", "rw2", "orf", "pef", "dng"],
+    "defaultBounds": { "width": 1024, "height": 720, "x": 140, "y": 96 },
+    "defaultMaximized": true,
+    "icon": "assets/icon.svg"
+  }
+}
+

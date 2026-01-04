@@ -1,0 +1,31 @@
+{
+  "foxpkg": "1.0",
+  "key": "text-editor",
+  "name": "文本编辑器",
+  "version": "1.0.0",
+  "description": "内置文本/代码编辑器，支持常见文本与代码格式，Markdown 实时预览。",
+  "author": "Foxel",
+  "website": "https://github.com/user/foxel",
+  "license": "MIT",
+
+  "frontend": {
+    "entry": "frontend/index.js",
+    "openApp": false,
+    "supportedExts": [
+      "txt", "md", "markdown", "log",
+      "json", "yaml", "yml", "xml", "toml", "ini", "cfg", "conf",
+      "html", "htm", "css", "scss", "sass", "less", "js", "jsx", "ts", "tsx", "vue",
+      "py", "java", "c", "cpp", "cc", "cxx", "h", "hpp", "hxx",
+      "php", "rb", "go", "rs", "swift", "kt", "scala", "clj", "cljs",
+      "cs", "vb", "fs", "pl", "pm", "r", "lua", "dart", "elm",
+      "sql",
+      "sh", "bash", "zsh", "fish", "ps1", "bat", "cmd",
+      "dockerfile", "makefile", "gradle", "cmake",
+      "gitignore", "gitattributes", "editorconfig", "prettierrc"
+    ],
+    "defaultBounds": { "width": 1024, "height": 768, "x": 120, "y": 80 },
+    "defaultMaximized": false,
+    "icon": "assets/icon.svg"
+  }
+}
+

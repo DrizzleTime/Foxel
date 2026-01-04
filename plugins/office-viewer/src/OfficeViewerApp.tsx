@@ -4,9 +4,11 @@
 import React, { useState, useEffect } from 'react';
 import { Spin, Result, Button } from 'antd';
 import type { PluginContext } from './foxel-types';
+import { useI18n } from './i18n';
 
 export const OfficeViewerApp: React.FC<PluginContext> = ({ filePath, host }) => {
   const { foxelApi } = window.__FOXEL_EXTERNALS__;
+  const { t } = useI18n();
   
   const [url, setUrl] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,7 @@ export const OfficeViewerApp: React.FC<PluginContext> = ({ filePath, host }) => 
       })
       .catch((e: Error) => {
         if (!cancelled) {
-          setErr(e.message || '加载文档链接失败');
+          setErr(e.message || 'Failed to load document link');
         }
       })
       .finally(() => {
@@ -57,7 +59,7 @@ export const OfficeViewerApp: React.FC<PluginContext> = ({ filePath, host }) => 
           justifyContent: 'center',
         }}
       >
-        <Spin tip="正在准备文档..." />
+        <Spin tip={t('Preparing document...')} />
       </div>
     );
   }
@@ -66,11 +68,11 @@ export const OfficeViewerApp: React.FC<PluginContext> = ({ filePath, host }) => 
     return (
       <Result
         status="error"
-        title="无法加载文档"
-        subTitle={err}
+        title={t('Unable to load document')}
+        subTitle={t(err)}
         extra={
           <Button type="primary" onClick={host.close}>
-            关闭
+            {t('Close')}
           </Button>
         }
       />
@@ -96,11 +98,11 @@ export const OfficeViewerApp: React.FC<PluginContext> = ({ filePath, host }) => 
       ) : (
         <Result
           status="warning"
-          title="文档链接无效"
-          subTitle="未能成功生成文档的在线查看链接。"
+          title={t('Invalid document link')}
+          subTitle={t('Failed to generate an online preview link for the document.')}
           extra={
             <Button type="primary" onClick={host.close}>
-              关闭
+              {t('Close')}
             </Button>
           }
         />
@@ -108,4 +110,3 @@ export const OfficeViewerApp: React.FC<PluginContext> = ({ filePath, host }) => 
     </div>
   );
 };
-

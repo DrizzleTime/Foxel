@@ -34,6 +34,7 @@ export function I18nProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     document.documentElement.lang = lang;
+    window.dispatchEvent(new CustomEvent('foxel:langchange', { detail: { lang } }));
   }, [lang]);
 
   const t = useCallback((key: string, params?: Record<string, string | number>) => {

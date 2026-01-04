@@ -40,9 +40,11 @@ import { viewerStyles } from '../styles';
 import { ViewerControls } from './ViewerControls';
 import { Filmstrip } from './Filmstrip';
 import { InfoPanel } from './InfoPanel';
+import { useI18n } from '../i18n';
 
 export const ImageViewerApp: React.FC<PluginContext> = ({ filePath, entry, host }) => {
   const { React: _R, foxelApi } = window.__FOXEL_EXTERNALS__;
+  const { t } = useI18n();
   
   const normalizedInitialPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
   const [activeEntry, setActiveEntry] = useState<VfsEntry>(entry);
@@ -173,7 +175,7 @@ export const ImageViewerApp: React.FC<PluginContext> = ({ filePath, entry, host 
       })
       .catch((err: Error) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : '加载失败');
+          setError(err instanceof Error ? err.message : 'Load failed');
         }
       })
       .finally(() => {
@@ -445,44 +447,44 @@ export const ImageViewerApp: React.FC<PluginContext> = ({ filePath, entry, host 
   const captureTime = exifValue('36867') || exifValue('36868') || exifValue('306');
 
   const basicList = [
-    { label: '文件名', value: activeEntry.name, icon: <FileOutlined style={infoIconStyle} /> },
-    { label: '文件大小', value: humanFileSize(stat?.size), icon: <DatabaseOutlined style={infoIconStyle} /> },
+    { label: t('File name'), value: activeEntry.name, icon: <FileOutlined style={infoIconStyle} /> },
+    { label: t('File size'), value: humanFileSize(stat?.size), icon: <DatabaseOutlined style={infoIconStyle} /> },
     {
-      label: '分辨率',
+      label: t('Resolution'),
       value: width && height ? `${width} × ${height}` : null,
       icon: <ExpandOutlined style={infoIconStyle} />,
     },
-    { label: '颜色空间', value: colorSpace || null, icon: <BgColorsOutlined style={infoIconStyle} /> },
+    { label: t('Color space'), value: colorSpace || null, icon: <BgColorsOutlined style={infoIconStyle} /> },
     {
-      label: '修改时间',
+      label: t('Modified time'),
       value: stat?.mtime ? formatDateTime(stat.mtime) : null,
       icon: <ClockCircleOutlined style={infoIconStyle} />,
     },
     {
-      label: '路径',
+      label: t('Path'),
       value: typeof stat?.path === 'string' ? stat.path : activePath,
       icon: <FolderOutlined style={infoIconStyle} />,
     },
   ];
 
   const shootingList = [
-    { label: '焦距', value: focalLength, icon: <AimOutlined style={infoIconStyle} /> },
-    { label: '光圈', value: aperture, icon: <BulbOutlined style={infoIconStyle} /> },
-    { label: '快门', value: exposure, icon: <ThunderboltOutlined style={infoIconStyle} /> },
-    { label: 'ISO', value: isoValue != null ? String(isoValue) : null, icon: <AlertOutlined style={infoIconStyle} /> },
+    { label: t('Focal length'), value: focalLength, icon: <AimOutlined style={infoIconStyle} /> },
+    { label: t('Aperture'), value: aperture, icon: <BulbOutlined style={infoIconStyle} /> },
+    { label: t('Shutter'), value: exposure, icon: <ThunderboltOutlined style={infoIconStyle} /> },
+    { label: t('ISO'), value: isoValue != null ? String(isoValue) : null, icon: <AlertOutlined style={infoIconStyle} /> },
   ];
 
   const deviceList = [
     {
-      label: '相机',
+      label: t('Camera'),
       value: cameraModel ? `${cameraMake ? `${cameraMake} ` : ''}${cameraModel}` : (cameraMake || null),
       icon: <CameraOutlined style={infoIconStyle} />,
     },
-    { label: '镜头', value: lensModel || null, icon: <ApiOutlined style={infoIconStyle} /> },
+    { label: t('Lens'), value: lensModel || null, icon: <ApiOutlined style={infoIconStyle} /> },
   ];
 
   const miscList = [
-    { label: '拍摄时间', value: captureTime, icon: <FieldTimeOutlined style={infoIconStyle} /> },
+    { label: t('Captured at'), value: captureTime, icon: <FieldTimeOutlined style={infoIconStyle} /> },
   ];
 
   const controlsNode = (
@@ -518,7 +520,7 @@ export const ImageViewerApp: React.FC<PluginContext> = ({ filePath, entry, host 
             onTouchEnd={onTouchEnd}
           >
             <div style={viewerStyles.viewerCloseWrap}>
-              <Tooltip title="关闭">
+              <Tooltip title={t('Close')}>
                 <Button
                   type="text"
                   icon={<CloseOutlined />}
@@ -528,9 +530,9 @@ export const ImageViewerApp: React.FC<PluginContext> = ({ filePath, entry, host 
               </Tooltip>
             </div>
             {loading ? (
-              <Spin tip="加载中" />
+              <Spin tip={t('Loading')} />
             ) : error ? (
-              <Typography.Text type="danger">{error}</Typography.Text>
+              <Typography.Text type="danger">{t(error)}</Typography.Text>
             ) : imageUrl ? (
               <img
                 ref={imageRef}
@@ -542,7 +544,7 @@ export const ImageViewerApp: React.FC<PluginContext> = ({ filePath, entry, host 
                 style={imageStyle}
               />
             ) : (
-              <Typography.Text>无可用内容</Typography.Text>
+              <Typography.Text>{t('No content')}</Typography.Text>
             )}
             <div style={viewerStyles.scaleBadge}>{scaleLabel}</div>
             {controlsNode}

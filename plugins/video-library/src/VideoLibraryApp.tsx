@@ -28,9 +28,11 @@ import type { AppContext } from './foxel-types';
 import type { LibraryItem, LibraryItemDetail } from './type';
 import { tmdbImage } from './utils';
 import { fetchLibrary, fetchLibraryItem } from './api';
+import { t as i18nT, useI18n } from './i18n';
 
 export const VideoLibraryApp: React.FC<AppContext> = () => {
   const { token } = theme.useToken();
+  const { t } = useI18n();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'movie' | 'tv'>('all');
   const [items, setItems] = useState<LibraryItem[]>([]);
@@ -47,7 +49,7 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
       setItems(list || []);
     } catch (err: any) {
       setItems([]);
-      message.error(err?.message || '加载失败');
+      message.error(i18nT(err?.message || 'Load failed'));
     } finally {
       setLoading(false);
     }
@@ -85,7 +87,7 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
       setDetail(payload);
     } catch (err: any) {
       setDetail(null);
-      message.error(err?.message || '加载失败');
+      message.error(i18nT(err?.message || 'Load failed'));
     } finally {
       setDetailLoading(false);
     }
@@ -104,7 +106,7 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
   };
 
   const renderCover = (item: LibraryItem) => {
-    const label = item.type === 'tv' ? 'TV' : 'Movie';
+    const label = item.type === 'tv' ? t('TV') : t('Movie');
     const coverUrl = tmdbImage(item.poster_path, 'w342') || tmdbImage(item.backdrop_path, 'w780');
 
     return (
@@ -204,10 +206,10 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
         <Flex align="center" justify="space-between" gap={12} wrap>
           <div style={{ minWidth: 240 }}>
             <Typography.Title level={4} style={{ margin: 0 }}>
-              视频库
+              {t('Video Library')}
             </Typography.Title>
             <Typography.Text type="secondary">
-              {`总计: ${stats.total} · 电影: ${stats.movie} · 电视剧: ${stats.tv}`}
+              {t('Total: {total} · Movies: {movies} · TV Shows: {tvShows}', { total: stats.total, movies: stats.movie, tvShows: stats.tv })}
             </Typography.Text>
           </div>
           <Space size={10} wrap>
@@ -215,9 +217,9 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
               value={filter}
               onChange={(v) => setFilter(v as 'all' | 'movie' | 'tv')}
               options={[
-                { value: 'all', label: '全部' },
-                { value: 'movie', label: '电影' },
-                { value: 'tv', label: '电视剧' },
+                { value: 'all', label: t('All') },
+                { value: 'movie', label: t('Movies') },
+                { value: 'tv', label: t('TV Shows') },
               ]}
             />
             <Input
@@ -225,11 +227,11 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               prefix={<SearchOutlined />}
-              placeholder="搜索"
+              placeholder={t('Search')}
               style={{ width: 260 }}
             />
             <Button icon={<ReloadOutlined />} onClick={loadLibrary} loading={loading}>
-              刷新
+              {t('Refresh')}
             </Button>
           </Space>
         </Flex>
@@ -255,7 +257,7 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <Empty description="暂无数据" style={{ marginTop: 48 }} />
+          <Empty description={t('No data')} style={{ marginTop: 48 }} />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 12 }}>
             {filtered.map((v) => (
@@ -281,7 +283,7 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
                   {v.type === 'tv' && (
                     <>
                       <span>·</span>
-                      <span>{`${v.episodes_count || 0} 集`}</span>
+                      <span>{t('{count} episodes', { count: v.episodes_count || 0 })}</span>
                     </>
                   )}
                 </div>
@@ -303,7 +305,7 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
 
       {/* Detail Drawer */}
       <Drawer
-        title={selected?.title || '详情'}
+        title={selected?.title || t('Details')}
         open={detailOpen}
         onClose={closeDetail}
         width="100%"
@@ -315,11 +317,11 @@ export const VideoLibraryApp: React.FC<AppContext> = () => {
             <Skeleton active paragraph={{ rows: 10 }} />
           </div>
         ) : !detail ? (
-          <Empty description="暂无数据" style={{ marginTop: 48 }} />
+          <Empty description={t('No data')} style={{ marginTop: 48 }} />
         ) : (
           <div style={{ padding: 16 }}>
             <Typography.Title level={4}>{detail.tmdb?.detail?.title || detail.tmdb?.detail?.name || '--'}</Typography.Title>
-            <Typography.Paragraph>{detail.tmdb?.detail?.overview || '暂无简介'}</Typography.Paragraph>
+            <Typography.Paragraph>{detail.tmdb?.detail?.overview || t('No overview')}</Typography.Paragraph>
           </div>
         )}
       </Drawer>

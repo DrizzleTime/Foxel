@@ -4,6 +4,7 @@
 import React, { CSSProperties } from 'react';
 import { Typography } from 'antd';
 import type { VfsEntry } from '../foxel-types';
+import { useI18n } from '../i18n';
 
 interface FilmstripProps {
   shellStyle?: CSSProperties;
@@ -26,15 +27,16 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
   pageInfo,
   getThumbUrl,
 }) => {
+  const { t } = useI18n();
   return (
     <div style={shellStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <Typography.Text style={{ color: 'rgba(255,255,255,0.72)', fontWeight: 500 }}>
-          {`胶片带 · ${entries.length} 张`}
+          {t('Filmstrip · {count} images', { count: entries.length })}
         </Typography.Text>
         {pageInfo && (
           <Typography.Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>
-            {`第 ${pageInfo.page} 页 / 共 ${Math.max(1, Math.ceil(pageInfo.total / pageInfo.pageSize))} 页`}
+            {t('Page {page} / {totalPages}', { page: pageInfo.page, totalPages: Math.max(1, Math.ceil(pageInfo.total / pageInfo.pageSize)) })}
           </Typography.Text>
         )}
       </div>
@@ -94,10 +96,9 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
           );
         })}
         {entries.length === 0 && (
-          <div style={{ color: 'rgba(255,255,255,0.45)' }}>暂无图片</div>
+          <div style={{ color: 'rgba(255,255,255,0.45)' }}>{t('No images')}</div>
         )}
       </div>
     </div>
   );
 };
-

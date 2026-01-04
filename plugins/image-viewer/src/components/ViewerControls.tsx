@@ -12,6 +12,7 @@ import {
   ReloadOutlined,
   CompressOutlined,
 } from '@ant-design/icons';
+import { useI18n } from '../i18n';
 
 interface ViewerControlsProps {
   style?: CSSProperties;
@@ -36,6 +37,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   onFit,
   disableSwitch,
 }) => {
+  const { t } = useI18n();
   const btn = (
     title: string,
     icon: React.ComponentType,
@@ -56,14 +58,13 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
 
   return (
     <div style={style}>
-      {btn('上一张', LeftOutlined, onPrev, disableSwitch)}
-      {btn('缩小', ZoomOutOutlined, onZoomOut)}
-      {btn('放大', ZoomInOutlined, onZoomIn)}
-      {btn('旋转 90°', RotateRightOutlined, onRotate)}
-      {btn('重置', ReloadOutlined, onReset)}
-      {btn('适应窗口', CompressOutlined, onFit)}
-      {btn('下一张', RightOutlined, onNext, disableSwitch)}
+      {btn(t('Previous'), LeftOutlined, onPrev, disableSwitch)}
+      {btn(t('Zoom out'), ZoomOutOutlined, onZoomOut)}
+      {btn(t('Zoom in'), ZoomInOutlined, onZoomIn)}
+      {btn(t('Rotate 90°'), RotateRightOutlined, onRotate)}
+      {btn(t('Reset'), ReloadOutlined, onReset)}
+      {btn(t('Fit to screen'), CompressOutlined, onFit)}
+      {btn(t('Next'), RightOutlined, onNext, disableSwitch)}
     </div>
   );
 };
-

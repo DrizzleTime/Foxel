@@ -4,9 +4,11 @@
 import React, { useState, useEffect } from 'react';
 import { Spin, Result, Button } from 'antd';
 import type { PluginContext } from './foxel-types';
+import { useI18n } from './i18n';
 
 export const PdfViewerApp: React.FC<PluginContext> = ({ filePath, host }) => {
   const { foxelApi } = window.__FOXEL_EXTERNALS__;
+  const { t } = useI18n();
   
   const [url, setUrl] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ export const PdfViewerApp: React.FC<PluginContext> = ({ filePath, host }) => {
         setUrl(publicUrl + '#toolbar=1&navpanes=1');
       })
       .catch((e: Error) => {
-        if (!cancelled) setErr(e.message || '获取临时链接失败');
+        if (!cancelled) setErr(e.message || 'Failed to get temporary link');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -49,7 +51,7 @@ export const PdfViewerApp: React.FC<PluginContext> = ({ filePath, host }) => {
           justifyContent: 'center',
         }}
       >
-        <Spin tip="正在加载 PDF..." />
+        <Spin tip={t('Loading PDF...')} />
       </div>
     );
   }
@@ -58,11 +60,11 @@ export const PdfViewerApp: React.FC<PluginContext> = ({ filePath, host }) => {
     return (
       <Result
         status="error"
-        title="无法加载 PDF"
-        subTitle={err}
+        title={t('Unable to load PDF')}
+        subTitle={t(err)}
         extra={
           <Button type="primary" onClick={host.close}>
-            关闭
+            {t('Close')}
           </Button>
         }
       />
@@ -73,11 +75,11 @@ export const PdfViewerApp: React.FC<PluginContext> = ({ filePath, host }) => {
     return (
       <Result
         status="warning"
-        title="无可用链接"
-        subTitle="未能生成 PDF 的临时访问链接"
+        title={t('No available link')}
+        subTitle={t('Failed to generate a temporary access link for the PDF.')}
         extra={
           <Button type="primary" onClick={host.close}>
-            关闭
+            {t('Close')}
           </Button>
         }
       />
@@ -102,4 +104,3 @@ export const PdfViewerApp: React.FC<PluginContext> = ({ filePath, host }) => {
     </div>
   );
 };
-

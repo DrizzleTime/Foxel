@@ -12,6 +12,14 @@ declare global {
       AntdIcons: typeof import('@ant-design/icons');
       foxelApi: FoxelApi;
       version: string;
+      i18n?: {
+        getLang: () => 'zh' | 'en';
+        subscribe: (cb: (lang: 'zh' | 'en') => void) => () => void;
+        create: (dicts: Partial<Record<'zh' | 'en', Record<string, string>>>) => {
+          t: (key: string, params?: Record<string, string | number>) => string;
+          useI18n: () => { lang: 'zh' | 'en'; t: (key: string, params?: Record<string, string | number>) => string };
+        };
+      };
     };
     __FOXEL_LAST_EXPLORER_PAGE__?: ExplorerSnapshot;
     __FOXEL_SYSTEM_STATUS__?: {

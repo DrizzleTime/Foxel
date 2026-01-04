@@ -4,14 +4,16 @@
 import React from 'react';
 import { Empty } from 'antd';
 import type { Histogram } from '../type';
+import { useI18n } from '../i18n';
 
 interface HistogramPlotProps {
   data: Histogram | null;
 }
 
 export const HistogramPlot: React.FC<HistogramPlotProps> = ({ data }) => {
+  const { t } = useI18n();
   if (!data) {
-    return <Empty description="无法解析直方图" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    return <Empty description={t('Failed to parse histogram')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
   }
 
   const width = 260;

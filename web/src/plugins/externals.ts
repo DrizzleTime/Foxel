@@ -21,6 +21,15 @@ import { pluginsApi } from '../api/plugins';
 import type { VfsEntry, DirListing } from '../api/client';
 import type { PluginItem } from '../api/plugins';
 
+type Lang = 'zh' | 'en';
+type Dict = Record<string, string>;
+type Dicts = Partial<Record<Lang, Dict>>;
+
+function interpolate(template: string, params?: Record<string, string | number>): string {
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? `{${k}}`));
+}
+
 /**
  * 宿主 API 接口
  */
@@ -145,6 +154,16 @@ export interface FoxelExternals {
   antd: typeof antd;
   AntdIcons: typeof AntdIcons;
 
+  // i18n
+  i18n?: {
+    getLang: () => Lang;
+    subscribe: (cb: (lang: Lang) => void) => () => void;
+    create: (dicts: Dicts) => {
+      t: (key: string, params?: Record<string, string | number>) => string;
+      useI18n: () => { lang: Lang; t: (key: string, params?: Record<string, string | number>) => string };
+    };
+  };
+
   // Foxel API
   foxelApi: {
     /** HTTP 请求函数 */
@@ -173,7 +192,41 @@ declare global {
  * 初始化并暴露外部依赖
  */
 export function initExternals(): void {
+  const normalizeLang = (raw: unknown): Lang => (raw === 'en' ? 'en' : 'zh');
+
+  const i18nApi = {
+    getLang: () => normalizeLang(localStorage.getItem('lang')),
+    subscribe: (cb: (lang: Lang) => void) => {
+      const handler = (e: Event) => {
+        const lang = (e as CustomEvent)?.detail?.lang as Lang;
+        cb(normalizeLang(lang));
+      };
+      window.addEventListener('foxel:langchange', handler as any);
+      return () => window.removeEventListener('foxel:langchange', handler as any);
+    },
+    create: (dicts: Dicts) => {
+      const t = (key: string, params?: Record<string, string | number>) => {
+        const lang = i18nApi.getLang();
+        const dict = dicts[lang] || {};
+        return interpolate(dict[key] ?? key, params);
+      };
+
+      const useI18n = () => {
+        const [lang, setLang] = React.useState<Lang>(() => i18nApi.getLang());
+        React.useEffect(() => i18nApi.subscribe(setLang), []);
+        const tt = React.useCallback((key: string, params?: Record<string, string | number>) => {
+          const dict = dicts[lang] || {};
+          return interpolate(dict[key] ?? key, params);
+        }, [lang]);
+        return { lang, t: tt };
+      };
+
+      return { t, useI18n };
+    },
+  };
+
   if (window.__FOXEL_EXTERNALS__) {
+    window.__FOXEL_EXTERNALS__.i18n = i18nApi;
     return; // 已初始化
   }
 
@@ -185,6 +238,9 @@ export function initExternals(): void {
     // UI 库
     antd,
     AntdIcons,
+
+    // i18n
+    i18n: i18nApi,
 
     // Foxel API
     foxelApi: {
@@ -210,4 +266,3 @@ export function getExternals(): FoxelExternals | undefined {
 
 // 导出类型供插件 SDK 使用
 export type { VfsEntry, DirListing, PluginItem };
-

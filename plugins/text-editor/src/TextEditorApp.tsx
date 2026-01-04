@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from
 import { Layout, Spin, Button, Space, message } from 'antd';
 import type { PluginContext } from './foxel-types';
 import { getMonacoLanguage } from './utils';
+import { t as i18nT, useI18n } from './i18n';
 
 // 懒加载编辑器组件（由插件自己提供）
 const MonacoEditor = lazy(() => import('@monaco-editor/react').then(m => ({ default: m.default })));
@@ -15,6 +16,7 @@ const MAX_PREVIEW_BYTES = 1024 * 1024; // 1MB
 
 export const TextEditorApp: React.FC<PluginContext> = ({ filePath, entry }) => {
   const { foxelApi } = window.__FOXEL_EXTERNALS__;
+  const { t } = useI18n();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,7 +56,8 @@ export const TextEditorApp: React.FC<PluginContext> = ({ filePath, entry }) => {
           setInitialContent(text);
         }
       } catch (error) {
-        message.error(`加载文件失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        const msg = error instanceof Error ? error.message : i18nT('Unknown error');
+        message.error(i18nT('Failed to load file: {error}', { error: msg }));
       } finally {
         setLoading(false);
       }
@@ -64,7 +67,7 @@ export const TextEditorApp: React.FC<PluginContext> = ({ filePath, entry }) => {
 
   const handleSave = useCallback(async () => {
     if (truncated) {
-      message.warning('大文件仅预览前 1MB，已禁用保存');
+      message.warning(t('Large file preview only first 1MB; saving disabled'));
       return;
     }
     if (!isDirty) return;
@@ -73,13 +76,14 @@ export const TextEditorApp: React.FC<PluginContext> = ({ filePath, entry }) => {
       const blob = new Blob([content], { type: 'text/plain' });
       await foxelApi.vfs.uploadFile(filePath, blob);
       setInitialContent(content);
-      message.success('保存成功');
+      message.success(t('Saved successfully'));
     } catch (error) {
-      message.error(`保存文件失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      const msg = error instanceof Error ? error.message : t('Unknown error');
+      message.error(t('Failed to save file: {error}', { error: msg }));
     } finally {
       setSaving(false);
     }
-  }, [content, filePath, isDirty, truncated, foxelApi]);
+  }, [content, filePath, isDirty, truncated, foxelApi, t]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -110,11 +114,11 @@ export const TextEditorApp: React.FC<PluginContext> = ({ filePath, entry }) => {
         <span style={{ color: 'var(--ant-color-text, rgba(0,0,0,0.88))' }}>
           {entry.name}
           {isDirty ? ' *' : ''}
-          {truncated ? ' （大文件仅预览前 1MB，编辑与保存已禁用）' : ''}
+          {truncated ? t(' (Large file preview only first 1MB; editing and saving disabled)') : ''}
         </span>
         <Space>
           <Button type="primary" size="small" onClick={handleSave} loading={saving} disabled={!isDirty || truncated}>
-            保存
+            {t('Save')}
           </Button>
         </Space>
       </Header>

@@ -27,7 +27,7 @@ const PluginsPage = memo(function PluginsPage() {
   const [installStopReason, setInstallStopReason] = useState<string | undefined>(undefined);
   const [installFileState, setInstallFileState] = useState<Record<string, InstallState>>({});
   const { token } = theme.useToken();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { openApp } = useAppWindows();
 
   const reload = async () => {
@@ -161,21 +161,34 @@ const PluginsPage = memo(function PluginsPage() {
     return getPluginAssetUrl(p.key, p.icon);
   };
 
+  /**
+   * 按当前语言解析插件文案（name/description）
+   */
+  const resolvePluginTexts = (p: PluginItem): { name?: string; description?: string } => {
+    const i18n = (p.manifest as any)?.i18n as any;
+    const entry = i18n?.[lang] as any;
+    return {
+      name: entry?.name || p.name || undefined,
+      description: entry?.description || p.description || undefined,
+    };
+  };
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return data;
     return data.filter(p => (
-      (p.name || '').toLowerCase().includes(s)
+      (resolvePluginTexts(p).name || '').toLowerCase().includes(s)
       || (p.author || '').toLowerCase().includes(s)
       || (p.key || '').toLowerCase().includes(s)
-      || (p.description || '').toLowerCase().includes(s)
+      || (resolvePluginTexts(p).description || '').toLowerCase().includes(s)
       || (p.supported_exts || []).some(e => e.toLowerCase().includes(s))
     ));
-  }, [data, q]);
+  }, [data, q, lang]);
 
   const renderCard = (p: PluginItem) => {
+    const texts = resolvePluginTexts(p);
     const icon = resolvePluginIcon(p);
-    const name = p.name || `${t('Plugin')} ${p.key}`;
+    const name = texts.name || `${t('Plugin')} ${p.key}`;
     const exts = (p.supported_exts || []).slice(0, 6);
     const more = (p.supported_exts || []).length - exts.length;
     const appKey = `plugin:${p.key}`;
@@ -224,7 +237,7 @@ const PluginsPage = memo(function PluginsPage() {
               style={{ marginBottom: 8, minHeight: 44, lineHeight: '22px' }}
               ellipsis={{ rows: 2 }}
             >
-              {p.description || t('No description')}
+              {texts.description || t('No description')}
             </Typography.Paragraph>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>

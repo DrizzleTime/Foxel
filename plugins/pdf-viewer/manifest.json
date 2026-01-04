@@ -4,6 +4,12 @@
   "name": "PDF 查看器",
   "version": "1.0.0",
   "description": "内置 PDF 查看器，使用浏览器原生 PDF 渲染能力。",
+  "i18n": {
+    "en": {
+      "name": "PDF Viewer",
+      "description": "Built-in PDF viewer using the browser's native PDF rendering."
+    }
+  },
   "author": "Foxel",
   "website": "https://github.com/user/foxel",
   "license": "MIT",
@@ -17,4 +23,3 @@
     "icon": "assets/icon.svg"
   }
 }
-

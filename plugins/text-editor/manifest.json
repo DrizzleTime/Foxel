@@ -4,6 +4,12 @@
   "name": "文本编辑器",
   "version": "1.0.0",
   "description": "内置文本/代码编辑器，支持常见文本与代码格式，Markdown 实时预览。",
+  "i18n": {
+    "en": {
+      "name": "Text Editor",
+      "description": "Built-in text/code editor with support for common formats and live Markdown preview."
+    }
+  },
   "author": "Foxel",
   "website": "https://github.com/user/foxel",
   "license": "MIT",
@@ -28,4 +34,3 @@
     "icon": "assets/icon.svg"
   }
 }
-

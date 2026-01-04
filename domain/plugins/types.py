@@ -90,6 +90,10 @@ class PluginManifest(BaseModel):
     name: str = Field(..., min_length=1, description="插件名称")
     version: str = Field(default="1.0.0", description="插件版本")
     description: Optional[str] = Field(default=None, description="插件描述")
+    i18n: Optional[Dict[str, Dict[str, str]]] = Field(
+        default=None,
+        description="多语言信息（name/description），例如：{'en': {'name': '...', 'description': '...'}}",
+    )
     author: Optional[str] = Field(default=None, description="作者")
     website: Optional[str] = Field(default=None, description="网站")
     github: Optional[str] = Field(default=None, description="GitHub 地址")

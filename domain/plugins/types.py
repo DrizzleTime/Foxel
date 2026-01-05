@@ -12,6 +12,7 @@ class ManifestFrontend(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     entry: Optional[str] = Field(default=None, description="前端入口文件路径")
+    styles: Optional[List[str]] = Field(default=None, description="前端样式文件路径列表（相对插件根目录）")
     open_app: Optional[bool] = Field(
         default=None,
         alias="openApp",

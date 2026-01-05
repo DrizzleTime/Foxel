@@ -102,6 +102,11 @@ class PluginLoader:
         if frontend and isinstance(frontend, dict):
             if frontend.get("entry") and not isinstance(frontend["entry"], str):
                 errors.append("frontend.entry 必须是字符串")
+            if frontend.get("styles") is not None:
+                if not isinstance(frontend["styles"], list) or not all(
+                    isinstance(x, str) for x in frontend["styles"]
+                ):
+                    errors.append("frontend.styles 必须是字符串数组")
             supported_exts = frontend.get("supportedExts") or frontend.get("supported_exts")
             if supported_exts and not isinstance(supported_exts, list):
                 errors.append("frontend.supportedExts 必须是数组")

@@ -16,6 +16,7 @@
 
   "frontend": {
     "entry": "frontend/index.js",
+    "styles": ["frontend/foxel-plugin-text-editor.css"],
     "openApp": false,
     "supportedExts": [
       "txt", "md", "markdown", "log",

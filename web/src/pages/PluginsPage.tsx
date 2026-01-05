@@ -1,11 +1,12 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Divider, Empty, List, Modal, Popconfirm, Progress, Skeleton, Space, Tabs, Tag, Typography, Upload, message, theme } from 'antd';
-import { GithubOutlined, LinkOutlined, UploadOutlined } from '@ant-design/icons';
+import { GithubOutlined, LinkOutlined, UploadOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
 import { getAppByKey, reloadPluginApps } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
 import { getPluginAssetUrl } from '../plugins/runtime';
+import { fetchFoxelCoreApps, downloadFoxelCoreApp, type FoxelCoreApp } from '../api/pluginCenter';
 import type { UploadFile } from 'antd';
 
 type InstallStatus = 'pending' | 'installing' | 'success' | 'failed' | 'skipped';
@@ -26,6 +27,14 @@ const PluginsPage = memo(function PluginsPage() {
   const [installDone, setInstallDone] = useState(false);
   const [installStopReason, setInstallStopReason] = useState<string | undefined>(undefined);
   const [installFileState, setInstallFileState] = useState<Record<string, InstallState>>({});
+  
+  // 应用发现相关状态
+  const [discoveryApps, setDiscoveryApps] = useState<FoxelCoreApp[]>([]);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
+  const [discoveryError, setDiscoveryError] = useState<string | undefined>(undefined);
+  const [discoverySearch, setDiscoverySearch] = useState('');
+  const [downloadingApps, setDownloadingApps] = useState<Set<string>>(new Set());
+  
   const { token } = theme.useToken();
   const { t, lang } = useI18n();
   const { openApp } = useAppWindows();
@@ -35,6 +44,26 @@ const PluginsPage = memo(function PluginsPage() {
   };
 
   useEffect(() => { reload(); }, []);
+
+  // 加载应用发现列表
+  const loadDiscoveryApps = async () => {
+    try {
+      setDiscoveryLoading(true);
+      setDiscoveryError(undefined);
+      const apps = await fetchFoxelCoreApps();
+      setDiscoveryApps(apps);
+    } catch (e: any) {
+      setDiscoveryError(e?.message || t('Failed to load apps'));
+    } finally {
+      setDiscoveryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'discover' && discoveryApps.length === 0 && !discoveryError) {
+      loadDiscoveryApps();
+    }
+  }, [tab]);
 
   const resetInstallUi = () => {
     setInstallDone(false);
@@ -184,6 +213,64 @@ const PluginsPage = memo(function PluginsPage() {
       || (p.supported_exts || []).some(e => e.toLowerCase().includes(s))
     ));
   }, [data, q, lang]);
+
+  // 过滤应用发现列表
+  const filteredDiscoveryApps = useMemo(() => {
+    const s = discoverySearch.trim().toLowerCase();
+    if (!s) return discoveryApps;
+    return discoveryApps.filter(app => {
+      const name = (lang === 'zh' ? app.name.zh : app.name.en).toLowerCase();
+      const desc = (lang === 'zh' ? app.description.zh : app.description.en).toLowerCase();
+      const author = (app.author || '').toLowerCase();
+      const tags = lang === 'zh' ? app.tags.zh : app.tags.en;
+      return (
+        name.includes(s) ||
+        desc.includes(s) ||
+        author.includes(s) ||
+        tags.some(tag => tag.toLowerCase().includes(s)) ||
+        app.key.toLowerCase().includes(s)
+      );
+    });
+  }, [discoveryApps, discoverySearch, lang]);
+
+  // 检查应用是否已安装
+  const isAppInstalled = (appKey: string) => {
+    return data.some(p => p.key === appKey);
+  };
+
+  // 下载并安装应用
+  const handleDownloadAndInstall = async (app: FoxelCoreApp) => {
+    if (downloadingApps.has(app.key)) return;
+    
+    try {
+      setDownloadingApps(prev => new Set(prev).add(app.key));
+      message.loading({ content: t('Downloading'), key: app.key, duration: 0 });
+      
+      const file = await downloadFoxelCoreApp(app);
+      message.destroy(app.key);
+      message.loading({ content: t('Installing'), key: app.key, duration: 0 });
+      
+      const result = await pluginsApi.install(file);
+      message.destroy(app.key);
+      
+      if (result.success) {
+        message.success(t('Installed successfully'));
+        await reload();
+        await reloadPluginApps();
+      } else {
+        message.error(result.message || t('Installation failed'));
+      }
+    } catch (e: any) {
+      message.destroy(app.key);
+      message.error(e?.message || t('Installation failed'));
+    } finally {
+      setDownloadingApps(prev => {
+        const next = new Set(prev);
+        next.delete(app.key);
+        return next;
+      });
+    }
+  };
 
   const renderCard = (p: PluginItem) => {
     const texts = resolvePluginTexts(p);
@@ -344,8 +431,128 @@ const PluginsPage = memo(function PluginsPage() {
             key: 'discover',
             label: t('Discover'),
             children: (
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Empty description={`${t('Coming soon')} v2`} />
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <input
+                    type="text"
+                    placeholder={t('Search apps')}
+                    value={discoverySearch}
+                    onChange={e => setDiscoverySearch(e.target.value)}
+                    style={{
+                      maxWidth: 360,
+                      padding: '4px 11px',
+                      borderRadius: 6,
+                      border: `1px solid ${token.colorBorder}`,
+                      outline: 'none',
+                      background: token.colorBgContainer,
+                      color: token.colorText,
+                    }}
+                  />
+                  <Button
+                    icon={<ReloadOutlined />}
+                    onClick={loadDiscoveryApps}
+                    loading={discoveryLoading}
+                  >
+                    {t('Refresh')}
+                  </Button>
+                </div>
+                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
+                  {discoveryLoading && discoveryApps.length === 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <Card key={i} style={{ borderRadius: 10 }}>
+                          <Skeleton active avatar paragraph={{ rows: 3 }} />
+                        </Card>
+                      ))}
+                    </div>
+                  ) : discoveryError ? (
+                    <Empty description={discoveryError}>
+                      <Button onClick={loadDiscoveryApps}>{t('Refresh')}</Button>
+                    </Empty>
+                  ) : filteredDiscoveryApps.length === 0 ? (
+                    <Empty description={discoveryApps.length === 0 ? t('No results') : t('No results')} />
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+                      {filteredDiscoveryApps.map(app => {
+                        const name = lang === 'zh' ? app.name.zh : app.name.en;
+                        const description = lang === 'zh' ? app.description.zh : app.description.en;
+                        const tags = lang === 'zh' ? app.tags.zh : app.tags.en;
+                        const iconUrl = `https://foxel.cc/api/apps/${encodeURIComponent(app.key)}/icon`;
+                        const installed = isAppInstalled(app.key);
+                        const downloading = downloadingApps.has(app.key);
+                        
+                        return (
+                          <Card
+                            key={app.key}
+                            hoverable
+                            size="small"
+                            styles={{ body: { padding: 12 } } as any}
+                            style={{ borderRadius: 10, boxShadow: token.boxShadowTertiary }}
+                            title={
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <img 
+                                  src={iconUrl} 
+                                  alt={name} 
+                                  style={{ width: 24, height: 24, objectFit: 'contain' }} 
+                                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/logo.svg'; }} 
+                                />
+                                <span>{name}</span>
+                                {app.version && <Tag color="blue" style={{ marginLeft: 'auto' }}>{app.version}</Tag>}
+                              </div>
+                            }
+                            actions={[
+                              installed ? (
+                                <Tag key="installed" color="green">{t('Installed already')}</Tag>
+                              ) : (
+                                <Button
+                                  key="install"
+                                  type="primary"
+                                  size="small"
+                                  icon={<DownloadOutlined />}
+                                  loading={downloading}
+                                  onClick={() => handleDownloadAndInstall(app)}
+                                >
+                                  {downloading ? t('Downloading') : t('Download and Install')}
+                                </Button>
+                              ),
+                              app.website && (
+                                <a key="website" href={app.website} target="_blank" rel="noreferrer">
+                                  <Button type="link" size="small" icon={<LinkOutlined />}>
+                                    {t('Website')}
+                                  </Button>
+                                </a>
+                              ),
+                            ].filter(Boolean) as any}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <Typography.Paragraph
+                                style={{ marginBottom: 8, minHeight: 44, lineHeight: '22px' }}
+                                ellipsis={{ rows: 2 }}
+                              >
+                                {description}
+                              </Typography.Paragraph>
+                              {tags.length > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                  {tags.slice(0, 5).map(tag => (
+                                    <Tag key={tag} style={{ margin: 0 }}>{tag}</Tag>
+                                  ))}
+                                  {tags.length > 5 && <Tag style={{ margin: 0 }}>+{tags.length - 5}</Tag>}
+                                </div>
+                              )}
+                              <Divider style={{ margin: '8px 0' }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextTertiary, fontSize: 12 }}>
+                                {app.author && <span>{t('Author')}: {app.author}</span>}
+                                <span style={{ marginLeft: 'auto' }}>
+                                  {t('Approved')} {new Date(app.approvedAt).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US')}
+                                </span>
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )
           }

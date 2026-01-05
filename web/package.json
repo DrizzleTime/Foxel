@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "6",
+    "@monaco-editor/react": "^4.7.0",
     "antd": "6",
+    "artplayer": "^5.3.0",
     "date-fns": "^4.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

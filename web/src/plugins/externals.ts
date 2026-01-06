@@ -10,8 +10,9 @@ import * as ReactDOM from 'react-dom/client';
 import * as antd from 'antd';
 import * as AntdIcons from '@ant-design/icons';
 
-// 代码编辑器（懒加载包装）
-// 编辑器组件已移除，由插件自己提供
+// 宿主共享依赖（供插件复用）
+import MonacoEditor from '@monaco-editor/react';
+import Artplayer from 'artplayer';
 
 // API 模块
 import request, { vfsApi, API_BASE_URL } from '../api/client';
@@ -154,6 +155,10 @@ export interface FoxelExternals {
   antd: typeof antd;
   AntdIcons: typeof AntdIcons;
 
+  // 编辑器/播放器
+  MonacoEditor: typeof MonacoEditor;
+  Artplayer: typeof Artplayer;
+
   // i18n
   i18n?: {
     getLang: () => Lang;
@@ -227,6 +232,8 @@ export function initExternals(): void {
 
   if (window.__FOXEL_EXTERNALS__) {
     window.__FOXEL_EXTERNALS__.i18n = i18nApi;
+    window.__FOXEL_EXTERNALS__.MonacoEditor = MonacoEditor;
+    window.__FOXEL_EXTERNALS__.Artplayer = Artplayer;
     return; // 已初始化
   }
 
@@ -238,6 +245,10 @@ export function initExternals(): void {
     // UI 库
     antd,
     AntdIcons,
+
+    // 编辑器/播放器
+    MonacoEditor,
+    Artplayer,
 
     // i18n
     i18n: i18nApi,

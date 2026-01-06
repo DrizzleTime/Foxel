@@ -552,7 +552,7 @@ const PluginsPage = memo(function PluginsPage() {
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
                   {loading ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 12, justifyContent: 'start' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, justifyContent: 'start' }}>
                       {Array.from({ length: 6 }).map((_, i) => (
                         <Card key={i} style={{ borderRadius: 10 }}>
                           <Skeleton active avatar paragraph={{ rows: 3 }} />
@@ -562,7 +562,7 @@ const PluginsPage = memo(function PluginsPage() {
                   ) : filtered.length === 0 ? (
                     <Empty description={t('No plugins')} />
                   ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 12, justifyContent: 'start' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, justifyContent: 'start' }}>
                       {filtered.map(renderCard)}
                     </div>
                   )}
@@ -601,7 +601,7 @@ const PluginsPage = memo(function PluginsPage() {
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
                   {discoveryLoading && discoveryApps.length === 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 12, justifyContent: 'start' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, justifyContent: 'start' }}>
                       {Array.from({ length: 6 }).map((_, i) => (
                         <Card key={i} style={{ borderRadius: 10 }}>
                           <Skeleton active avatar paragraph={{ rows: 3 }} />
@@ -615,7 +615,7 @@ const PluginsPage = memo(function PluginsPage() {
                   ) : filteredDiscoveryApps.length === 0 ? (
                     <Empty description={discoveryApps.length === 0 ? t('No results') : t('No results')} />
                   ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 12, justifyContent: 'start' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, justifyContent: 'start' }}>
                       {filteredDiscoveryApps.map(app => {
                         const name = lang === 'zh' ? app.name.zh : app.name.en;
                         const description = lang === 'zh' ? app.description.zh : app.description.en;

@@ -52,10 +52,19 @@ async def spa_fallback_middleware(request: Request, call_next):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs("data/db", exist_ok=True)
+    os.makedirs("data/plugins", exist_ok=True)
     await init_db()
     await runtime_registry.refresh()
     await ConfigService.set("APP_VERSION", VERSION)
     await task_queue_service.start_worker()
+
+    # 加载已安装的插件
+    from domain.plugins.startup import init_plugins
+    await init_plugins(app)
+
+    # 在所有路由加载完成后，挂载静态文件服务（放在最后以避免覆盖 API 路由）
+    app.mount("/", SPAStaticFiles(directory="web/dist", html=True, check_dir=False), name="static")
+
     try:
         yield
     finally:
@@ -86,7 +95,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/", SPAStaticFiles(directory="web/dist", html=True, check_dir=False), name="static")
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

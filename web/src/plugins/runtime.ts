@@ -1,64 +1,55 @@
-import { pluginsApi, type PluginManifestUpdate, type PluginItem } from '../api/plugins';
+/**
+ * 插件运行时模块
+ *
+ * 负责：
+ * 1. 加载和管理插件
+ * 2. 处理插件注册
+ */
 
-export interface RegisteredPlugin {
-  mount: (container: HTMLElement, ctx: {
-    filePath: string;
-    entry: any;
-    urls: { downloadUrl: string };
-    host: HostApi;
-  }) => void | Promise<void>;
-  unmount?: (container: HTMLElement) => void | Promise<void>;
+import type { PluginItem } from '../api/plugins';
+import type { RegisteredPlugin, PluginContext, PluginAppContext, FoxelHostApi } from './externals';
 
-  mountApp?: (container: HTMLElement, ctx: { host: HostApi }) => void | Promise<void>;
-  unmountApp?: (container: HTMLElement) => void | Promise<void>;
+// 重新导出类型
+export type { RegisteredPlugin, PluginContext, PluginAppContext, FoxelHostApi };
 
-  key?: string;
-  name?: string;
-  version?: string;
-  supportedExts?: string[];
-  defaultBounds?: { x?: number; y?: number; width?: number; height?: number };
-  defaultMaximized?: boolean;
-  icon?: string;
-  description?: string;
-  author?: string;
-  website?: string;
-  github?: string;
-}
-
-export interface HostApi {
-  close: () => void;
-}
-
+// 已加载的插件缓存
 const loadedPlugins = new Map<string, RegisteredPlugin>();
+// 等待加载的插件回调
 const waiters = new Map<string, ((p: RegisteredPlugin) => void)[]>();
+// 已注入的脚本 URL
 const injected = new Set<string>();
 
-declare global {
-  interface Window { FoxelRegister?: (plugin: RegisteredPlugin) => void; }
-}
-
+/**
+ * 全局插件注册函数
+ * 插件加载后调用此函数注册自己
+ */
 window.FoxelRegister = (plugin: RegisteredPlugin) => {
   const pendingUrl = sessionStorage.getItem('foxel:pendingPluginUrl') || '';
   if (pendingUrl) {
     loadedPlugins.set(pendingUrl, plugin);
     const resolvers = waiters.get(pendingUrl) || [];
-    resolvers.forEach(fn => fn(plugin));
+    resolvers.forEach((fn) => fn(plugin));
     waiters.delete(pendingUrl);
     sessionStorage.removeItem('foxel:pendingPluginUrl');
   } else {
+    // 回退：使用第一个等待的 URL
     const anyUrl = Array.from(waiters.keys())[0];
     if (anyUrl) {
       loadedPlugins.set(anyUrl, plugin);
       const resolvers = waiters.get(anyUrl) || [];
-      resolvers.forEach(fn => fn(plugin));
+      resolvers.forEach((fn) => fn(plugin));
       waiters.delete(anyUrl);
     }
   }
 };
 
+/**
+ * 从 URL 加载插件
+ */
 export async function loadPluginFromUrl(url: string): Promise<RegisteredPlugin> {
   const existing = loadedPlugins.get(url);
   if (existing) return existing;
+
   return new Promise<RegisteredPlugin>((resolve, reject) => {
     const arr = waiters.get(url) || [];
     arr.push(resolve);
@@ -67,7 +58,7 @@ export async function loadPluginFromUrl(url: string): Promise<RegisteredPlugin> 
     const ready = loadedPlugins.get(url);
     if (ready) {
       const resolvers = waiters.get(url) || [];
-      resolvers.forEach(fn => fn(ready));
+      resolvers.forEach((fn) => fn(ready));
       waiters.delete(url);
       return;
     }
@@ -94,52 +85,61 @@ export async function loadPluginFromUrl(url: string): Promise<RegisteredPlugin> 
     }, 15000);
 
     const last = arr[arr.length - 1];
-    arr[arr.length - 1] = (p: RegisteredPlugin) => { clearTimeout(t); last(p); };
+    arr[arr.length - 1] = (p: RegisteredPlugin) => {
+      clearTimeout(t);
+      last(p);
+    };
   });
 }
 
-export function getPluginBundleUrl(pluginId: number) {
-  return `/api/plugins/${pluginId}/bundle.js`;
+/**
+ * 获取插件 bundle URL
+ */
+export function getPluginBundleUrl(pluginKey: string): string {
+  return `/api/plugins/${pluginKey}/bundle.js`;
 }
 
-export async function loadPlugin(plugin: Pick<PluginItem, 'id' | 'url'>): Promise<RegisteredPlugin> {
-  const bundleUrl = getPluginBundleUrl(plugin.id);
-  try {
-    return await loadPluginFromUrl(bundleUrl);
-  } catch (e) {
-    if (plugin.url && plugin.url !== bundleUrl) {
-      try {
-        return await loadPluginFromUrl(plugin.url);
-      } catch {
-        throw e;
-      }
-    }
-    throw e;
-  }
+/**
+ * 获取插件资源 URL
+ */
+export function getPluginAssetUrl(pluginKey: string, assetPath: string): string {
+  return `/api/plugins/${pluginKey}/assets/${assetPath}`;
 }
 
-export async function ensureManifest(pluginId: number, plugin: RegisteredPlugin) {
-  const manifest: PluginManifestUpdate = {
-    key: plugin.key,
-    name: plugin.name,
-    version: plugin.version,
-    open_app: typeof plugin.mountApp === 'function',
-    supported_exts: plugin.supportedExts,
-    default_bounds: plugin.defaultBounds,
-    default_maximized: plugin.defaultMaximized,
-    icon: plugin.icon,
-    description: plugin.description,
-    author: plugin.author,
-    website: plugin.website,
-    github: plugin.github,
-  };
-  try { console.debug('[foxel] report manifest', pluginId, manifest); } catch { void 0; }
-  const key = `foxel:manifestReported:${pluginId}`;
-  if (sessionStorage.getItem(key) === '1') return;
-  try {
-    await pluginsApi.updateManifest(pluginId, manifest);
-    sessionStorage.setItem(key, '1');
-  } catch {
-    void 0;
+/**
+ * 加载插件
+ */
+export async function loadPlugin(plugin: Pick<PluginItem, 'key'>): Promise<RegisteredPlugin> {
+  const bundleUrl = getPluginBundleUrl(plugin.key);
+  return await loadPluginFromUrl(bundleUrl);
+}
+
+/**
+ * 检查插件是否已加载
+ */
+export function isPluginLoaded(key: string): boolean {
+  const bundleUrl = getPluginBundleUrl(key);
+  return loadedPlugins.has(bundleUrl);
+}
+
+/**
+ * 获取已加载的插件
+ */
+export function getLoadedPlugin(key: string): RegisteredPlugin | undefined {
+  const bundleUrl = getPluginBundleUrl(key);
+  return loadedPlugins.get(bundleUrl);
+}
+
+/**
+ * 清除插件缓存（用于开发/调试）
+ */
+export function clearPluginCache(key?: string): void {
+  if (key) {
+    const bundleUrl = getPluginBundleUrl(key);
+    loadedPlugins.delete(bundleUrl);
+    injected.delete(bundleUrl);
+  } else {
+    loadedPlugins.clear();
+    injected.clear();
   }
 }

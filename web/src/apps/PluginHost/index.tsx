@@ -1,108 +1,109 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import type { AppComponentProps, AppOpenComponentProps } from '../types';
-import { vfsApi } from '../../api/vfs';
-import { loadPlugin, ensureManifest, type RegisteredPlugin } from '../../plugins/runtime';
 import type { PluginItem } from '../../api/plugins';
-import { useAsyncSafeEffect } from '../../hooks/useAsyncSafeEffect';
-import { useI18n } from '../../i18n';
 
 export interface PluginAppHostProps extends AppComponentProps {
   plugin: PluginItem;
 }
 
-export const PluginAppHost: React.FC<PluginAppHostProps> = ({ plugin, filePath, entry, onRequestClose }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState<string | null>(null);
+function buildPluginFrameUrl(params: Record<string, string>): string {
+  const qs = new URLSearchParams(params);
+  return `/plugin-frame.html?${qs.toString()}`;
+}
+
+/**
+ * 插件宿主组件 - 文件打开模式
+ * 使用 iframe 隔离渲染与样式，避免插件污染宿主 DOM/CSS。
+ * 注意：同源且不加 sandbox 时，不是安全沙箱（插件仍可通过 window.parent 访问宿主）。
+ */
+export const PluginAppHost: React.FC<PluginAppHostProps> = ({
+  plugin,
+  filePath,
+  onRequestClose,
+}) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const onCloseRef = useRef(onRequestClose);
   onCloseRef.current = onRequestClose;
-  const { t } = useI18n();
 
-  const pluginRef = useRef<RegisteredPlugin | null>(null);
-
-  useAsyncSafeEffect(
-    async ({ isDisposed }) => {
-      try {
-        const p = await loadPlugin(plugin);
-        if (isDisposed()) return;
-        pluginRef.current = p;
-        await ensureManifest(plugin.id, p);
-        if (isDisposed()) return;
-        const token = await vfsApi.getTempLinkToken(filePath);
-        if (isDisposed()) return;
-        const downloadUrl = vfsApi.getTempPublicUrl(token.token);
-        if (isDisposed() || !containerRef.current) return;
-        await p.mount(containerRef.current, {
-          filePath,
-          entry,
-          urls: { downloadUrl },
-          host: { close: () => onCloseRef.current() },
-        });
-      } catch (e: any) {
-        if (!isDisposed()) setError(e?.message || t('Plugin run failed'));
-      }
-    },
-    [plugin.id, plugin.url, filePath],
-    () => {
-      try {
-        if (pluginRef.current?.unmount && containerRef.current) {
-          pluginRef.current.unmount(containerRef.current);
-        }
-      } catch { void 0; }
-    },
+  const src = useMemo(
+    () =>
+      buildPluginFrameUrl({
+        pluginKey: plugin.key,
+        mode: 'file',
+        filePath,
+      }),
+    [plugin.key, filePath]
   );
 
-  if (error) {
-    return <div style={{ padding: 12, color: 'red' }}>{t('Plugin Error')}: {error}</div>;
-  }
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      if (ev.source !== iframeRef.current?.contentWindow) return;
+      const data = ev.data as any;
+      if (!data || typeof data !== 'object') return;
+      if (data.type === 'foxel-plugin:close' && data.pluginKey === plugin.key) {
+        onCloseRef.current();
+      }
+    };
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'auto' }} />;
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [plugin.key]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      src={src}
+      title={`plugin:${plugin.key}`}
+      style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+    />
+  );
 };
 
 export interface PluginAppOpenHostProps extends AppOpenComponentProps {
   plugin: PluginItem;
 }
 
+/**
+ * 插件宿主组件 - 独立应用模式
+ * 使用 iframe 隔离渲染与样式，避免插件污染宿主 DOM/CSS。
+ * 注意：同源且不加 sandbox 时，不是安全沙箱（插件仍可通过 window.parent 访问宿主）。
+ */
 export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, onRequestClose }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const onCloseRef = useRef(onRequestClose);
   onCloseRef.current = onRequestClose;
-  const { t } = useI18n();
 
-  const pluginRef = useRef<RegisteredPlugin | null>(null);
-
-  useAsyncSafeEffect(
-    async ({ isDisposed }) => {
-      try {
-        const p = await loadPlugin(plugin);
-        if (isDisposed()) return;
-        pluginRef.current = p;
-        await ensureManifest(plugin.id, p);
-        if (isDisposed() || !containerRef.current) return;
-        if (typeof p.mountApp !== 'function') {
-          throw new Error('该插件不支持独立打开');
-        }
-        await p.mountApp(containerRef.current, {
-          host: { close: () => onCloseRef.current() },
-        });
-      } catch (e: any) {
-        if (!isDisposed()) setError(e?.message || t('Plugin run failed'));
-      }
-    },
-    [plugin.id, plugin.url],
-    () => {
-      try {
-        if (!containerRef.current) return;
-        const p = pluginRef.current;
-        if (p?.unmountApp) return p.unmountApp(containerRef.current);
-        if (p?.unmount) return p.unmount(containerRef.current);
-      } catch { void 0; }
-    },
+  const src = useMemo(
+    () =>
+      buildPluginFrameUrl({
+        pluginKey: plugin.key,
+        mode: 'app',
+      }),
+    [plugin.key]
   );
 
-  if (error) {
-    return <div style={{ padding: 12, color: 'red' }}>{t('Plugin Error')}: {error}</div>;
-  }
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      if (ev.source !== iframeRef.current?.contentWindow) return;
+      const data = ev.data as any;
+      if (!data || typeof data !== 'object') return;
+      if (data.type === 'foxel-plugin:close' && data.pluginKey === plugin.key) {
+        onCloseRef.current();
+      }
+    };
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'auto' }} />;
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [plugin.key]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      src={src}
+      title={`plugin:${plugin.key}:app`}
+      style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+    />
+  );
 };

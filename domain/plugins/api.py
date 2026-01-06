@@ -1,76 +1,109 @@
+"""
+插件管理 API 路由
+"""
+
 from typing import List
 
-from fastapi import APIRouter, Body, Request
+from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from domain.audit import AuditAction, audit
 from domain.plugins.service import PluginService
-from domain.plugins.routes import video_player as video_player_routes
-from domain.plugins.types import PluginCreate, PluginManifestUpdate, PluginOut
+from domain.plugins.types import (
+    PluginInstallResult,
+    PluginOut,
+)
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
-router.include_router(video_player_routes.router)
 
 
-@router.post("", response_model=PluginOut)
-@audit(
-    action=AuditAction.CREATE,
-    description="创建插件",
-    body_fields=["url", "enabled"],
-)
-async def create_plugin(request: Request, payload: PluginCreate):
-    return await PluginService.create(payload)
+# ========== 安装 ==========
+
+
+@router.post("/install", response_model=PluginInstallResult)
+@audit(action=AuditAction.CREATE, description="安装插件包")
+async def install_plugin(request: Request, file: UploadFile = File(...)):
+    """
+    安装 .foxpkg 插件包
+
+    上传 .foxpkg 文件进行安装。
+    """
+    content = await file.read()
+    return await PluginService.install_package(content, file.filename or "plugin.foxpkg")
+
+
+# ========== 插件列表和详情 ==========
 
 
 @router.get("", response_model=List[PluginOut])
 @audit(action=AuditAction.READ, description="获取插件列表")
 async def list_plugins(request: Request):
+    """获取已安装的插件列表"""
     return await PluginService.list_plugins()
 
 
-@router.delete("/{plugin_id}")
-@audit(action=AuditAction.DELETE, description="删除插件")
-async def delete_plugin(request: Request, plugin_id: int):
-    await PluginService.delete(plugin_id)
+@router.get("/{key_or_id}", response_model=PluginOut)
+@audit(action=AuditAction.READ, description="获取插件详情")
+async def get_plugin(request: Request, key_or_id: str):
+    """获取单个插件详情"""
+    return await PluginService.get_plugin(key_or_id)
+
+
+# ========== 插件管理 ==========
+
+
+@router.delete("/{key_or_id}")
+@audit(action=AuditAction.DELETE, description="卸载插件")
+async def delete_plugin(request: Request, key_or_id: str):
+    """卸载插件"""
+    await PluginService.delete(key_or_id)
     return {"code": 0, "msg": "ok"}
 
 
-@router.put("/{plugin_id}", response_model=PluginOut)
-@audit(
-    action=AuditAction.UPDATE,
-    description="更新插件",
-    body_fields=["url", "enabled"],
-)
-async def update_plugin(request: Request, plugin_id: int, payload: PluginCreate):
-    return await PluginService.update(plugin_id, payload)
+# ========== 插件资源 ==========
 
 
-@router.post("/{plugin_id}/metadata", response_model=PluginOut)
-@audit(
-    action=AuditAction.UPDATE,
-    description="更新插件 manifest",
-    body_fields=[
-        "key",
-        "name",
-        "version",
-        "open_app",
-        "supported_exts",
-        "default_bounds",
-        "default_maximized",
-        "icon",
-        "description",
-        "author",
-        "website",
-        "github",
-    ],
-)
-async def update_manifest(
-    request: Request, plugin_id: int, manifest: PluginManifestUpdate = Body(...)
-):
-    return await PluginService.update_manifest(plugin_id, manifest)
+@router.get("/{key_or_id}/bundle.js")
+async def get_bundle(request: Request, key_or_id: str):
+    """获取插件前端 bundle"""
+    path = await PluginService.get_bundle_path(key_or_id)
+    return FileResponse(
+        path,
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
-@router.get("/{plugin_id}/bundle.js")
-async def get_bundle(request: Request, plugin_id: int):
-    path = await PluginService.get_bundle_path(plugin_id)
-    return FileResponse(path, media_type="application/javascript", headers={"Cache-Control": "no-store"})
+@router.get("/{key}/assets/{asset_path:path}")
+async def get_asset(request: Request, key: str, asset_path: str):
+    """获取插件静态资源"""
+    path = await PluginService.get_asset_path(key, asset_path)
+
+    # 根据扩展名确定 MIME 类型
+    ext = path.suffix.lower()
+    media_types = {
+        ".js": "application/javascript",
+        ".css": "text/css",
+        ".json": "application/json",
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".ico": "image/x-icon",
+        ".woff": "font/woff",
+        ".woff2": "font/woff2",
+        ".ttf": "font/ttf",
+        ".eot": "application/vnd.ms-fontobject",
+        ".html": "text/html",
+        ".txt": "text/plain",
+        ".md": "text/markdown",
+    }
+    media_type = media_types.get(ext, "application/octet-stream")
+
+    return FileResponse(
+        path,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )

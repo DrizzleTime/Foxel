@@ -4,6 +4,7 @@ import type { VfsEntry } from '../api/client';
 import type { AppDescriptor } from '../apps/registry';
 import { getAppsForEntry, getDefaultAppForEntry, getAppByKey } from '../apps/registry';
 import { useI18n } from '../i18n';
+import { useNavigate } from 'react-router';
 
 type WindowBase = {
   id: string;
@@ -47,6 +48,7 @@ const AppWindowsContext = createContext<AppWindowsContextValue | null>(null);
 
 export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [windows, setWindows] = useState<AppWindowItem[]>([]);
 
   const openWithApp = useCallback((entry: VfsEntry, app: AppDescriptor, currentPath: string) => {
@@ -120,12 +122,27 @@ export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const openFileWithDefaultApp = useCallback((entry: VfsEntry, currentPath: string) => {
     const apps = getAppsForEntry(entry);
     if (!apps.length) {
-      Modal.error({ title: t('Cannot open file: no available app') });
+      const ext = entry.name.split('.').pop()?.toLowerCase() || '';
+      const extQuery = ext ? `.${ext}` : entry.name;
+      Modal.confirm({
+        title: t('Cannot open file'),
+        content: t('No app available for this file. Go to App Store to search {ext}?', { ext: extQuery }),
+        okText: t('Go to App Store'),
+        cancelText: t('Cancel'),
+        onOk: () => {
+          const params = new URLSearchParams();
+          params.set('tab', 'discover');
+          if (extQuery) {
+            params.set('query', extQuery);
+          }
+          navigate(`/plugins?${params.toString()}`);
+        },
+      });
       return;
     }
     const defaultApp = getDefaultAppForEntry(entry) || apps[0];
     openWithApp(entry, defaultApp, currentPath);
-  }, [openWithApp, t]);
+  }, [navigate, openWithApp, t]);
 
   const confirmOpenWithApp = useCallback((entry: VfsEntry, appKey: string, currentPath: string) => {
     const app = getAppByKey(appKey);

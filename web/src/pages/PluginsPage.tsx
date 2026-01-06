@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Button, Card, Collapse, Empty, List, Modal, Popconfirm, Progress, Skeleton, Space, Tabs, Tag, Typography, Upload, message, theme } from 'antd';
 import { GithubOutlined, LinkOutlined, UploadOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
@@ -9,6 +9,7 @@ import { getPluginAssetUrl } from '../plugins/runtime';
 import { fetchFoxelCoreAppDetail, fetchFoxelCoreApps, downloadFoxelCoreApp, type FoxelCoreApp, type FoxelCoreAppDetail } from '../api/pluginCenter';
 import type { UploadFile } from 'antd';
 import ReactMarkdown from 'react-markdown';
+import { useLocation } from 'react-router';
 
 type InstallStatus = 'pending' | 'installing' | 'success' | 'failed' | 'skipped';
 type InstallState = Partial<{
@@ -162,6 +163,9 @@ const PluginsPage = memo(function PluginsPage() {
   const { token } = theme.useToken();
   const { t, lang } = useI18n();
   const { openApp } = useAppWindows();
+  const location = useLocation();
+  const discoverySearchInitializedRef = useRef(false);
+  const discoverySearchTimerRef = useRef<number | null>(null);
 
   const reload = useCallback(async () => {
     try { setLoading(true); setData(await pluginsApi.list()); } finally { setLoading(false); }
@@ -169,12 +173,12 @@ const PluginsPage = memo(function PluginsPage() {
 
   useEffect(() => { void reload(); }, [reload]);
 
-  // 加载应用发现列表
-  const loadDiscoveryApps = useCallback(async () => {
+  // 加载应用发现列表（带搜索）
+  const loadDiscoveryApps = useCallback(async (query: string) => {
     try {
       setDiscoveryLoading(true);
       setDiscoveryError(undefined);
-      const apps = await fetchFoxelCoreApps();
+      const apps = await fetchFoxelCoreApps(query);
       setDiscoveryApps(apps);
     } catch (e: any) {
       setDiscoveryError(e?.message || t('Failed to load apps'));
@@ -184,10 +188,46 @@ const PluginsPage = memo(function PluginsPage() {
   }, [t]);
 
   useEffect(() => {
-    if (tab === 'discover' && discoveryApps.length === 0 && !discoveryError) {
-      void loadDiscoveryApps();
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    const queryParam = (params.get('query') ?? params.get('q') ?? '').trim();
+
+    if (tabParam === 'installed' || tabParam === 'discover') {
+      setTab(tabParam);
+    } else if (queryParam) {
+      setTab('discover');
     }
-  }, [discoveryApps.length, discoveryError, loadDiscoveryApps, tab]);
+
+    setDiscoverySearch(queryParam);
+  }, [location.search]);
+
+  useEffect(() => {
+    if (tab !== 'discover') {
+      discoverySearchInitializedRef.current = false;
+      if (discoverySearchTimerRef.current !== null) {
+        window.clearTimeout(discoverySearchTimerRef.current);
+        discoverySearchTimerRef.current = null;
+      }
+      return;
+    }
+
+    const delay = discoverySearchInitializedRef.current ? 500 : 0;
+    if (discoverySearchTimerRef.current !== null) {
+      window.clearTimeout(discoverySearchTimerRef.current);
+    }
+
+    discoverySearchTimerRef.current = window.setTimeout(() => {
+      discoverySearchInitializedRef.current = true;
+      void loadDiscoveryApps(discoverySearch);
+    }, delay);
+
+    return () => {
+      if (discoverySearchTimerRef.current !== null) {
+        window.clearTimeout(discoverySearchTimerRef.current);
+        discoverySearchTimerRef.current = null;
+      }
+    };
+  }, [discoverySearch, loadDiscoveryApps, tab]);
 
   const closeDetailModal = () => {
     setDetailOpen(false);
@@ -383,25 +423,6 @@ const PluginsPage = memo(function PluginsPage() {
     ));
   }, [data, q, resolvePluginTexts]);
 
-  // 过滤应用发现列表
-  const filteredDiscoveryApps = useMemo(() => {
-    const s = discoverySearch.trim().toLowerCase();
-    if (!s) return discoveryApps;
-    return discoveryApps.filter(app => {
-      const name = (lang === 'zh' ? app.name.zh : app.name.en).toLowerCase();
-      const desc = (lang === 'zh' ? app.description.zh : app.description.en).toLowerCase();
-      const author = (app.author || '').toLowerCase();
-      const tags = lang === 'zh' ? app.tags.zh : app.tags.en;
-      return (
-        name.includes(s) ||
-        desc.includes(s) ||
-        author.includes(s) ||
-        tags.some(tag => tag.toLowerCase().includes(s)) ||
-        app.key.toLowerCase().includes(s)
-      );
-    });
-  }, [discoveryApps, discoverySearch, lang]);
-
   // 检查应用是否已安装
   const isAppInstalled = (appKey: string) => {
     return data.some(p => p.key === appKey);
@@ -593,7 +614,7 @@ const PluginsPage = memo(function PluginsPage() {
                   />
                   <Button
                     icon={<ReloadOutlined />}
-                    onClick={loadDiscoveryApps}
+                    onClick={() => { void loadDiscoveryApps(discoverySearch); }}
                     loading={discoveryLoading}
                   >
                     {t('Refresh')}
@@ -610,13 +631,13 @@ const PluginsPage = memo(function PluginsPage() {
                     </div>
                   ) : discoveryError ? (
                     <Empty description={discoveryError}>
-                      <Button onClick={loadDiscoveryApps}>{t('Refresh')}</Button>
+                      <Button onClick={() => { void loadDiscoveryApps(discoverySearch); }}>{t('Refresh')}</Button>
                     </Empty>
-                  ) : filteredDiscoveryApps.length === 0 ? (
-                    <Empty description={discoveryApps.length === 0 ? t('No results') : t('No results')} />
+                  ) : discoveryApps.length === 0 ? (
+                    <Empty description={t('No results')} />
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, justifyContent: 'start' }}>
-                      {filteredDiscoveryApps.map(app => {
+                      {discoveryApps.map(app => {
                         const name = lang === 'zh' ? app.name.zh : app.name.en;
                         const description = lang === 'zh' ? app.description.zh : app.description.en;
                         const tags = lang === 'zh' ? app.tags.zh : app.tags.en;

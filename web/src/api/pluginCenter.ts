@@ -113,9 +113,13 @@ export async function fetchRepoList(params: RepoQueryParams = {}): Promise<RepoL
 /**
  * 从 foxel-core 应用中心获取应用列表
  */
-export async function fetchFoxelCoreApps(): Promise<FoxelCoreApp[]> {
-  const url = `${FOXEL_CORE_BASE}/api/apps`;
-  const resp = await fetch(url);
+export async function fetchFoxelCoreApps(query?: string): Promise<FoxelCoreApp[]> {
+  const url = new URL('/api/apps', FOXEL_CORE_BASE);
+  const q = query?.trim();
+  if (q) {
+    url.searchParams.set('q', q);
+  }
+  const resp = await fetch(url.href);
   if (!resp.ok) {
     throw new Error(`Failed to fetch apps: ${resp.status}`);
   }

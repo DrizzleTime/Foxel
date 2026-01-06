@@ -1,13 +1,14 @@
-import { memo, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Divider, Empty, List, Modal, Popconfirm, Progress, Skeleton, Space, Tabs, Tag, Typography, Upload, message, theme } from 'antd';
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Alert, Button, Card, Collapse, Empty, List, Modal, Popconfirm, Progress, Skeleton, Space, Tabs, Tag, Typography, Upload, message, theme } from 'antd';
 import { GithubOutlined, LinkOutlined, UploadOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
 import { getAppByKey, reloadPluginApps } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
 import { getPluginAssetUrl } from '../plugins/runtime';
-import { fetchFoxelCoreApps, downloadFoxelCoreApp, type FoxelCoreApp } from '../api/pluginCenter';
+import { fetchFoxelCoreAppDetail, fetchFoxelCoreApps, downloadFoxelCoreApp, type FoxelCoreApp, type FoxelCoreAppDetail } from '../api/pluginCenter';
 import type { UploadFile } from 'antd';
+import ReactMarkdown from 'react-markdown';
 
 type InstallStatus = 'pending' | 'installing' | 'success' | 'failed' | 'skipped';
 type InstallState = Partial<{
@@ -15,6 +16,120 @@ type InstallState = Partial<{
   message: string;
   errors: string[];
 }>;
+
+type CenterCardProps = {
+  iconUrl: string;
+  iconAlt: string;
+  name: ReactNode;
+  version?: ReactNode;
+  description?: ReactNode;
+  metaLeft?: ReactNode;
+  metaRight?: ReactNode;
+  pills?: string[];
+  footerLeft?: ReactNode;
+  footerRight?: ReactNode;
+  onIconClick?: () => void;
+  onTitleClick?: () => void;
+};
+
+function buildCardPills(items: Array<string | null | undefined> | null | undefined, fallback?: string) {
+  const cleaned = (items || []).map(v => (v || '').trim()).filter(Boolean);
+  if (cleaned.length === 0) return fallback ? [fallback] : [];
+  if (cleaned.length <= 2) return cleaned;
+  return [cleaned[0], `+${cleaned.length - 1}`];
+}
+
+const CenterCard = memo(function CenterCard(props: CenterCardProps) {
+  const {
+    iconUrl,
+    iconAlt,
+    name,
+    version,
+    description,
+    metaLeft,
+    metaRight,
+    pills,
+    footerLeft,
+    footerRight,
+    onIconClick,
+    onTitleClick,
+  } = props;
+
+  return (
+    <div className="fx-center-card">
+      <div className="fx-center-card-hero">
+        <div
+          className="fx-center-card-iconbox"
+          style={onIconClick ? { cursor: 'pointer' } : undefined}
+          role={onIconClick ? 'button' : undefined}
+          tabIndex={onIconClick ? 0 : undefined}
+          onClick={onIconClick}
+          onKeyDown={onIconClick ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onIconClick();
+            }
+          } : undefined}
+        >
+          <img
+            className="fx-center-card-icon"
+            src={iconUrl}
+            alt={iconAlt}
+            loading="lazy"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/logo.svg'; }}
+          />
+        </div>
+        {pills && pills.length > 0 ? (
+          <div className="fx-center-card-pills">
+            {pills.slice(0, 2).map(pill => (
+              <span key={pill} className="fx-center-pill">
+                {pill}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="fx-center-card-body">
+        <div className="fx-center-card-titleRow">
+          <div
+            className="fx-center-card-title"
+            title={typeof name === 'string' ? name : undefined}
+            style={onTitleClick ? { cursor: 'pointer' } : undefined}
+            role={onTitleClick ? 'button' : undefined}
+            tabIndex={onTitleClick ? 0 : undefined}
+            onClick={onTitleClick}
+            onKeyDown={onTitleClick ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onTitleClick();
+              }
+            } : undefined}
+          >
+            {name}
+          </div>
+          {version ? <div className="fx-center-card-version">{version}</div> : null}
+        </div>
+
+        {metaLeft || metaRight ? (
+          <div className="fx-center-card-metaRow">
+            <span className="fx-center-card-metaLeft">{metaLeft}</span>
+            <span className="fx-center-card-metaRight">{metaRight}</span>
+          </div>
+        ) : null}
+
+        {description ? <div className="fx-center-card-desc">{description}</div> : null}
+      </div>
+
+      {footerLeft || footerRight ? (
+        <div className="fx-center-card-footer">
+          <div className="fx-center-card-footerLeft">{footerLeft}</div>
+          <div className="fx-center-card-footerRight">{footerRight}</div>
+        </div>
+      ) : null}
+    </div>
+  );
+});
 
 const PluginsPage = memo(function PluginsPage() {
   const [data, setData] = useState<PluginItem[]>([]);
@@ -34,19 +149,28 @@ const PluginsPage = memo(function PluginsPage() {
   const [discoveryError, setDiscoveryError] = useState<string | undefined>(undefined);
   const [discoverySearch, setDiscoverySearch] = useState('');
   const [downloadingApps, setDownloadingApps] = useState<Set<string>>(new Set());
+
+  // 应用详情弹窗状态
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailKey, setDetailKey] = useState<string | null>(null);
+  const [detailSummary, setDetailSummary] = useState<FoxelCoreApp | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | undefined>(undefined);
+  const [detailApp, setDetailApp] = useState<FoxelCoreAppDetail | null>(null);
+  const [detailReloadId, setDetailReloadId] = useState(0);
   
   const { token } = theme.useToken();
   const { t, lang } = useI18n();
   const { openApp } = useAppWindows();
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     try { setLoading(true); setData(await pluginsApi.list()); } finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { void reload(); }, [reload]);
 
   // 加载应用发现列表
-  const loadDiscoveryApps = async () => {
+  const loadDiscoveryApps = useCallback(async () => {
     try {
       setDiscoveryLoading(true);
       setDiscoveryError(undefined);
@@ -57,13 +181,58 @@ const PluginsPage = memo(function PluginsPage() {
     } finally {
       setDiscoveryLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     if (tab === 'discover' && discoveryApps.length === 0 && !discoveryError) {
-      loadDiscoveryApps();
+      void loadDiscoveryApps();
     }
-  }, [tab]);
+  }, [discoveryApps.length, discoveryError, loadDiscoveryApps, tab]);
+
+  const closeDetailModal = () => {
+    setDetailOpen(false);
+    setDetailKey(null);
+    setDetailSummary(null);
+    setDetailLoading(false);
+    setDetailError(undefined);
+    setDetailApp(null);
+  };
+
+  const openDiscoveryAppDetail = useCallback((app: FoxelCoreApp) => {
+    setDetailOpen(true);
+    setDetailKey(app.key);
+    setDetailSummary(app);
+    setDetailError(undefined);
+    setDetailApp(null);
+  }, []);
+
+  useEffect(() => {
+    if (!detailOpen || !detailKey) return;
+
+    let cancelled = false;
+    const currentKey = detailKey;
+
+    const run = async () => {
+      setDetailLoading(true);
+      setDetailError(undefined);
+      try {
+        const app = await fetchFoxelCoreAppDetail(currentKey);
+        if (cancelled) return;
+        setDetailApp(app);
+      } catch (e: any) {
+        if (cancelled) return;
+        setDetailError(e?.message || t('Load failed'));
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detailKey, detailOpen, detailReloadId, t]);
 
   const resetInstallUi = () => {
     setInstallDone(false);
@@ -193,14 +362,14 @@ const PluginsPage = memo(function PluginsPage() {
   /**
    * 按当前语言解析插件文案（name/description）
    */
-  const resolvePluginTexts = (p: PluginItem): { name?: string; description?: string } => {
+  const resolvePluginTexts = useCallback((p: PluginItem): { name?: string; description?: string } => {
     const i18n = (p.manifest as any)?.i18n as any;
     const entry = i18n?.[lang] as any;
     return {
       name: entry?.name || p.name || undefined,
       description: entry?.description || p.description || undefined,
     };
-  };
+  }, [lang]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -212,7 +381,7 @@ const PluginsPage = memo(function PluginsPage() {
       || (resolvePluginTexts(p).description || '').toLowerCase().includes(s)
       || (p.supported_exts || []).some(e => e.toLowerCase().includes(s))
     ));
-  }, [data, q, lang]);
+  }, [data, q, resolvePluginTexts]);
 
   // 过滤应用发现列表
   const filteredDiscoveryApps = useMemo(() => {
@@ -239,7 +408,7 @@ const PluginsPage = memo(function PluginsPage() {
   };
 
   // 下载并安装应用
-  const handleDownloadAndInstall = async (app: FoxelCoreApp) => {
+  const handleDownloadAndInstall = async (app: Pick<FoxelCoreApp, 'key' | 'version' | 'downloadUrl'>) => {
     if (downloadingApps.has(app.key)) return;
     
     try {
@@ -276,83 +445,57 @@ const PluginsPage = memo(function PluginsPage() {
     const texts = resolvePluginTexts(p);
     const icon = resolvePluginIcon(p);
     const name = texts.name || `${t('Plugin')} ${p.key}`;
-    const exts = (p.supported_exts || []).slice(0, 6);
-    const more = (p.supported_exts || []).length - exts.length;
     const appKey = `plugin:${p.key}`;
     const app = getAppByKey(appKey);
     const canOpenApp = !!p.open_app;
-    const title = (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <img src={icon} alt={name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/logo.svg'; }} />
-        <span>{name}</span>
-        {p.version && <Tag color="blue" style={{ marginLeft: 'auto' }}>{p.version}</Tag>}
-      </div>
-    );
     return (
-      <Card
+      <CenterCard
         key={p.key}
-        title={title}
-        hoverable
-        size="small"
-        styles={{ body: { padding: 12 } } as any}
-        style={{ borderRadius: 10, boxShadow: token.boxShadowTertiary }}
-        actions={[
-          <Button
-            key="open-app"
-            type="link"
-            size="small"
-            disabled={!canOpenApp}
-            onClick={async () => {
-              let target = app || getAppByKey(appKey);
-              if (!target) {
-                await reloadPluginApps();
-                target = getAppByKey(appKey);
-              }
-              if (target?.openAppComponent) openApp(target);
-            }}
-          >
-            {t('Open App')}
-          </Button>,
-          <Popconfirm key="del" title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.key); await reload(); await reloadPluginApps(); }}>
-            <Button type="link" danger size="small">{t('Uninstall')}</Button>
-          </Popconfirm>
-        ]}
-      >
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Typography.Paragraph
-              style={{ marginBottom: 8, minHeight: 44, lineHeight: '22px' }}
-              ellipsis={{ rows: 2 }}
-            >
-              {texts.description || t('No description')}
-            </Typography.Paragraph>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
-                {(exts.length > 0 ? exts : [t('Any')]).map(e => <Tag key={e} style={{ flex: 'none' }}>{e}</Tag>)}
-              </div>
-              {more > 0 && <Tag style={{ flex: 'none' }}>+{more}</Tag>}
-            </div>
-            <Divider style={{ margin: '8px 0' }} />
-            {(p.author || p.github || p.website) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextTertiary, fontSize: 12 }}>
-                {p.author && <span>{t('Author')}: {p.author}</span>}
-                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  {p.github && (
-                    <a href={p.github || undefined} target="_blank" rel="noreferrer" title="GitHub">
-                      <GithubOutlined style={{ fontSize: 16, color: token.colorTextTertiary }} />
-                    </a>
-                  )}
-                  {p.website && (
-                    <a href={p.website || undefined} target="_blank" rel="noreferrer" title={t('Website')}>
-                      <LinkOutlined style={{ fontSize: 16, color: token.colorTextTertiary }} />
-                    </a>
-                  )}
-                </span>
-              </div>
-            )}
+        iconUrl={icon}
+        iconAlt={name}
+        name={name}
+        version={p.version || undefined}
+        description={texts.description || t('No description')}
+        metaLeft={p.author || undefined}
+        metaRight={p.key}
+        pills={buildCardPills(p.supported_exts, t('Any'))}
+        footerLeft={(p.github || p.website) ? (
+          <div className="fx-center-card-links">
+            {p.github ? (
+              <a className="fx-center-card-iconLink" href={p.github || undefined} target="_blank" rel="noreferrer" title="GitHub" aria-label="GitHub">
+                <GithubOutlined />
+              </a>
+            ) : null}
+            {p.website ? (
+              <a className="fx-center-card-iconLink" href={p.website || undefined} target="_blank" rel="noreferrer" title={t('Website')} aria-label={t('Website')}>
+                <LinkOutlined />
+              </a>
+            ) : null}
           </div>
-        </div>
-      </Card>
+        ) : null}
+        footerRight={
+          <div className="fx-center-card-actions">
+            <Button
+              type="primary"
+              size="small"
+              disabled={!canOpenApp}
+              onClick={async () => {
+                let target = app || getAppByKey(appKey);
+                if (!target) {
+                  await reloadPluginApps();
+                  target = getAppByKey(appKey);
+                }
+                if (target?.openAppComponent) openApp(target);
+              }}
+            >
+              {t('Open App')}
+            </Button>
+            <Popconfirm title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.key); await reload(); await reloadPluginApps(); }}>
+              <Button type="text" danger size="small">{t('Uninstall')}</Button>
+            </Popconfirm>
+          </div>
+        }
+      />
     );
   };
 
@@ -409,7 +552,7 @@ const PluginsPage = memo(function PluginsPage() {
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
                   {loading ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 12, justifyContent: 'start' }}>
                       {Array.from({ length: 6 }).map((_, i) => (
                         <Card key={i} style={{ borderRadius: 10 }}>
                           <Skeleton active avatar paragraph={{ rows: 3 }} />
@@ -419,7 +562,7 @@ const PluginsPage = memo(function PluginsPage() {
                   ) : filtered.length === 0 ? (
                     <Empty description={t('No plugins')} />
                   ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 12, justifyContent: 'start' }}>
                       {filtered.map(renderCard)}
                     </div>
                   )}
@@ -458,7 +601,7 @@ const PluginsPage = memo(function PluginsPage() {
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 4 }}>
                   {discoveryLoading && discoveryApps.length === 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 12, justifyContent: 'start' }}>
                       {Array.from({ length: 6 }).map((_, i) => (
                         <Card key={i} style={{ borderRadius: 10 }}>
                           <Skeleton active avatar paragraph={{ rows: 3 }} />
@@ -472,7 +615,7 @@ const PluginsPage = memo(function PluginsPage() {
                   ) : filteredDiscoveryApps.length === 0 ? (
                     <Empty description={discoveryApps.length === 0 ? t('No results') : t('No results')} />
                   ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 12, justifyContent: 'start' }}>
                       {filteredDiscoveryApps.map(app => {
                         const name = lang === 'zh' ? app.name.zh : app.name.en;
                         const description = lang === 'zh' ? app.description.zh : app.description.en;
@@ -480,74 +623,41 @@ const PluginsPage = memo(function PluginsPage() {
                         const iconUrl = `https://foxel.cc/api/apps/${encodeURIComponent(app.key)}/icon`;
                         const installed = isAppInstalled(app.key);
                         const downloading = downloadingApps.has(app.key);
+                        const approvedDate = new Date(app.approvedAt).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US');
+                        const onOpenDetail = () => openDiscoveryAppDetail(app);
                         
                         return (
-                          <Card
+                          <CenterCard
                             key={app.key}
-                            hoverable
-                            size="small"
-                            styles={{ body: { padding: 12 } } as any}
-                            style={{ borderRadius: 10, boxShadow: token.boxShadowTertiary }}
-                            title={
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <img 
-                                  src={iconUrl} 
-                                  alt={name} 
-                                  style={{ width: 24, height: 24, objectFit: 'contain' }} 
-                                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/logo.svg'; }} 
-                                />
-                                <span>{name}</span>
-                                {app.version && <Tag color="blue" style={{ marginLeft: 'auto' }}>{app.version}</Tag>}
-                              </div>
-                            }
-                            actions={[
-                              installed ? (
-                                <Tag key="installed" color="green">{t('Installed already')}</Tag>
-                              ) : (
-                                <Button
-                                  key="install"
-                                  type="primary"
-                                  size="small"
-                                  icon={<DownloadOutlined />}
-                                  loading={downloading}
-                                  onClick={() => handleDownloadAndInstall(app)}
-                                >
-                                  {downloading ? t('Downloading') : t('Download and Install')}
-                                </Button>
-                              ),
-                              app.website && (
-                                <a key="website" href={app.website} target="_blank" rel="noreferrer">
-                                  <Button type="link" size="small" icon={<LinkOutlined />}>
-                                    {t('Website')}
-                                  </Button>
-                                </a>
-                              ),
-                            ].filter(Boolean) as any}
-                          >
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                              <Typography.Paragraph
-                                style={{ marginBottom: 8, minHeight: 44, lineHeight: '22px' }}
-                                ellipsis={{ rows: 2 }}
+                            iconUrl={iconUrl}
+                            iconAlt={name}
+                            name={name}
+                            version={app.version || undefined}
+                            description={description}
+                            metaLeft={app.author || undefined}
+                            metaRight={lang === 'zh' ? `审核于 ${approvedDate}` : `Approved ${approvedDate}`}
+                            pills={buildCardPills(tags)}
+                            onIconClick={onOpenDetail}
+                            onTitleClick={onOpenDetail}
+                            footerLeft={app.website ? (
+                              <a className="fx-center-card-iconLink" href={app.website} target="_blank" rel="noreferrer" title={t('Website')} aria-label={t('Website')}>
+                                <LinkOutlined />
+                              </a>
+                            ) : null}
+                            footerRight={installed ? (
+                              <span className="fx-center-pill fx-center-pill-success">{t('Installed already')}</span>
+                            ) : (
+                              <Button
+                                type="primary"
+                                size="small"
+                                icon={<DownloadOutlined />}
+                                loading={downloading}
+                                onClick={() => handleDownloadAndInstall(app)}
                               >
-                                {description}
-                              </Typography.Paragraph>
-                              {tags.length > 0 && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                                  {tags.slice(0, 5).map(tag => (
-                                    <Tag key={tag} style={{ margin: 0 }}>{tag}</Tag>
-                                  ))}
-                                  {tags.length > 5 && <Tag style={{ margin: 0 }}>+{tags.length - 5}</Tag>}
-                                </div>
-                              )}
-                              <Divider style={{ margin: '8px 0' }} />
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextTertiary, fontSize: 12 }}>
-                                {app.author && <span>{t('Author')}: {app.author}</span>}
-                                <span style={{ marginLeft: 'auto' }}>
-                                  {t('Approved')} {new Date(app.approvedAt).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US')}
-                                </span>
-                              </div>
-                            </div>
-                          </Card>
+                                {downloading ? t('Downloading') : t('Download and Install')}
+                              </Button>
+                            )}
+                          />
                         );
                       })}
                     </div>
@@ -558,6 +668,166 @@ const PluginsPage = memo(function PluginsPage() {
           }
         ]}
       />
+
+      <Modal
+        title={(() => {
+          if (detailApp) {
+            return `${lang === 'zh' ? detailApp.latest.name.zh : detailApp.latest.name.en} · ${t('Details')}`;
+          }
+          if (detailSummary) {
+            return `${lang === 'zh' ? detailSummary.name.zh : detailSummary.name.en} · ${t('Details')}`;
+          }
+          return t('Details');
+        })()}
+        open={detailOpen}
+        onCancel={closeDetailModal}
+        width={860}
+        footer={(() => {
+          const key = detailKey || detailApp?.key || detailSummary?.key;
+          const installed = key ? isAppInstalled(key) : false;
+          const downloading = key ? downloadingApps.has(key) : false;
+          const downloadUrl = detailApp?.latest.downloadUrl || detailSummary?.downloadUrl;
+          const version = detailApp?.latest.version || detailSummary?.version;
+
+          return (
+            <Space>
+              <Button onClick={closeDetailModal}>{t('Close')}</Button>
+              {installed ? (
+                <Button disabled>{t('Installed already')}</Button>
+              ) : (
+                <Button
+                  type="primary"
+                  size="middle"
+                  icon={<DownloadOutlined />}
+                  loading={downloading}
+                  disabled={!key || !downloadUrl || !version || detailLoading}
+                  onClick={() => {
+                    if (!key || !downloadUrl || !version) return;
+                    void handleDownloadAndInstall({ key, version, downloadUrl });
+                  }}
+                >
+                  {t('Download and Install')}
+                </Button>
+              )}
+            </Space>
+          );
+        })()}
+      >
+        <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 6 }}>
+          {detailLoading && !detailApp ? (
+            <Skeleton active avatar paragraph={{ rows: 8 }} />
+          ) : detailError ? (
+            <Empty description={detailError}>
+              <Button
+                onClick={() => {
+                  if (!detailKey) return;
+                  setDetailApp(null);
+                  setDetailError(undefined);
+                  setDetailReloadId(v => v + 1);
+                }}
+              >
+                {t('Refresh')}
+              </Button>
+            </Empty>
+          ) : detailApp ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ width: 64, height: 64, borderRadius: 14, overflow: 'hidden', border: `1px solid ${token.colorBorder}` }}>
+                  <img
+                    src={`https://foxel.cc/api/apps/${encodeURIComponent(detailApp.key)}/icon`}
+                    alt={lang === 'zh' ? detailApp.latest.name.zh : detailApp.latest.name.en}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: token.colorBgContainer }}
+                    loading="lazy"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/logo.svg'; }}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                    <Typography.Title level={5} style={{ margin: 0 }}>
+                      {lang === 'zh' ? detailApp.latest.name.zh : detailApp.latest.name.en}
+                    </Typography.Title>
+                    <Typography.Text type="secondary">
+                      {t('Version')}: {detailApp.latest.version}
+                    </Typography.Text>
+                  </div>
+                  <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 10, color: token.colorTextTertiary, fontSize: 12 }}>
+                    <span>{detailApp.latest.author}</span>
+                    <span>{detailApp.key}</span>
+                    <span>
+                      {lang === 'zh'
+                        ? `审核于 ${new Date(detailApp.latest.approvedAt).toLocaleDateString('zh-CN')}`
+                        : `Approved ${new Date(detailApp.latest.approvedAt).toLocaleDateString('en-US')}`}
+                    </span>
+                    {detailApp.latest.website ? (
+                      <a href={detailApp.latest.website} target="_blank" rel="noreferrer" style={{ color: token.colorTextTertiary }}>
+                        <LinkOutlined style={{ marginRight: 6 }} />
+                        {t('Website')}
+                      </a>
+                    ) : null}
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <Space size={[4, 4]} wrap>
+                      {(lang === 'zh' ? detailApp.latest.tags.zh : detailApp.latest.tags.en).map(tag => (
+                        <Tag key={tag}>{tag}</Tag>
+                      ))}
+                    </Space>
+                  </div>
+                </div>
+              </div>
+
+              <Tabs
+                defaultActiveKey="details"
+                items={[
+                  {
+                    key: 'details',
+                    label: t('Details'),
+                    children: (
+                      <Typography.Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
+                        {lang === 'zh' ? detailApp.latest.description.zh : detailApp.latest.description.en}
+                      </Typography.Paragraph>
+                    ),
+                  },
+                  {
+                    key: 'versions',
+                    label: t('Version'),
+                    children: (
+                      <Collapse
+                        size="small"
+                        items={detailApp.versions.map(v => {
+                          const approvedDate = new Date(v.approvedAt).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US');
+                          return {
+                            key: v.version,
+                            label: (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{v.version}</span>
+                                <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
+                                  {lang === 'zh' ? `审核于 ${approvedDate}` : `Approved ${approvedDate}`}
+                                </span>
+                              </div>
+                            ),
+                            children: v.releaseNotesMd ? (
+                              <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+                                <ReactMarkdown>{v.releaseNotesMd}</ReactMarkdown>
+                              </div>
+                            ) : (
+                              <Typography.Text type="secondary">
+                                {lang === 'zh' ? '暂无更新记录' : 'No release notes'}
+                              </Typography.Text>
+                            ),
+                          };
+                        })}
+                        style={{ background: 'transparent' }}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            </div>
+          ) : (
+            <Empty description={t('No results')} />
+          )}
+        </div>
+      </Modal>
 
       <Modal
         title={t('Confirm Install')}

@@ -10,6 +10,174 @@ body { font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto
 .fx-card { background: var(--ant-color-bg-container, #fff); border:1px solid var(--ant-color-border, #eaeaea); border-radius:14px; box-shadow:0 1px 2px rgba(0,0,0,.04),0 4px 10px -2px rgba(0,0,0,.03); }
 .fx-fade-text { color: var(--ant-color-text-secondary, #555); }
 
+.fx-center-card {
+  background: var(--ant-color-bg-container, #fff);
+  border: 1px solid var(--ant-color-border, #eaeaea);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 24px -18px rgba(0,0,0,.22);
+}
+.fx-center-card-hero {
+  position: relative;
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--ant-color-fill-secondary, #f3f3f3), var(--ant-color-fill-tertiary, #f5f5f5));
+}
+[data-theme="dark"] .fx-center-card-hero {
+  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+}
+.fx-center-card-iconbox {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.65);
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+[data-theme="dark"] .fx-center-card-iconbox {
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.28);
+}
+.fx-center-card-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+.fx-center-card-pills {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.fx-center-pill {
+  max-width: 120px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 18px;
+  border: 1px solid rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.72);
+  color: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+[data-theme="dark"] .fx-center-pill {
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.28);
+  color: rgba(255,255,255,0.85);
+}
+.fx-center-pill-success {
+  border-color: rgba(82,196,26,0.35);
+  background: rgba(82,196,26,0.14);
+  color: var(--ant-color-success, #52c41a);
+}
+.fx-center-card-body {
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fx-center-card-titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fx-center-card-title {
+  min-width: 0;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--ant-color-text, #111);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.fx-center-card-version {
+  flex: none;
+  font-size: 12px;
+  color: var(--ant-color-text-tertiary, #666);
+  font-variant-numeric: tabular-nums;
+}
+.fx-center-card-metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ant-color-text-tertiary, #666);
+}
+.fx-center-card-metaLeft,
+.fx-center-card-metaRight {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.fx-center-card-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ant-color-text-secondary, #555);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 42px;
+}
+.fx-center-card-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+  background: var(--ant-color-fill-tertiary, #fafafa);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+[data-theme="dark"] .fx-center-card-footer {
+  background: rgba(255,255,255,0.02);
+}
+.fx-center-card-footerLeft,
+.fx-center-card-footerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.fx-center-card-actions,
+.fx-center-card-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fx-center-card-iconLink {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--ant-color-text-tertiary, #666);
+  transition: background .18s ease, color .18s ease;
+}
+.fx-center-card-iconLink:hover {
+  background: var(--ant-color-fill-secondary, #f2f2f2);
+  color: var(--ant-color-text, #111);
+}
+[data-theme="dark"] .fx-center-card-iconLink:hover {
+  background: rgba(255,255,255,0.06);
+}
+
 .fx-quiet-btn.ant-btn-text:not(:hover) { color: var(--ant-color-text-tertiary, #666); }
 
 /* 使用 antd 默认布局背景 */

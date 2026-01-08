@@ -1,10 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Avatar, Button, Card, Collapse, Divider, Drawer, Flex, FloatButton, Input, List, Space, Switch, Tag, Typography, message, theme } from 'antd';
+import { Avatar, Button, Divider, Drawer, Flex, Input, List, Space, Switch, Tag, Typography, message, theme } from 'antd';
 import { RobotOutlined, SendOutlined, FolderOpenOutlined, DeleteOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import PathSelectorModal from './PathSelectorModal';
 import { agentApi, type AgentChatMessage, type PendingToolCall } from '../api/agent';
-import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import '../styles/ai-agent.css';
 
@@ -57,13 +56,13 @@ function shortId(id: string, keep: number = 6): string {
 
 interface AiAgentWidgetProps {
   currentPath?: string | null;
+  open: boolean;
+  onOpenChange(open: boolean): void;
 }
 
-const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidgetProps) {
+const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenChange }: AiAgentWidgetProps) {
   const { t } = useI18n();
   const { token } = theme.useToken();
-  const { user } = useAuth();
-  const [open, setOpen] = useState(false);
   const [autoExecute, setAutoExecute] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -78,6 +77,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
   const streamSeqRef = useRef(0);
   const baseMessagesRef = useRef<AgentChatMessage[]>([]);
   const assistantIndexRef = useRef<Record<string, number>>({});
+  const toolNameByIdRef = useRef<Record<string, string>>({});
 
   const effectivePath = useMemo(() => normalizePath(currentPath), [currentPath]);
 
@@ -196,12 +196,15 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
               const toolCallId = String((evt.data as any)?.tool_call_id || '');
               const name = String((evt.data as any)?.name || '');
               if (!toolCallId) return;
+              if (name) toolNameByIdRef.current[toolCallId] = name;
               setRunningTools((prev) => ({ ...prev, [toolCallId]: name || prev[toolCallId] || '' }));
               return;
             }
             case 'tool_end': {
               const toolCallId = String((evt.data as any)?.tool_call_id || '');
+              const name = String((evt.data as any)?.name || '');
               const msg = (evt.data as any)?.message;
+              if (toolCallId && name) toolNameByIdRef.current[toolCallId] = name;
               if (toolCallId) {
                 setRunningTools((prev) => {
                   const next = { ...prev };
@@ -312,7 +315,6 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
     });
   }, [messages]);
 
-  const pendingCount = pending.length;
   const runningToolEntries = useMemo(() => Object.entries(runningTools).filter(([id]) => !!id), [runningTools]);
   const runningToolCount = runningToolEntries.length;
 
@@ -325,9 +327,9 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
     }
   }, [t]);
 
-  const renderToolResultSummary = useCallback((toolName: string, rawContent: string) => {
+  const renderToolResultSummary = useCallback((toolName: string, rawContent: string, toolArgs?: Record<string, any> | null) => {
     const data = tryParseJson<Record<string, any>>(rawContent);
-    if (!data) return t('Expand');
+    if (!data) return '';
 
     if (data.canceled) return t('Canceled');
     if (data.error) return `${t('Error')}: ${String(data.error)}`;
@@ -337,10 +339,18 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
       return `${t('Processors')}: ${processors.length}`;
     }
     if (toolName === 'processors_run') {
-      if (typeof data.task_id === 'string') return `${t('Task submitted')}: ${shortId(data.task_id)}`;
+      const ctx = (() => {
+        const processorType = typeof toolArgs?.processor_type === 'string' ? toolArgs.processor_type.trim() : '';
+        const path = typeof toolArgs?.path === 'string' ? toolArgs.path.trim() : '';
+        const parts = [processorType, path].filter(Boolean);
+        return parts.length ? parts.join(' · ') : '';
+      })();
+      if (typeof data.task_id === 'string') {
+        return ctx ? `${t('Task submitted')}: ${ctx} · ${shortId(data.task_id)}` : `${t('Task submitted')}: ${shortId(data.task_id)}`;
+      }
       const taskIds = Array.isArray(data.task_ids) ? data.task_ids : [];
       const scheduled = typeof data.scheduled === 'number' ? data.scheduled : taskIds.length;
-      if (scheduled) return `${t('Tasks submitted')}: ${scheduled}`;
+      if (scheduled) return ctx ? `${t('Tasks submitted')}: ${ctx} · ${scheduled}` : `${t('Tasks submitted')}: ${scheduled}`;
       return t('Task submitted');
     }
     if (toolName === 'vfs_list_dir') {
@@ -400,7 +410,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
       const dst = typeof data.dst === 'string' ? data.dst : '';
       return `${t('Renamed')}: ${src || '-'} → ${dst || '-'}`;
     }
-    return t('Details');
+    return '';
   }, [t]);
 
   const renderToolDetails = useCallback((toolKey: string, toolName: string, rawContent: string) => {
@@ -421,7 +431,6 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
 
     const header = (
       <Space size={10} wrap>
-        <Text code>{toolName}</Text>
         <Button
           type="text"
           size="small"
@@ -610,35 +619,57 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
     );
   }, [copyToClipboard, expandedRaw, t]);
 
+  const renderToolArgsSummary = useCallback((toolName: string, args?: Record<string, any> | null) => {
+    const a = args || {};
+    if (toolName === 'processors_run') {
+      const path = typeof a.path === 'string' ? a.path : '';
+      return path ? `${t('Path')}: ${path}` : '';
+    }
+    if (toolName === 'vfs_read_text' || toolName === 'vfs_list_dir' || toolName === 'vfs_stat' || toolName === 'vfs_delete' || toolName === 'vfs_mkdir') {
+      const path = typeof a.path === 'string' ? a.path : '';
+      return path ? `${t('Path')}: ${path}` : '';
+    }
+    if (toolName === 'vfs_search') {
+      const query = typeof a.query === 'string' ? a.query : '';
+      return query ? `${t('Search')}: ${query}` : '';
+    }
+    if (toolName === 'vfs_write_text') {
+      const path = typeof a.path === 'string' ? a.path : '';
+      return path ? `${t('Path')}: ${path}` : '';
+    }
+    if (toolName === 'vfs_move' || toolName === 'vfs_copy' || toolName === 'vfs_rename') {
+      const src = typeof a.src === 'string' ? a.src : '';
+      const dst = typeof a.dst === 'string' ? a.dst : '';
+      if (src && dst) return `${src} → ${dst}`;
+      if (src) return src;
+      if (dst) return dst;
+      return '';
+    }
+    return '';
+  }, [t]);
+
   return (
     <>
-      <FloatButton
-        className="fx-agent-float-btn"
-        type="primary"
-        icon={<RobotOutlined />}
-        badge={pendingCount > 0 ? { count: pendingCount } : undefined}
-        tooltip={t('AI Agent')}
-        onClick={() => setOpen(true)}
-      />
-
       <Drawer
         title={t('AI Agent')}
         open={open}
-        onClose={() => { streamControllerRef.current?.abort(); setOpen(false); }}
+        onClose={() => { streamControllerRef.current?.abort(); onOpenChange(false); }}
         width={520}
+        mask={false}
         destroyOnHidden
         styles={{
           body: {
-            padding: 12,
+            padding: 8,
             background: token.colorBgLayout,
           },
         }}
         extra={
           <Space align="center">
             <Text type="secondary">{t('Auto execute')}</Text>
-            <Switch checked={autoExecute} onChange={setAutoExecute} />
+            <Switch size="small" checked={autoExecute} onChange={setAutoExecute} />
             <Button
               type="text"
+              size="small"
               icon={<DeleteOutlined />}
               onClick={clearChat}
               disabled={loading || messageItems.length === 0}
@@ -648,15 +679,15 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
           </Space>
         }
       >
-        <Flex vertical gap={12} style={{ height: '100%' }} className="fx-agent-container">
+        <Flex vertical gap={8} style={{ height: '100%' }} className="fx-agent-container">
           <div
             ref={scrollRef}
             className="fx-agent-chat-scroll"
           >
             {messageItems.length === 0 ? (
               <div className="fx-agent-empty">
-                <Avatar size={44} icon={<RobotOutlined />} style={{ background: token.colorPrimary }} />
-                <div style={{ marginTop: 10 }}>
+                <Avatar size={36} icon={<RobotOutlined />} style={{ background: token.colorPrimary }} />
+                <div style={{ marginTop: 8 }}>
                   <Text type="secondary">{t('Start a conversation')}</Text>
                 </div>
               </div>
@@ -668,76 +699,78 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
                   const isTool = role === 'tool';
                   const toolCallId = typeof (m as any).tool_call_id === 'string' ? String((m as any).tool_call_id) : '';
                   const toolInfo = toolCallId ? toolCallsById.get(toolCallId) : null;
-	                  const toolName = toolInfo?.name || '';
-	                  const msgKey = toolCallId ? `tool:${toolCallId}` : `${role}:${idx}`;
+                  const toolName = toolInfo?.name || (toolCallId ? toolNameByIdRef.current[toolCallId] : '') || '';
+                  const msgKey = toolCallId ? `tool:${toolCallId}` : `${role}:${idx}`;
 
-	                  if (isTool) {
-	                    const rawContent = extractTextContent((m as any).content);
-	                    const expanded = !!expandedTools[msgKey];
-	                    const summary = toolName ? renderToolResultSummary(toolName, rawContent) : t('Details');
-	                    return (
-	                      <div key={msgKey} className={`fx-agent-row ${isUser ? 'fx-agent-user' : ''}`}>
-	                        <Avatar className="fx-agent-avatar" size={32} icon={<ToolOutlined />} />
-	                        <div className="fx-agent-bubble fx-agent-tool-bubble">
-	                          <div className="fx-agent-content">
-	                            <Flex align="flex-start" justify="space-between" gap={10} className="fx-agent-tool-head">
-	                              <Text style={{ flex: 1, minWidth: 0 }}>{summary}</Text>
-	                              <Button
-	                                type="text"
-	                                size="small"
-	                                icon={expanded ? <UpOutlined /> : <DownOutlined />}
-	                                onClick={() => setExpandedTools((prev) => ({ ...prev, [msgKey]: !prev[msgKey] }))}
-	                              >
-	                                {expanded ? t('Collapse') : t('Expand')}
-	                              </Button>
-	                            </Flex>
-	                            {expanded && (
-	                              <div style={{ marginTop: 10 }}>
-	                                {toolInfo?.args && Object.keys(toolInfo.args).length > 0 && (
-	                                  <div style={{ marginBottom: 10 }}>
-	                                    <Text type="secondary" style={{ fontSize: 12 }}>{t('Arguments')}</Text>
-	                                    <pre className="fx-agent-pre fx-agent-pre-compact">
-	                                      {JSON.stringify(toolInfo.args, null, 2)}
-	                                    </pre>
-	                                  </div>
-	                                )}
-	                                {renderToolDetails(msgKey, toolName || t('Tool'), rawContent)}
-	                              </div>
-	                            )}
-	                          </div>
-	                        </div>
-	                      </div>
-	                    );
-	                  }
-
-	                  const text = extractTextContent((m as any).content);
-	                  const userName = user?.full_name || user?.username || t('You');
-	                  const userInitial = String(userName || 'U').slice(0, 1).toUpperCase();
-	                  return (
-	                    <div key={msgKey} className={`fx-agent-row ${isUser ? 'fx-agent-user' : ''}`}>
-	                      <Avatar
-	                        className="fx-agent-avatar"
-	                        size={32}
-	                        src={isUser ? user?.gravatar_url : undefined}
-	                        icon={isUser ? undefined : <RobotOutlined />}
-	                        style={isUser ? { background: token.colorFillSecondary, color: token.colorText } : { background: token.colorPrimary }}
-	                      >
-	                        {isUser ? userInitial : null}
-	                      </Avatar>
-	                      <div className={`fx-agent-bubble ${isUser ? 'fx-agent-user-bubble' : 'fx-agent-assistant-bubble'}`}>
-	                        <div className="fx-agent-content">
-	                          {text.trim() ? (
-	                            isUser ? (
-	                              <div className="fx-agent-text">{text}</div>
-                            ) : (
-                              <div className="fx-agent-md">
-                                <ReactMarkdown>{text}</ReactMarkdown>
-                              </div>
-                            )
-                          ) : (
-                            <Text type="secondary">{t('No content')}</Text>
+                  if (isTool) {
+                    const rawContent = extractTextContent((m as any).content);
+                    const expanded = !!expandedTools[msgKey];
+                    const summary = toolName ? renderToolResultSummary(toolName, rawContent, toolInfo?.args || null) : '';
+                    return (
+                      <div key={msgKey} className="fx-agent-msg fx-agent-msg-tool">
+                        <div className="fx-agent-tool-block">
+                          <div className="fx-agent-tool-bar">
+                            <Space size={6} wrap className="fx-agent-tool-pills">
+                              <Tag className="fx-agent-pill" bordered={false} icon={<ToolOutlined />}>
+                                {t('MCP Tool')}
+                              </Tag>
+                              <Tag className="fx-agent-pill fx-agent-pill-strong" bordered={false} icon={<CodeOutlined />}>
+                                {toolName || t('Tool')}
+                              </Tag>
+                            </Space>
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={expanded ? <UpOutlined /> : <DownOutlined />}
+                              onClick={() => setExpandedTools((prev) => ({ ...prev, [msgKey]: !prev[msgKey] }))}
+                            >
+                              {expanded ? t('Collapse') : t('Expand')}
+                              </Button>
+                          </div>
+                          {summary ? (
+                            <div className="fx-agent-tool-summary-line">
+                              <Text type="secondary">{summary}</Text>
+                            </div>
+                          ) : null}
+                          {expanded && (
+                            <div className="fx-agent-tool-expanded">
+                              {toolInfo?.args && Object.keys(toolInfo.args).length > 0 && (
+                                <div style={{ marginBottom: 10 }}>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>{t('Arguments')}</Text>
+                                  <pre className="fx-agent-pre fx-agent-pre-compact">
+                                    {JSON.stringify(toolInfo.args, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
+                              {renderToolDetails(msgKey, toolName || t('Tool'), rawContent)}
+                            </div>
                           )}
                         </div>
+                      </div>
+                    );
+                  }
+
+                  const text = extractTextContent((m as any).content);
+                  if (isUser) {
+                    return (
+                      <div key={msgKey} className="fx-agent-msg fx-agent-msg-user">
+                        <div className="fx-agent-user-block fx-agent-content">
+                          {text.trim() ? <div className="fx-agent-text">{text}</div> : <Text type="secondary">{t('No content')}</Text>}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={msgKey} className="fx-agent-msg fx-agent-msg-assistant">
+                      <div className="fx-agent-assistant-block fx-agent-content">
+                        {text.trim() ? (
+                          <div className="fx-agent-md">
+                            <ReactMarkdown>{text}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          <Text type="secondary">{t('No content')}</Text>
+                        )}
                       </div>
                     </div>
                   );
@@ -758,87 +791,96 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
                     </Space>
                   </div>
                 )}
+                {pending.length > 0 && (
+                  <div className="fx-agent-pending-group">
+                    <div className="fx-agent-pending-head">
+                      <Space size={8} wrap>
+                        <Tag className="fx-agent-pill fx-agent-pill-warn" bordered={false}>
+                          {t('Pending actions')}
+                        </Tag>
+                        <Text type="secondary">{pending.length}</Text>
+                      </Space>
+                      <Space size={6}>
+                        <Button size="small" type="primary" onClick={approveAll} loading={loading}>
+                          {t('Execute all')}
+                        </Button>
+                        <Button size="small" onClick={rejectAll} disabled={loading}>
+                          {t('Cancel all')}
+                        </Button>
+                      </Space>
+                    </div>
+
+                    <div className="fx-agent-pending-list">
+                      {pending.map((p) => {
+                        const args = p.arguments || {};
+                        const key = `pending:${p.id}`;
+                        const expanded = !!expandedTools[key];
+                        const running = Object.prototype.hasOwnProperty.call(runningTools, p.id);
+                        const summary = renderToolArgsSummary(p.name, args);
+                        return (
+                          <div key={p.id} className="fx-agent-tool-block fx-agent-pending-item">
+                            <div className="fx-agent-tool-bar">
+                              <Space size={6} wrap className="fx-agent-tool-pills">
+                                <Tag className="fx-agent-pill" bordered={false} icon={<ToolOutlined />}>
+                                  {t('MCP Tool')}
+                                </Tag>
+                                <Tag className="fx-agent-pill fx-agent-pill-strong" bordered={false} icon={<CodeOutlined />}>
+                                  {p.name}
+                                </Tag>
+                                {running ? <LoadingOutlined spin style={{ color: token.colorPrimary }} /> : null}
+                              </Space>
+                              <Space size={6}>
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  onClick={() => void approveOne(p.id)}
+                                  loading={loading && running}
+                                  disabled={loading && !running}
+                                >
+                                  {t('Execute')}
+                                </Button>
+                                <Button
+                                  size="small"
+                                  onClick={() => void rejectOne(p.id)}
+                                  disabled={loading && !running}
+                                >
+                                  {t('Cancel')}
+                                </Button>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={expanded ? <UpOutlined /> : <DownOutlined />}
+                                  onClick={() => setExpandedTools((prev) => ({ ...prev, [key]: !prev[key] }))}
+                                />
+                              </Space>
+                            </div>
+                            {summary ? (
+                              <div className="fx-agent-tool-summary-line">
+                                <Text type="secondary">{summary}</Text>
+                              </div>
+                            ) : null}
+                            {expanded && (
+                              <div className="fx-agent-tool-expanded">
+                                <Text type="secondary" style={{ fontSize: 12 }}>{t('Arguments')}</Text>
+                                <pre className="fx-agent-pre">
+                                  {JSON.stringify(args, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {pending.length > 0 && (
-            <Card
-              size="small"
-              title={
-                <Space size={8}>
-                  <Tag color="orange">{t('Pending actions')}</Tag>
-                  <Text type="secondary">{pending.length}</Text>
-                </Space>
-              }
-              extra={
-                <Space>
-                  <Button type="primary" onClick={approveAll} loading={loading}>
-                    {t('Execute all')}
-                  </Button>
-                  <Button onClick={rejectAll} disabled={loading}>
-                    {t('Cancel all')}
-                  </Button>
-                </Space>
-              }
-              className="fx-agent-pending-card"
-            >
-              <Collapse
-                size="small"
-                items={pending.map((p) => {
-                  const args = p.arguments || {};
-                  const title = p.name === 'processors_run'
-                    ? `${String(args.processor_type || '')} · ${String(args.path || '')}`
-                    : p.name;
-                  const running = Object.prototype.hasOwnProperty.call(runningTools, p.id);
-                  return {
-                    key: p.id,
-                    label: (
-                      <Space size={8} wrap>
-                        <Text strong>{title || p.name}</Text>
-                        <Text type="secondary" style={{ fontSize: 12 }}>#{shortId(p.id, 4)}</Text>
-                        {running ? <LoadingOutlined spin style={{ color: token.colorPrimary }} /> : null}
-                      </Space>
-                    ),
-                    extra: (
-                      <Space>
-                        <Button
-                          size="small"
-                          type="primary"
-                          onClick={(e) => { e.stopPropagation(); void approveOne(p.id); }}
-                          loading={loading && running}
-                          disabled={loading && !running}
-                        >
-                          {t('Execute')}
-                        </Button>
-                        <Button
-                          size="small"
-                          onClick={(e) => { e.stopPropagation(); void rejectOne(p.id); }}
-                          disabled={loading && !running}
-                        >
-                          {t('Cancel')}
-                        </Button>
-                      </Space>
-                    ),
-                    children: (
-                      <div>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{t('Arguments')}</Text>
-                        <pre className="fx-agent-pre">
-                          {JSON.stringify(args, null, 2)}
-                        </pre>
-                      </div>
-                    ),
-                  };
-                })}
-                style={{ background: 'transparent' }}
-              />
-            </Card>
-          )}
-
           <div className="fx-agent-composer">
-            <Flex vertical gap={10}>
+            <Flex vertical gap={8}>
               <Space wrap>
-                <Button icon={<FolderOpenOutlined />} onClick={() => setPathModalOpen(true)} disabled={loading}>
+                <Button size="small" icon={<FolderOpenOutlined />} onClick={() => setPathModalOpen(true)} disabled={loading}>
                   {t('Select Path')}
                 </Button>
                 {effectivePath && (
@@ -862,6 +904,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath }: AiAgentWidget
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Button
                   type="primary"
+                  size="small"
                   icon={<SendOutlined />}
                   onClick={handleSend}
                   loading={loading}

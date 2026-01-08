@@ -31,6 +31,19 @@ function renderStatus(text: string, isError: boolean = false) {
   root.appendChild(el);
 }
 
+function scheduleStatus(text: string, delayMs: number) {
+  let canceled = false;
+  const t = window.setTimeout(() => {
+    if (canceled) return;
+    renderStatus(text);
+  }, delayMs);
+
+  return () => {
+    canceled = true;
+    window.clearTimeout(t);
+  };
+}
+
 function getQuery() {
   const params = new URLSearchParams(window.location.search);
   const pluginKey = (params.get('pluginKey') || '').trim();
@@ -89,14 +102,25 @@ function getPluginStylePaths(plugin: PluginItem): string[] {
   return styles.filter((s) => typeof s === 'string' && s.trim().length > 0);
 }
 
-async function loadPluginStyles(pluginKey: string, plugin: PluginItem) {
+function withVersion(url: string, version?: string | null): string {
+  const v = typeof version === 'string' ? version.trim() : '';
+  if (!v) return url;
+  const u = new URL(url, window.location.origin);
+  u.searchParams.set('v', v);
+  return u.pathname + u.search;
+}
+
+async function loadPluginStyles(pluginKey: string, plugin: PluginItem, version?: string | null) {
   const stylePaths = getPluginStylePaths(plugin);
   if (stylePaths.length === 0) return;
 
   const tasks = stylePaths.map(
     (p) =>
       new Promise<void>((resolve) => {
-        const href = `/api/plugins/${pluginKey}/assets/${p.replace(/^\/+/, '')}`;
+        const href = withVersion(
+          `/api/plugins/${pluginKey}/assets/${p.replace(/^\/+/, '')}`,
+          version
+        );
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = href;
@@ -109,8 +133,8 @@ async function loadPluginStyles(pluginKey: string, plugin: PluginItem) {
   await Promise.all(tasks);
 }
 
-async function loadPluginBundle(pluginKey: string): Promise<RegisteredPlugin> {
-  const url = `/api/plugins/${pluginKey}/bundle.js`;
+async function loadPluginBundle(pluginKey: string, version?: string | null): Promise<RegisteredPlugin> {
+  const url = withVersion(`/api/plugins/${pluginKey}/bundle.js`, version);
 
   return new Promise<RegisteredPlugin>((resolve, reject) => {
     let done = false;
@@ -178,32 +202,35 @@ async function main() {
     return;
   }
 
-  renderStatus('Loading plugin...');
+  const cancelLoading = scheduleStatus('Loading plugin...', 200);
 
   let plugin: PluginItem;
   try {
     plugin = await pluginsApi.get(pluginKey);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    cancelLoading();
     renderStatus(`Failed to load plugin info: ${msg}`, true);
     return;
   }
 
   try {
-    await loadPluginStyles(pluginKey, plugin);
+    await loadPluginStyles(pluginKey, plugin, plugin.version);
   } catch {
     // ignore
   }
 
   let registered: RegisteredPlugin;
   try {
-    registered = await loadPluginBundle(pluginKey);
+    registered = await loadPluginBundle(pluginKey, plugin.version);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    cancelLoading();
     renderStatus(`Failed to load plugin bundle: ${msg}`, true);
     return;
   }
 
+  cancelLoading();
   const host = createHostApi(pluginKey);
 
   let cleanup: (() => void) | null = null;

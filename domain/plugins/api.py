@@ -67,10 +67,12 @@ async def delete_plugin(request: Request, key_or_id: str):
 async def get_bundle(request: Request, key_or_id: str):
     """获取插件前端 bundle"""
     path = await PluginService.get_bundle_path(key_or_id)
+    v = (request.query_params.get("v") or "").strip()
+    cache_control = "public, max-age=31536000, immutable" if v else "no-cache"
     return FileResponse(
         path,
         media_type="application/javascript",
-        headers={"Cache-Control": "no-store"},
+        headers={"Cache-Control": cache_control},
     )
 
 

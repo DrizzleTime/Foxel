@@ -10,6 +10,15 @@ import { vfsApi, type VfsEntry } from './api/vfs';
 
 type FrameMode = 'file' | 'app';
 
+type FrameQuery = {
+  pluginKey: string;
+  mode: FrameMode;
+  filePath: string;
+  pluginVersion: string;
+  pluginStyles: string[] | null;
+  entry: VfsEntry | null;
+};
+
 function renderStatus(text: string, isError: boolean = false) {
   const root = document.getElementById('root');
   if (!root) return;
@@ -44,18 +53,93 @@ function scheduleStatus(text: string, delayMs: number) {
   };
 }
 
-function getQuery() {
+function tryParseJson<T = unknown>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function getQuery(): FrameQuery {
   const params = new URLSearchParams(window.location.search);
   const pluginKey = (params.get('pluginKey') || '').trim();
   const mode = (params.get('mode') || 'file') as FrameMode;
   const filePath = (params.get('filePath') || '').trim();
-  return { pluginKey, mode, filePath };
+  const pluginVersion = (params.get('pluginVersion') || '').trim();
+
+  const rawStyles = (params.get('pluginStyles') || '').trim();
+  const parsedStyles = rawStyles ? tryParseJson<unknown>(rawStyles) : null;
+  const pluginStyles = Array.isArray(parsedStyles)
+    ? parsedStyles.filter((s) => typeof s === 'string' && s.trim().length > 0)
+    : null;
+
+  const rawEntry = (params.get('entry') || '').trim();
+  const parsedEntry = rawEntry ? tryParseJson<any>(rawEntry) : null;
+  const entry: VfsEntry | null =
+    parsedEntry && typeof parsedEntry === 'object' && typeof parsedEntry.name === 'string'
+      ? {
+        name: String(parsedEntry.name),
+        is_dir: Boolean(parsedEntry.is_dir),
+        size: Number(parsedEntry.size || 0),
+        mtime: Number(parsedEntry.mtime || 0),
+        type: typeof parsedEntry.type === 'string' ? parsedEntry.type : undefined,
+        has_thumbnail: Boolean(parsedEntry.has_thumbnail),
+      }
+      : null;
+
+  return { pluginKey, mode, filePath, pluginVersion, pluginStyles, entry };
 }
 
 function postToParent(data: any) {
   if (window.parent && window.parent !== window) {
     window.parent.postMessage(data, window.location.origin);
   }
+}
+
+type TempLinkCache = {
+  url: string;
+  fetchedAt: number;
+  expiresIn: number;
+};
+
+const TEMP_LINK_CACHE_PREFIX = 'foxel:tempLink:';
+const TEMP_LINK_DEFAULT_EXPIRES_IN = 3600;
+
+function getTempLinkCacheKey(filePath: string) {
+  return `${TEMP_LINK_CACHE_PREFIX}${filePath}`;
+}
+
+function readTempLinkCache(filePath: string): TempLinkCache | null {
+  try {
+    const raw = sessionStorage.getItem(getTempLinkCacheKey(filePath));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as TempLinkCache;
+    if (!parsed || typeof parsed.url !== 'string') return null;
+    if (!parsed.fetchedAt || !parsed.expiresIn) return null;
+    if (Date.now() - parsed.fetchedAt >= parsed.expiresIn * 1000 - 10_000) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeTempLinkCache(filePath: string, item: TempLinkCache) {
+  try {
+    sessionStorage.setItem(getTempLinkCacheKey(filePath), JSON.stringify(item));
+  } catch {
+    void 0;
+  }
+}
+
+async function getTempLinkUrl(filePath: string, expiresIn: number = TEMP_LINK_DEFAULT_EXPIRES_IN) {
+  const cached = readTempLinkCache(filePath);
+  if (cached) return cached.url;
+
+  const tokenData = await vfsApi.getTempLinkToken(filePath, expiresIn);
+  const url = typeof tokenData?.url === 'string' && tokenData.url.trim() ? tokenData.url : vfsApi.getTempPublicUrl(tokenData.token);
+  writeTempLinkCache(filePath, { url, fetchedAt: Date.now(), expiresIn });
+  return url;
 }
 
 function createHostApi(pluginKey: string): FoxelHostApi {
@@ -89,8 +173,7 @@ function createHostApi(pluginKey: string): FoxelHostApi {
     callApi: async <T = unknown>(path: string, options?: RequestInit & { json?: unknown }) =>
       request<T>(path, options),
     getTempLink: async (filePath: string) => {
-      const token = await vfsApi.getTempLinkToken(filePath);
-      return vfsApi.getTempPublicUrl(token.token);
+      return await getTempLinkUrl(filePath);
     },
     getStreamUrl: (filePath: string) => vfsApi.streamUrl(filePath),
   };
@@ -110,27 +193,16 @@ function withVersion(url: string, version?: string | null): string {
   return u.pathname + u.search;
 }
 
-async function loadPluginStyles(pluginKey: string, plugin: PluginItem, version?: string | null) {
-  const stylePaths = getPluginStylePaths(plugin);
+function injectPluginStyles(pluginKey: string, stylePaths: string[], version?: string | null) {
   if (stylePaths.length === 0) return;
 
-  const tasks = stylePaths.map(
-    (p) =>
-      new Promise<void>((resolve) => {
-        const href = withVersion(
-          `/api/plugins/${pluginKey}/assets/${p.replace(/^\/+/, '')}`,
-          version
-        );
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = href;
-        link.onload = () => resolve();
-        link.onerror = () => resolve();
-        document.head.appendChild(link);
-      })
-  );
-
-  await Promise.all(tasks);
+  stylePaths.forEach((p) => {
+    const href = withVersion(`/api/plugins/${pluginKey}/assets/${p.replace(/^\/+/, '')}`, version);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  });
 }
 
 async function loadPluginBundle(pluginKey: string, version?: string | null): Promise<RegisteredPlugin> {
@@ -164,24 +236,43 @@ async function loadPluginBundle(pluginKey: string, version?: string | null): Pro
   });
 }
 
-async function buildFileContext(filePath: string) {
-  const stat = (await vfsApi.stat(filePath)) as any;
-  const name =
-    typeof stat?.name === 'string' && stat.name.trim().length > 0
-      ? stat.name
-      : filePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || 'unknown';
+function isLikelyImage(pathOrName: string) {
+  return /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(pathOrName);
+}
 
-  const entry: VfsEntry = {
-    name,
-    is_dir: Boolean(stat?.is_dir),
-    size: Number(stat?.size || 0),
-    mtime: Number(stat?.mtime || 0),
-    type: typeof stat?.type === 'string' ? stat.type : undefined,
-    has_thumbnail: Boolean(stat?.has_thumbnail),
-  };
+function preloadImage(url: string) {
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = url;
+}
 
-  const token = await vfsApi.getTempLinkToken(filePath);
-  const downloadUrl = vfsApi.getTempPublicUrl(token.token);
+async function buildFileContext(filePath: string, entryOverride: VfsEntry | null) {
+  const entryPromise = entryOverride
+    ? Promise.resolve(entryOverride)
+    : (async () => {
+      const stat = (await vfsApi.stat(filePath)) as any;
+      const name =
+        typeof stat?.name === 'string' && stat.name.trim().length > 0
+          ? stat.name
+          : filePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || 'unknown';
+
+      const entry: VfsEntry = {
+        name,
+        is_dir: Boolean(stat?.is_dir),
+        size: Number(stat?.size || 0),
+        mtime: Number(stat?.mtime || 0),
+        type: typeof stat?.type === 'string' ? stat.type : undefined,
+        has_thumbnail: Boolean(stat?.has_thumbnail),
+      };
+      return entry;
+    })();
+
+  const downloadUrlPromise = getTempLinkUrl(filePath);
+  if (isLikelyImage(filePath)) {
+    downloadUrlPromise.then(preloadImage).catch(() => void 0);
+  }
+
+  const [entry, downloadUrl] = await Promise.all([entryPromise, downloadUrlPromise]);
   const streamUrl = vfsApi.streamUrl(filePath);
 
   return { entry, urls: { downloadUrl, streamUrl } };
@@ -190,7 +281,7 @@ async function buildFileContext(filePath: string) {
 async function main() {
   initExternals();
 
-  const { pluginKey, mode, filePath } = getQuery();
+  const { pluginKey, mode, filePath, pluginVersion, pluginStyles, entry } = getQuery();
   if (!pluginKey) {
     renderStatus('Missing pluginKey in query string', true);
     return;
@@ -204,34 +295,34 @@ async function main() {
 
   const cancelLoading = scheduleStatus('Loading plugin...', 200);
 
-  let plugin: PluginItem;
-  try {
-    plugin = await pluginsApi.get(pluginKey);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    cancelLoading();
-    renderStatus(`Failed to load plugin info: ${msg}`, true);
-    return;
-  }
+  const host = createHostApi(pluginKey);
 
-  try {
-    await loadPluginStyles(pluginKey, plugin, plugin.version);
-  } catch {
-    // ignore
-  }
+  const pluginPromise = (async () => {
+    if (pluginVersion && pluginStyles) {
+      injectPluginStyles(pluginKey, pluginStyles, pluginVersion);
+      return await loadPluginBundle(pluginKey, pluginVersion);
+    }
+
+    const plugin: PluginItem = await pluginsApi.get(pluginKey);
+    const resolvedVersion = plugin.version || '';
+    injectPluginStyles(pluginKey, getPluginStylePaths(plugin), resolvedVersion);
+    return await loadPluginBundle(pluginKey, resolvedVersion);
+  })();
+
+  const ctxPromise = mode === 'file' ? buildFileContext(filePath, entry) : Promise.resolve(null);
 
   let registered: RegisteredPlugin;
+  let ctx: Awaited<ReturnType<typeof buildFileContext>> | null;
   try {
-    registered = await loadPluginBundle(pluginKey, plugin.version);
+    [registered, ctx] = await Promise.all([pluginPromise, ctxPromise]);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     cancelLoading();
-    renderStatus(`Failed to load plugin bundle: ${msg}`, true);
+    renderStatus(`Failed to load plugin: ${msg}`, true);
     return;
   }
 
   cancelLoading();
-  const host = createHostApi(pluginKey);
 
   let cleanup: (() => void) | null = null;
   const mountError = async () => {
@@ -251,8 +342,11 @@ async function main() {
         throw new Error('Missing filePath in query string');
       }
 
-      const { entry, urls } = await buildFileContext(filePath);
-      const ret = await registered.mount(root, { filePath, entry, urls, host });
+      if (!ctx) {
+        throw new Error('Missing file context');
+      }
+
+      const ret = await registered.mount(root, { filePath, entry: ctx.entry, urls: ctx.urls, host });
       if (typeof ret === 'function') cleanup = ret;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

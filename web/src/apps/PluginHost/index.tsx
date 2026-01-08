@@ -7,8 +7,20 @@ export interface PluginAppHostProps extends AppComponentProps {
 }
 
 function buildPluginFrameUrl(params: Record<string, string>): string {
-  const qs = new URLSearchParams(params);
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (typeof v !== 'string') return;
+    const value = v.trim();
+    if (!value) return;
+    qs.set(k, value);
+  });
   return `/plugin-frame.html?${qs.toString()}`;
+}
+
+function getPluginStylePaths(plugin: PluginItem): string[] {
+  const styles = (plugin.manifest as any)?.frontend?.styles as unknown;
+  if (!Array.isArray(styles)) return [];
+  return styles.filter((s) => typeof s === 'string' && s.trim().length > 0);
 }
 
 /**
@@ -19,6 +31,7 @@ function buildPluginFrameUrl(params: Record<string, string>): string {
 export const PluginAppHost: React.FC<PluginAppHostProps> = ({
   plugin,
   filePath,
+  entry,
   onRequestClose,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -29,10 +42,13 @@ export const PluginAppHost: React.FC<PluginAppHostProps> = ({
     () =>
       buildPluginFrameUrl({
         pluginKey: plugin.key,
+        pluginVersion: plugin.version || '',
+        pluginStyles: JSON.stringify(getPluginStylePaths(plugin)),
         mode: 'file',
         filePath,
+        entry: JSON.stringify(entry),
       }),
-    [plugin.key, filePath]
+    [plugin, filePath, entry]
   );
 
   useEffect(() => {
@@ -78,9 +94,11 @@ export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, on
     () =>
       buildPluginFrameUrl({
         pluginKey: plugin.key,
+        pluginVersion: plugin.version || '',
+        pluginStyles: JSON.stringify(getPluginStylePaths(plugin)),
         mode: 'app',
       }),
-    [plugin.key]
+    [plugin]
   );
 
   useEffect(() => {

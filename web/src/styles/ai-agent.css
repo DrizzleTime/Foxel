@@ -1,0 +1,200 @@
+.fx-agent-float-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+}
+
+.fx-agent-container {
+  height: 100%;
+}
+
+.fx-agent-chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border-secondary);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.fx-agent-empty {
+  height: 100%;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.fx-agent-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fx-agent-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.fx-agent-row.fx-agent-user {
+  flex-direction: row-reverse;
+}
+
+.fx-agent-avatar {
+  flex: none;
+}
+
+.fx-agent-bubble {
+  max-width: 78%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-bg-container);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+}
+
+.fx-agent-user-bubble {
+  background: var(--ant-color-primary-bg);
+  border-color: var(--ant-color-primary-border);
+}
+
+.fx-agent-tool-bubble {
+  background: var(--ant-color-fill-quaternary);
+  border-style: dashed;
+}
+
+.fx-agent-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.fx-agent-content {
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.fx-agent-text {
+  white-space: pre-wrap;
+}
+
+.fx-agent-md {
+  white-space: normal;
+}
+
+.fx-agent-md p {
+  margin: 0 0 0.65em;
+}
+
+.fx-agent-md p:last-child {
+  margin-bottom: 0;
+}
+
+.fx-agent-md ul,
+.fx-agent-md ol {
+  margin: 0 0 0.65em;
+  padding-left: 1.2em;
+}
+
+.fx-agent-md code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--ant-color-border-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+}
+
+.fx-agent-md pre {
+  margin: 0 0 0.65em;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border-secondary);
+  overflow: auto;
+}
+
+.fx-agent-md pre code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.fx-agent-md blockquote {
+  margin: 0 0 0.65em;
+  padding: 0 0 0 10px;
+  border-left: 3px solid var(--ant-color-border);
+  color: var(--ant-color-text-tertiary);
+}
+
+.fx-agent-md a {
+  color: var(--ant-color-primary);
+}
+
+.fx-agent-tool-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fx-agent-tool-details {
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-agent-pre {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  max-height: 260px;
+}
+
+.fx-agent-pre.fx-agent-pre-compact {
+  max-height: 200px;
+}
+
+.fx-agent-pending-card .ant-card-body {
+  padding: 10px;
+}
+
+.fx-agent-composer {
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border-secondary);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.fx-agent-composer .ant-input {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.fx-agent-running {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px dashed var(--ant-color-border-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

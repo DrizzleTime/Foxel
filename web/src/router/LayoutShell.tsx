@@ -16,6 +16,7 @@ import BackupPage from '../pages/SystemSettingsPage/BackupPage.tsx';
 import PluginsPage from '../pages/PluginsPage.tsx';
 import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext';
 import { AppWindowsLayer } from '../apps/AppWindowsLayer';
+import AiAgentWidget from '../components/AiAgentWidget';
 
 const ShellBody = memo(function ShellBody() {
   const params = useParams<{ navKey?: string; '*': string }>();
@@ -29,6 +30,7 @@ const ShellBody = memo(function ShellBody() {
   }, [collapsed]);
   const { windows, closeWindow, toggleMax, bringToFront, updateWindow } = useAppWindows();
   const settingsTab = navKey === 'settings' ? (subPath.split('/')[0] || undefined) : undefined;
+  const agentCurrentPath = navKey === 'files' ? ('/' + subPath).replace(/\/+/g, '/').replace(/\/+$/, '') || '/' : null;
   return (
     <Layout style={{ minHeight: '100vh', background: 'var(--ant-color-bg-layout)' }}>
       <SideNav
@@ -76,6 +78,7 @@ const ShellBody = memo(function ShellBody() {
         onBringToFront={bringToFront}
         onUpdateWindow={updateWindow}
       />
+      <AiAgentWidget currentPath={agentCurrentPath} />
     </Layout>
   );
 });

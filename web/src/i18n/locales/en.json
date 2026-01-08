@@ -710,5 +710,19 @@
   "Canceled": "Canceled",
   "Tasks submitted": "Tasks submitted",
   "Calling tools": "Calling tools",
-  "Advanced tokens must be valid JSON": "Advanced tokens must be valid JSON"
+  "Advanced tokens must be valid JSON": "Advanced tokens must be valid JSON",
+  "Search": "Search",
+  "Total": "Total",
+  "Mode": "Mode",
+  "Has more": "Has more",
+  "Page": "Page",
+  "results": "results",
+  "chars": "chars",
+  "Truncated": "Truncated",
+  "Write": "Write",
+  "Read": "Read",
+  "Created": "Created",
+  "Moved": "Moved",
+  "Renamed": "Renamed",
+  "Info": "Info"
 }

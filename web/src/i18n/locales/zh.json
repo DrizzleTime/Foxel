@@ -703,5 +703,19 @@
   "Canceled": "已取消",
   "Tasks submitted": "已提交任务",
   "Calling tools": "正在调用工具",
-  "Advanced tokens must be valid JSON": "高级 Token 需为合法 JSON"
+  "Advanced tokens must be valid JSON": "高级 Token 需为合法 JSON",
+  "Search": "搜索",
+  "Total": "总计",
+  "Mode": "模式",
+  "Has more": "更多",
+  "Page": "页",
+  "results": "条结果",
+  "chars": "字符",
+  "Truncated": "已截断",
+  "Write": "写入",
+  "Read": "读取",
+  "Created": "已创建",
+  "Moved": "已移动",
+  "Renamed": "已重命名",
+  "Info": "信息"
 }

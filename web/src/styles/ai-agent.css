@@ -81,6 +81,14 @@
   word-break: break-word;
 }
 
+.fx-agent-tool-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
 .fx-agent-text {
   white-space: pre-wrap;
 }

@@ -16,7 +16,7 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
         save_to: str | None = None,
         overwrite: bool = False,
     ) -> Any:
-        from domain.processors.service import get_processor
+        from domain.processors import get_processor
 
         processor = get_processor(processor_type)
         if not processor:

@@ -4,7 +4,7 @@ import httpx
 from typing import Any, AsyncIterator, Dict, List, Sequence, Tuple
 
 from models.database import AIModel, AIProvider
-from domain.ai.service import AIProviderService
+from .service import AIProviderService
 
 
 provider_service = AIProviderService

@@ -2,10 +2,9 @@ import json
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from domain.processors.service import ProcessorService
-from domain.processors.types import ProcessDirectoryRequest, ProcessRequest
-from domain.virtual_fs.service import VirtualFSService
-from domain.virtual_fs.search.search_service import VirtualFSSearchService
+from domain.processors import ProcessDirectoryRequest, ProcessRequest, ProcessorService
+from domain.virtual_fs import VirtualFSService
+from domain.virtual_fs.search import VirtualFSSearchService
 
 
 @dataclass(frozen=True)

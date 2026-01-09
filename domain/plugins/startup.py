@@ -7,8 +7,8 @@
 import logging
 from typing import TYPE_CHECKING, List, Tuple
 
-from domain.plugins.loader import PluginLoadError, PluginLoader
-from domain.plugins.types import PluginManifest
+from .loader import PluginLoadError, PluginLoader
+from .types import PluginManifest
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -113,4 +113,3 @@ async def init_plugins(app: "FastAPI") -> None:
             logger.warning(f"  - {error}")
     else:
         logger.info(f"插件加载完成，共 {loaded_count} 个插件")
-

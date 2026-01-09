@@ -4,10 +4,9 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api import response
-from domain.audit.service import AuditService
-from domain.audit.types import AuditAction
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
+from domain.auth import User, get_current_active_user
+from .service import AuditService
+from .types import AuditAction
 
 CurrentUser = Annotated[User, Depends(get_current_active_user)]
 

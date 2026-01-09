@@ -5,7 +5,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Callable, Dict, Optional
 
-from domain.processors.base import BaseProcessor
+from .base import BaseProcessor
 
 ProcessorFactory = Callable[[], BaseProcessor]
 TYPE_MAP: Dict[str, ProcessorFactory] = {}
@@ -16,7 +16,7 @@ LAST_DISCOVERY_ERRORS: list[str] = []
 
 def discover_processors(force_reload: bool = False) -> list[str]:
     """扫描并缓存可用的处理器模块。"""
-    from domain.processors import builtin as processors_pkg
+    from . import builtin as processors_pkg
 
     TYPE_MAP.clear()
     CONFIG_SCHEMAS.clear()

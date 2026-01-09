@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter
 
-from domain.plugins.types import (
+from .types import (
     ManifestProcessorConfig,
     ManifestRouteConfig,
     PluginManifest,
@@ -344,7 +344,7 @@ class PluginLoader:
             supported_exts = getattr(module, "SUPPORTED_EXTS", [])
 
             # 注册到处理器注册表
-            from domain.processors.registry import CONFIG_SCHEMAS, TYPE_MAP
+            from domain.processors import CONFIG_SCHEMAS, TYPE_MAP
 
             processor_type = processor_config.type
             TYPE_MAP[processor_type] = factory
@@ -401,7 +401,7 @@ class PluginLoader:
         """
         # 卸载处理器
         if manifest and manifest.backend and manifest.backend.processors:
-            from domain.processors.registry import CONFIG_SCHEMAS, TYPE_MAP
+            from domain.processors import CONFIG_SCHEMAS, TYPE_MAP
 
             for proc_config in manifest.backend.processors:
                 proc_type = proc_config.type

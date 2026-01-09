@@ -6,11 +6,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from fastapi import HTTPException
 
-from domain.agent.tools import get_tool, openai_tools, tool_result_to_content
-from domain.agent.types import AgentChatRequest, PendingToolCall
-from domain.ai.inference import MissingModelError, chat_completion, chat_completion_stream
-from domain.ai.service import AIProviderService
-from domain.auth.types import User
+from domain.ai import AIProviderService, MissingModelError, chat_completion, chat_completion_stream
+from domain.auth import User
+from .tools import get_tool, openai_tools, tool_result_to_content
+from .types import AgentChatRequest, PendingToolCall
 
 
 def _normalize_path(p: Optional[str]) -> Optional[str]:
@@ -134,6 +133,11 @@ async def _choose_chat_ability() -> str:
 def _sse(event: str, data: Any) -> bytes:
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     return f"event: {event}\ndata: {payload}\n\n".encode("utf-8")
+
+
+def _format_exc(exc: BaseException) -> str:
+    text = str(exc)
+    return text if text else exc.__class__.__name__
 
 
 class AgentService:
@@ -376,11 +380,11 @@ class AgentService:
                             if isinstance(msg, dict):
                                 assistant_message = msg
                 except MissingModelError as exc:
-                    raise HTTPException(status_code=400, detail=str(exc)) from exc
+                    raise HTTPException(status_code=400, detail=_format_exc(exc)) from exc
                 except httpx.HTTPStatusError as exc:
-                    raise HTTPException(status_code=502, detail=f"对话请求失败: {exc}") from exc
+                    raise HTTPException(status_code=502, detail=f"对话请求失败: {_format_exc(exc)}") from exc
                 except httpx.RequestError as exc:
-                    raise HTTPException(status_code=502, detail=f"对话请求异常: {exc}") from exc
+                    raise HTTPException(status_code=502, detail=f"对话请求异常: {_format_exc(exc)}") from exc
 
                 if not assistant_message:
                     assistant_message = {"role": "assistant", "content": ""}
@@ -445,4 +449,22 @@ class AgentService:
             yield _sse("done", payload)
 
         except asyncio.CancelledError:
+            return
+        except HTTPException as exc:
+            detail = exc.detail
+            content = detail if isinstance(detail, str) else str(detail)
+            if not content.strip():
+                content = f"请求失败({exc.status_code})"
+            new_messages.append({"role": "assistant", "content": content})
+            payload: Dict[str, Any] = {"messages": new_messages}
+            if pending:
+                payload["pending_tool_calls"] = [p.model_dump() for p in pending]
+            yield _sse("done", payload)
+            return
+        except Exception as exc:  # noqa: BLE001
+            new_messages.append({"role": "assistant", "content": f"服务端异常: {_format_exc(exc)}"})
+            payload: Dict[str, Any] = {"messages": new_messages}
+            if pending:
+                payload["pending_tool_calls"] = [p.model_dump() for p in pending]
+            yield _sse("done", payload)
             return

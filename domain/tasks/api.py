@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.auth.service import get_current_active_user
-from domain.tasks.service import TaskService
-from domain.tasks.types import (
+from domain.auth import get_current_active_user
+from .service import TaskService
+from .types import (
     AutomationTaskCreate,
     AutomationTaskUpdate,
     TaskQueueSettings,

@@ -7,7 +7,7 @@ import httpx
 from tortoise.exceptions import DoesNotExist
 from tortoise.transactions import in_transaction
 
-from domain.config.service import ConfigService
+from domain.config import ConfigService
 from models.database import AIDefaultModel, AIModel, AIProvider
 
 from .types import ABILITIES, normalize_capabilities

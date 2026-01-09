@@ -15,7 +15,7 @@ from domain.agent import api as agent
 from domain.virtual_fs import api as virtual_fs
 from domain.virtual_fs.mapping import s3_api, webdav_api
 from domain.virtual_fs.search import search_api
-from domain.audit import router as audit
+from domain.audit import api as audit
 
 
 def include_routers(app: FastAPI):
@@ -37,4 +37,4 @@ def include_routers(app: FastAPI):
     app.include_router(s3_api.router)
     app.include_router(offline_downloads.router)
     app.include_router(email.router)
-    app.include_router(audit)
+    app.include_router(audit.router)

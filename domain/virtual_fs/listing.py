@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Tuple
 from fastapi import HTTPException
 
 from api.response import page
-from domain.adapters.registry import runtime_registry
-from domain.ai.service import VectorDBService, VECTOR_COLLECTION_NAME, FILE_COLLECTION_NAME
-from domain.virtual_fs.thumbnail import is_image_filename, is_video_filename
+from domain.adapters import runtime_registry
+from domain.ai import FILE_COLLECTION_NAME, VECTOR_COLLECTION_NAME, VectorDBService
+from .thumbnail import is_image_filename, is_video_filename
 from models import StorageAdapter
 
 from .resolver import VirtualFSResolverMixin

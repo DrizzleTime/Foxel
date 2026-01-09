@@ -2,10 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
-from domain.email.service import EmailService, EmailTemplateRenderer
-from domain.email.types import (
+from domain.auth import User, get_current_active_user
+from .service import EmailService, EmailTemplateRenderer
+from .types import (
     EmailTemplatePreviewPayload,
     EmailTemplateUpdate,
     EmailTestRequest,

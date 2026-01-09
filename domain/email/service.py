@@ -7,8 +7,8 @@ from pathlib import Path
 from string import Template
 from typing import Any, Dict, List, Optional
 
-from domain.config.service import ConfigService
-from domain.email.types import EmailConfig, EmailSecurity, EmailSendPayload
+from domain.config import ConfigService
+from .types import EmailConfig, EmailSecurity, EmailSendPayload
 
 
 class EmailTemplateRenderer:
@@ -104,7 +104,7 @@ class EmailService:
         template: str,
         context: Optional[Dict[str, Any]] = None,
     ):
-        from domain.tasks.task_queue import TaskProgress, task_queue_service
+        from domain.tasks import TaskProgress, task_queue_service
 
         payload = EmailSendPayload(
             recipients=recipients,
@@ -126,7 +126,7 @@ class EmailService:
 
     @classmethod
     async def send_from_task(cls, task_id: str, data: Dict[str, Any]):
-        from domain.tasks.task_queue import TaskProgress, task_queue_service
+        from domain.tasks import TaskProgress, task_queue_service
 
         payload = EmailSendPayload(**data)
 

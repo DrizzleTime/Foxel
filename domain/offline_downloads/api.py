@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
-from domain.offline_downloads.service import OfflineDownloadService
-from domain.offline_downloads.types import OfflineDownloadCreate
+from domain.auth import User, get_current_active_user
+from .service import OfflineDownloadService
+from .types import OfflineDownloadCreate
 
 CurrentUser = Annotated[User, Depends(get_current_active_user)]
 

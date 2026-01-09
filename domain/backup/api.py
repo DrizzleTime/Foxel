@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from domain.audit import AuditAction, audit
-from domain.auth.service import get_current_active_user
-from domain.backup.service import BackupService
+from domain.auth import get_current_active_user
+from .service import BackupService
 
 router = APIRouter(
     prefix="/api/backup",

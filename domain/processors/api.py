@@ -4,10 +4,9 @@ from fastapi import APIRouter, Body, Depends, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
-from domain.processors.service import ProcessorService
-from domain.processors.types import (
+from domain.auth import User, get_current_active_user
+from .service import ProcessorService
+from .types import (
     ProcessDirectoryRequest,
     ProcessRequest,
     UpdateSourceRequest,

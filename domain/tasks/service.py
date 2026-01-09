@@ -3,17 +3,16 @@ from typing import Annotated, Any, Dict, Optional
 
 from fastapi import Depends, HTTPException
 
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
-from domain.config.service import ConfigService
-from domain.tasks.types import (
+from domain.auth import User, get_current_active_user
+from domain.config import ConfigService
+from .task_queue import task_queue_service
+from .types import (
     AutomationTaskCreate,
     AutomationTaskUpdate,
     TaskQueueSettings,
     TaskQueueSettingsResponse,
 )
 from models.database import AutomationTask
-from domain.tasks.task_queue import task_queue_service
 
 
 class TaskService:

@@ -5,7 +5,7 @@ import time
 
 from fastapi import HTTPException
 
-from domain.config.service import ConfigService
+from domain.config import ConfigService
 
 from .processing import VirtualFSProcessingMixin
 

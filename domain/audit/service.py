@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 from models.database import AuditLog
 
-from domain.audit.types import AuditAction
+from .types import AuditAction
 
 
 class AuditService:

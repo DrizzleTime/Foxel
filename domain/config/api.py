@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, Form, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
-from domain.config.service import ConfigService
-from domain.config.types import ConfigItem
+from domain.auth import User, get_current_active_user
+from .service import ConfigService
+from .types import ConfigItem
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 

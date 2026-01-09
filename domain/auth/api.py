@@ -5,8 +5,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.auth.service import AuthService, get_current_active_user
-from domain.auth.types import (
+from .service import AuthService, get_current_active_user
+from .types import (
     PasswordResetConfirm,
     PasswordResetRequest,
     RegisterRequest,

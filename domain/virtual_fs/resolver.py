@@ -3,7 +3,7 @@ from typing import Tuple
 from fastapi import HTTPException
 from fastapi.responses import Response
 
-from domain.adapters.registry import runtime_registry
+from domain.adapters import runtime_registry
 from models import StorageAdapter
 
 from .common import VirtualFSCommonMixin

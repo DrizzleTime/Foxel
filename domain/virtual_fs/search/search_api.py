@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 
 from api.response import success
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
-from domain.virtual_fs.search.search_service import VirtualFSSearchService
+from domain.auth import User, get_current_active_user
+from .search_service import VirtualFSSearchService
 
 router = APIRouter(prefix="/api/fs/search", tags=["search"])
 

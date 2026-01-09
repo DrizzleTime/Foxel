@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 import httpx
 from dotenv import load_dotenv
 
-from domain.config.types import LatestVersionInfo, SystemStatus
+from .types import LatestVersionInfo, SystemStatus
 from models.database import Configuration, UserAccount
 
 load_dotenv(dotenv_path=".env")

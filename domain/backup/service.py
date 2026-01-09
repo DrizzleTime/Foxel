@@ -4,8 +4,8 @@ from datetime import datetime
 from fastapi import HTTPException
 from tortoise.transactions import in_transaction
 
-from domain.backup.types import BackupData
-from domain.config.service import VERSION
+from domain.config import VERSION
+from .types import BackupData
 from models.database import (
     AIDefaultModel,
     AIModel,

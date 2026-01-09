@@ -9,10 +9,9 @@ from fastapi import APIRouter, Request, Response, HTTPException, Depends
 import xml.etree.ElementTree as ET
 
 from domain.audit import AuditAction, audit
-from domain.auth.service import AuthService
-from domain.auth.types import User, UserInDB
-from domain.virtual_fs.service import VirtualFSService
-from domain.config.service import ConfigService
+from domain.auth import AuthService, User, UserInDB
+from domain.config import ConfigService
+from domain.virtual_fs import VirtualFSService
 
 
 _WEBDAV_ENABLED_KEY = "WEBDAV_MAPPING_ENABLED"

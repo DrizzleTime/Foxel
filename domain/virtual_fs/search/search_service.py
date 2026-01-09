@@ -1,8 +1,7 @@
 from typing import Any, Dict, List, Tuple
 
-from domain.virtual_fs.types import SearchResultItem
-from domain.ai.inference import get_text_embedding
-from domain.ai.service import VectorDBService, VECTOR_COLLECTION_NAME, FILE_COLLECTION_NAME
+from domain.ai import FILE_COLLECTION_NAME, VECTOR_COLLECTION_NAME, VectorDBService, get_text_embedding
+from ..types import SearchResultItem
 
 
 def _normalize_result(raw: Dict[str, Any], source: str, fallback_score: float = 0.0) -> SearchResultItem:

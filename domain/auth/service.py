@@ -11,7 +11,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 
-from domain.auth.types import (
+from domain.config import ConfigService
+from models.database import UserAccount
+from .types import (
     PasswordResetConfirm,
     PasswordResetRequest,
     RegisterRequest,
@@ -21,8 +23,6 @@ from domain.auth.types import (
     User,
     UserInDB,
 )
-from models.database import UserAccount
-from domain.config.service import ConfigService
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 365
@@ -324,7 +324,7 @@ class AuthService:
 
     @classmethod
     async def _send_password_reset_email(cls, user: UserAccount, token: str) -> None:
-        from domain.email.service import EmailService
+        from domain.email import EmailService
 
         app_domain = await ConfigService.get("APP_DOMAIN", None)
         base_url = (app_domain or "http://localhost:5173").rstrip("/")

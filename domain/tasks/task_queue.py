@@ -74,7 +74,7 @@ class TaskQueueService:
 
         try:
             # Local import to avoid circular dependency during module load.
-            from domain.virtual_fs.service import VirtualFSService
+            from domain.virtual_fs import VirtualFSService
 
             if task.name == "process_file":
                 params = task.task_info
@@ -88,7 +88,7 @@ class TaskQueueService:
                 task.result = result
             elif task.name == "automation_task" or self._is_processor_task(task.name):
                 from models.database import AutomationTask
-                from domain.processors.service import get_processor
+                from domain.processors import get_processor
 
                 params = task.task_info
                 auto_task = await AutomationTask.get(id=params["task_id"])
@@ -116,7 +116,7 @@ class TaskQueueService:
                     await VirtualFSService.write_file(save_to, result)
                 task.result = "Automation task completed"
             elif task.name == "offline_http_download":
-                from domain.offline_downloads.service import OfflineDownloadService
+                from domain.offline_downloads import OfflineDownloadService
 
                 result_path = await OfflineDownloadService.run_http_download(task)
                 task.result = {"path": result_path}
@@ -124,7 +124,7 @@ class TaskQueueService:
                 result = await VirtualFSService.run_cross_mount_transfer_task(task)
                 task.result = result
             elif task.name == "send_email":
-                from domain.email.service import EmailService
+                from domain.email import EmailService
                 await EmailService.send_from_task(task.id, task.task_info)
                 task.result = "Email sent"
             else:
@@ -141,7 +141,7 @@ class TaskQueueService:
 
     def _is_processor_task(self, task_name: str) -> bool:
         try:
-            from domain.processors.service import get_processor
+            from domain.processors import get_processor
 
             return get_processor(task_name) is not None
         except Exception:
@@ -180,7 +180,7 @@ class TaskQueueService:
 
     async def start_worker(self, concurrency: int | None = None):
         if concurrency is None:
-            from domain.config.service import ConfigService
+            from domain.config import ConfigService
 
             stored_value = await ConfigService.get("TASK_QUEUE_CONCURRENCY", self._concurrency)
             try:

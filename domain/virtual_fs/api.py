@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
-from domain.virtual_fs.service import VirtualFSService
-from domain.virtual_fs.types import MkdirRequest, MoveRequest
+from domain.auth import User, get_current_active_user
+from .service import VirtualFSService
+from .types import MkdirRequest, MoveRequest
 
 router = APIRouter(prefix="/api/fs", tags=["virtual-fs"])
 

@@ -4,8 +4,8 @@ import re
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import Response
 
-from domain.config.service import ConfigService
-from domain.virtual_fs.thumbnail import (
+from domain.config import ConfigService
+from .thumbnail import (
     get_or_create_thumb,
     is_image_filename,
     is_raw_filename,

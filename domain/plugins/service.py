@@ -12,8 +12,8 @@ from typing import List, Optional, Union
 
 from fastapi import HTTPException
 
-from domain.plugins.loader import PluginLoadError, PluginLoader
-from domain.plugins.types import (
+from .loader import PluginLoadError, PluginLoader
+from .types import (
     PluginInstallResult,
     PluginManifest,
     PluginOut,

@@ -8,12 +8,14 @@ from fastapi.responses import Response
 from PIL import Image
 
 from ..base import BaseProcessor
-from domain.ai.inference import describe_image_base64, get_text_embedding, provider_service
-from domain.ai.service import (
-    VectorDBService,
+from domain.ai import (
     DEFAULT_VECTOR_DIMENSION,
-    VECTOR_COLLECTION_NAME,
     FILE_COLLECTION_NAME,
+    VECTOR_COLLECTION_NAME,
+    VectorDBService,
+    describe_image_base64,
+    get_text_embedding,
+    provider_service,
 )
 
 

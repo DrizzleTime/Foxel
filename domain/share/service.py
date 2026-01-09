@@ -7,7 +7,7 @@ import bcrypt
 from fastapi import HTTPException, status
 from fastapi.responses import Response
 
-from domain.virtual_fs.service import VirtualFSService
+from domain.virtual_fs import VirtualFSService
 from models.database import ShareLink, UserAccount
 
 

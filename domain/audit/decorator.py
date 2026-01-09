@@ -7,11 +7,11 @@ import jwt
 from fastapi import Request
 from jwt.exceptions import InvalidTokenError
 
-from domain.audit.service import AuditService
-from domain.audit.types import AuditAction
-from domain.auth.service import ALGORITHM
-from domain.config.service import ConfigService
+from domain.auth import ALGORITHM
+from domain.config import ConfigService
 from models.database import UserAccount
+from .service import AuditService
+from .types import AuditAction
 
 
 def _extract_request(bound_args: Mapping[str, Any]) -> Request | None:

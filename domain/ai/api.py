@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.ai.service import AIProviderService, VectorDBConfigManager, VectorDBService
-from domain.ai.types import (
+from domain.auth import User, get_current_active_user
+from .service import AIProviderService, VectorDBConfigManager, VectorDBService
+from .types import (
     AIDefaultsUpdate,
     AIModelCreate,
     AIModelUpdate,
@@ -14,9 +15,7 @@ from domain.ai.types import (
     AIProviderUpdate,
     VectorDBConfigPayload,
 )
-from domain.ai.vector_providers import get_provider_class, get_provider_entry, list_providers
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
+from .vector_providers import get_provider_class, get_provider_entry, list_providers
 
 router_ai = APIRouter(prefix="/api/ai", tags=["ai"])
 router_vector_db = APIRouter(prefix="/api/vector-db", tags=["vector-db"])

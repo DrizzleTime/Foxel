@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from domain.config.service import ConfigService, VERSION
-from domain.adapters.registry import runtime_registry
+from domain.adapters import runtime_registry
+from domain.config import ConfigService, VERSION
 from db.session import close_db, init_db
 from api.routers import include_routers
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +19,7 @@ from middleware.exception_handler import (
 )
 import httpx
 from dotenv import load_dotenv
-from domain.tasks.task_queue import task_queue_service
+from domain.tasks import task_queue_service
 
 load_dotenv()
 
@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
     await task_queue_service.start_worker()
 
     # 加载已安装的插件
-    from domain.plugins.startup import init_plugins
+    from domain.plugins import init_plugins
     await init_plugins(app)
 
     # 在所有路由加载完成后，挂载静态文件服务（放在最后以避免覆盖 API 路由）

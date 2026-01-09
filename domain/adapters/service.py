@@ -2,13 +2,13 @@ from typing import Optional
 
 from fastapi import HTTPException
 
-from domain.adapters.registry import (
+from domain.auth import User
+from .registry import (
     get_config_schemas,
     normalize_adapter_type,
     runtime_registry,
 )
-from domain.adapters.types import AdapterCreate, AdapterOut
-from domain.auth.types import User
+from .types import AdapterCreate, AdapterOut
 from models import StorageAdapter
 
 

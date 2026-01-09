@@ -4,11 +4,10 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from api.response import success
-from domain.agent.service import AgentService
-from domain.agent.types import AgentChatRequest
 from domain.audit import AuditAction, audit
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
+from domain.auth import User, get_current_active_user
+from .service import AgentService
+from .types import AgentChatRequest
 
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])

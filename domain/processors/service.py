@@ -3,20 +3,20 @@ from typing import List, Tuple
 
 from fastapi import HTTPException
 from fastapi.concurrency import run_in_threadpool
-from domain.processors.registry import (
+from domain.tasks import task_queue_service
+from domain.virtual_fs import VirtualFSService
+from .registry import (
     get,
     get_config_schema,
     get_config_schemas,
     get_module_path,
     reload_processors,
 )
-from domain.processors.types import (
+from .types import (
     ProcessDirectoryRequest,
     ProcessRequest,
     UpdateSourceRequest,
 )
-from domain.virtual_fs.service import VirtualFSService
-from domain.tasks.task_queue import task_queue_service
 
 
 class ProcessorService:

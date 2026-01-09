@@ -15,8 +15,8 @@ from fastapi import APIRouter, Request, Response
 from fastapi import HTTPException
 
 from domain.audit import AuditAction, audit
-from domain.config.service import ConfigService
-from domain.virtual_fs.service import VirtualFSService
+from domain.config import ConfigService
+from domain.virtual_fs import VirtualFSService
 
 
 router = APIRouter(prefix="/s3", tags=["s3"])

@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
-from domain.adapters.service import AdapterService
-from domain.adapters.types import AdapterCreate
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
+from domain.auth import User, get_current_active_user
+from .service import AdapterService
+from .types import AdapterCreate
 
 router = APIRouter(prefix="/api/adapters", tags=["adapters"])
 

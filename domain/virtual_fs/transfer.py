@@ -273,7 +273,7 @@ class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
             "overwrite": overwrite,
         }
 
-        from domain.tasks.task_queue import task_queue_service
+        from domain.tasks import task_queue_service
 
         task = await task_queue_service.add_task("cross_mount_transfer", payload)
         return {
@@ -286,7 +286,7 @@ class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
 
     @classmethod
     async def run_cross_mount_transfer_task(cls, task: "Task") -> Dict[str, Any]:
-        from domain.tasks.task_queue import task_queue_service
+        from domain.tasks import task_queue_service
 
         params = task.task_info or {}
         operation = params.get("operation")

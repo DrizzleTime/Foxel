@@ -4,8 +4,8 @@ from typing import Any, AsyncIterator, Union
 from fastapi import HTTPException
 from fastapi.responses import Response
 
-from domain.tasks.service import TaskService
-from domain.virtual_fs.thumbnail import is_raw_filename, raw_bytes_to_jpeg
+from domain.tasks import TaskService
+from .thumbnail import is_raw_filename, raw_bytes_to_jpeg
 
 from .listing import VirtualFSListingMixin
 

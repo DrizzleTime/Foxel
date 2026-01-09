@@ -8,8 +8,8 @@ from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from domain.audit import AuditAction, audit
-from domain.plugins.service import PluginService
-from domain.plugins.types import (
+from .service import PluginService
+from .types import (
     PluginInstallResult,
     PluginOut,
 )

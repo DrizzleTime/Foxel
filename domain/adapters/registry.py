@@ -4,7 +4,7 @@ from importlib import import_module
 from typing import Callable, Dict
 
 from models import StorageAdapter
-from domain.adapters.providers.base import BaseAdapter
+from .providers.base import BaseAdapter
 
 AdapterFactory = Callable[[StorageAdapter], BaseAdapter]
 
@@ -21,7 +21,7 @@ def normalize_adapter_type(value: str | None) -> str | None:
 
 def discover_adapters():
     """扫描 domain.adapters.providers 包, 自动注册适配器类型、工厂与配置 schema。"""
-    from domain.adapters import providers as adapters_pkg
+    from . import providers as adapters_pkg
 
     TYPE_MAP.clear()
     CONFIG_SCHEMAS.clear()

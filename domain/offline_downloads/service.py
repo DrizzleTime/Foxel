@@ -7,11 +7,10 @@ import aiofiles
 import aiohttp
 from fastapi import Depends, HTTPException
 
-from domain.auth.service import get_current_active_user
-from domain.auth.types import User
-from domain.offline_downloads.types import OfflineDownloadCreate
-from domain.virtual_fs.service import VirtualFSService
-from domain.tasks.task_queue import Task, TaskProgress, task_queue_service
+from domain.auth import User, get_current_active_user
+from domain.tasks import Task, TaskProgress, task_queue_service
+from domain.virtual_fs import VirtualFSService
+from .types import OfflineDownloadCreate
 
 
 class OfflineDownloadService:

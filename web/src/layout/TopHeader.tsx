@@ -1,5 +1,5 @@
-import { Layout, Button, Dropdown, theme, Flex, Avatar, Typography } from 'antd';
-import { SearchOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { Layout, Button, Dropdown, theme, Flex, Avatar, Typography, Tooltip } from 'antd';
+import { SearchOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined, RobotOutlined } from '@ant-design/icons';
 import { memo, useState } from 'react';
 import SearchDialog from './SearchDialog.tsx';
 import { authApi } from '../api/auth.ts';
@@ -14,9 +14,10 @@ const { Header } = Layout;
 export interface TopHeaderProps {
   collapsed: boolean;
   onToggle(): void;
+  onOpenAiAgent(): void;
 }
 
-const TopHeader = memo(function TopHeader({ collapsed, onToggle }: TopHeaderProps) {
+const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }: TopHeaderProps) {
   const { token } = theme.useToken();
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
@@ -50,6 +51,15 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle }: TopHeaderProp
       </Button>
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
       <Flex style={{ marginLeft: 'auto' }} align="center" gap={12}>
+        <Tooltip title={t('AI Agent')}>
+          <Button
+            type="text"
+            icon={<RobotOutlined />}
+            aria-label={t('AI Agent')}
+            onClick={onOpenAiAgent}
+            style={{ paddingInline: 8, height: 40 }}
+          />
+        </Tooltip>
         <LanguageSwitcher />
         <Dropdown
           menu={{

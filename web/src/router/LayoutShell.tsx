@@ -16,6 +16,7 @@ import BackupPage from '../pages/SystemSettingsPage/BackupPage.tsx';
 import PluginsPage from '../pages/PluginsPage.tsx';
 import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext';
 import { AppWindowsLayer } from '../apps/AppWindowsLayer';
+import AiAgentWidget from '../components/AiAgentWidget';
 
 const ShellBody = memo(function ShellBody() {
   const params = useParams<{ navKey?: string; '*': string }>();
@@ -24,11 +25,13 @@ const ShellBody = memo(function ShellBody() {
   const navigate = useNavigate();
   const COLLAPSED_KEY = 'layout.siderCollapsed';
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
+  const [agentOpen, setAgentOpen] = useState(false);
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
   const { windows, closeWindow, toggleMax, bringToFront, updateWindow } = useAppWindows();
   const settingsTab = navKey === 'settings' ? (subPath.split('/')[0] || undefined) : undefined;
+  const agentCurrentPath = navKey === 'files' ? ('/' + subPath).replace(/\/+/g, '/').replace(/\/+$/, '') || '/' : null;
   return (
     <Layout style={{ minHeight: '100vh', background: 'var(--ant-color-bg-layout)' }}>
       <SideNav
@@ -44,7 +47,7 @@ const ShellBody = memo(function ShellBody() {
         }}
       />
       <Layout style={{ background: 'var(--ant-color-bg-layout)' }}>
-        <TopHeader collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+        <TopHeader collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} onOpenAiAgent={() => setAgentOpen(true)} />
         <Layout.Content style={{ padding: 16, background: 'var(--ant-color-bg-layout)' }}>
           <div style={{ minHeight: 'calc(100vh - 56px - 32px)', background: 'var(--ant-color-bg-layout)' }}>
             <Flex vertical gap={16}>
@@ -76,6 +79,7 @@ const ShellBody = memo(function ShellBody() {
         onBringToFront={bringToFront}
         onUpdateWindow={updateWindow}
       />
+      <AiAgentWidget currentPath={agentCurrentPath} open={agentOpen} onOpenChange={setAgentOpen} />
     </Layout>
   );
 });

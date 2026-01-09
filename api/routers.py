@@ -11,6 +11,7 @@ from domain.processors import api as processors
 from domain.share import api as share
 from domain.tasks import api as tasks
 from domain.ai import api as ai
+from domain.agent import api as agent
 from domain.virtual_fs import api as virtual_fs
 from domain.virtual_fs.mapping import s3_api, webdav_api
 from domain.virtual_fs.search import search_api
@@ -30,6 +31,7 @@ def include_routers(app: FastAPI):
     app.include_router(backup.router)
     app.include_router(ai.router_vector_db)
     app.include_router(ai.router_ai)
+    app.include_router(agent.router)
     app.include_router(plugins.router)
     app.include_router(webdav_api.router)
     app.include_router(s3_api.router)

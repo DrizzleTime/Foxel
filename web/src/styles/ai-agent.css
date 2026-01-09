@@ -1,0 +1,244 @@
+.fx-agent-container {
+  height: 100%;
+}
+
+.fx-agent-chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.fx-agent-empty {
+  height: 100%;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.fx-agent-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fx-agent-msg {
+  display: flex;
+  flex-direction: column;
+}
+
+.fx-agent-msg-user {
+  align-items: flex-end;
+}
+
+.fx-agent-msg-assistant {
+  align-items: flex-start;
+}
+
+.fx-agent-msg-tool {
+  align-items: stretch;
+}
+
+.fx-agent-user-block {
+  max-width: 85%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-fill-quaternary);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+}
+
+.fx-agent-assistant-block {
+  max-width: 100%;
+  padding: 2px 2px;
+}
+
+.fx-agent-tool-block {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-bg-container);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+}
+
+.fx-agent-tool-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fx-agent-content {
+  font-size: 13px;
+  line-height: 1.75;
+  word-break: break-word;
+}
+
+.fx-agent-tool-pills .ant-tag {
+  margin-inline-end: 0;
+}
+
+.fx-agent-pill {
+  border-radius: 999px;
+  padding-inline: 10px;
+  padding-block: 2px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.fx-agent-pill-strong {
+  background: var(--ant-color-primary-bg);
+  color: var(--ant-color-primary);
+}
+
+.fx-agent-pill-warn {
+  background: var(--ant-color-warning-bg);
+  color: var(--ant-color-warning);
+}
+
+.fx-agent-tool-summary-line {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ant-color-text-tertiary);
+}
+
+.fx-agent-tool-expanded {
+  margin-top: 10px;
+}
+
+.fx-agent-text {
+  white-space: pre-wrap;
+}
+
+.fx-agent-md {
+  white-space: normal;
+}
+
+.fx-agent-md p {
+  margin: 0 0 0.5em;
+}
+
+.fx-agent-md p:last-child {
+  margin-bottom: 0;
+}
+
+.fx-agent-md ul,
+.fx-agent-md ol {
+  margin: 0 0 0.5em;
+  padding-left: 1.2em;
+}
+
+.fx-agent-md code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--ant-color-border-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 11px;
+}
+
+.fx-agent-md pre {
+  margin: 0 0 0.5em;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border-secondary);
+  overflow: auto;
+}
+
+.fx-agent-md pre code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.fx-agent-md blockquote {
+  margin: 0 0 0.65em;
+  padding: 0 0 0 10px;
+  border-left: 3px solid var(--ant-color-border);
+  color: var(--ant-color-text-tertiary);
+}
+
+.fx-agent-md a {
+  color: var(--ant-color-primary);
+}
+
+.fx-agent-tool-details {
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-agent-pre {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  max-height: 260px;
+}
+
+.fx-agent-pre.fx-agent-pre-compact {
+  max-height: 200px;
+}
+
+.fx-agent-pending-group {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fx-agent-pending-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--ant-color-border-secondary);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.fx-agent-pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fx-agent-composer {
+  padding: 8px 0 0;
+  background: transparent;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-agent-composer .ant-input {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.fx-agent-running {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px dashed var(--ant-color-border-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

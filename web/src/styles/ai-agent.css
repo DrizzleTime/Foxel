@@ -5,11 +5,11 @@
 .fx-agent-chat-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
-  border-radius: 12px;
-  background: var(--ant-color-bg-container);
-  border: 1px solid var(--ant-color-border-secondary);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .fx-agent-empty {
@@ -222,11 +222,9 @@
 }
 
 .fx-agent-composer {
-  padding: 10px;
-  border-radius: 12px;
-  background: var(--ant-color-bg-container);
-  border: 1px solid var(--ant-color-border-secondary);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  padding: 8px 0 0;
+  background: transparent;
+  border-top: 1px solid var(--ant-color-border-secondary);
 }
 
 .fx-agent-composer .ant-input {

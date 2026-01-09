@@ -660,7 +660,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
         styles={{
           body: {
             padding: 8,
-            background: token.colorBgLayout,
+            background: token.colorBgContainer,
           },
         }}
         extra={
@@ -679,7 +679,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
           </Space>
         }
       >
-        <Flex vertical gap={8} style={{ height: '100%' }} className="fx-agent-container">
+        <Flex vertical gap={0} style={{ height: '100%' }} className="fx-agent-container">
           <div
             ref={scrollRef}
             className="fx-agent-chat-scroll"

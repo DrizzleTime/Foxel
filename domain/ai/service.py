@@ -140,7 +140,7 @@ def serialize_provider(provider: AIProvider) -> Dict[str, Any]:
         "provider_type": provider.provider_type,
         "api_format": provider.api_format,
         "base_url": provider.base_url,
-        "api_key": provider.api_key,
+        "has_api_key": bool(provider.api_key),
         "logo_url": provider.logo_url,
         "extra_config": provider.extra_config or {},
         "created_at": provider.created_at,

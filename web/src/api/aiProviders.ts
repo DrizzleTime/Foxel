@@ -13,8 +13,9 @@ export interface AIProviderPayload {
   extra_config?: Record<string, unknown> | null;
 }
 
-export interface AIProvider extends Omit<AIProviderPayload, 'extra_config'> {
+export interface AIProvider extends Omit<AIProviderPayload, 'extra_config' | 'api_key'> {
   id: number;
+  has_api_key: boolean;
   extra_config: Record<string, unknown>;
   created_at: string;
   updated_at: string;

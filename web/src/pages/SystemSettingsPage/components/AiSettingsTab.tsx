@@ -295,7 +295,7 @@ export default function AiSettingsTab() {
         identifier: existing.identifier,
         api_format: existing.api_format,
         base_url: existing.base_url ?? undefined,
-        api_key: existing.api_key ?? undefined,
+        api_key: '',
         logo_url: existing.logo_url ?? undefined,
         provider_type: existing.provider_type ?? undefined,
       });
@@ -345,10 +345,12 @@ export default function AiSettingsTab() {
       identifier: (values.identifier || '').trim(),
       api_format: values.api_format,
       base_url: trimmedBaseUrl ? trimmedBaseUrl : null,
-      api_key: trimmedApiKey ? trimmedApiKey : null,
       logo_url: trimmedLogoUrl ? trimmedLogoUrl : null,
       provider_type: trimmedProviderType ? trimmedProviderType : null,
     };
+    if (trimmedApiKey) {
+      payload.api_key = trimmedApiKey;
+    }
     try {
       if (providerModal.editing) {
         await updateProvider(providerModal.editing.id, payload);
@@ -1080,8 +1082,28 @@ export default function AiSettingsTab() {
                 <Form.Item name="base_url" label={t('Base URL')} rules={[{ required: true, message: t('Enter base url') }]}>
                   <Input placeholder="https://" />
                 </Form.Item>
-                <Form.Item name="api_key" label={t('API Key')}>
-                  <Input placeholder={t('Optional, can also be provided per request')} />
+                <Form.Item
+                  name="api_key"
+                  label={(
+                    <Space size={8}>
+                      {t('API Key')}
+                      {providerModal.editing ? (
+                        <Tag color={providerModal.editing.has_api_key ? 'green' : 'default'}>
+                          {providerModal.editing.has_api_key ? '已设置' : '未设置'}
+                        </Tag>
+                      ) : null}
+                    </Space>
+                  )}
+                >
+                  <Input.Password
+                    placeholder={
+                      providerModal.editing
+                        ? '留空不更新，填写将覆盖'
+                        : t('Optional, can also be provided per request')
+                    }
+                    autoComplete="new-password"
+                    visibilityToggle={false}
+                  />
                 </Form.Item>
                 <Form.Item name="logo_url" label={t('Logo URL')}>
                   <Input placeholder="https://" />

@@ -171,12 +171,32 @@ async def propfind(
         ctype = None if is_dir else (mimetypes.guess_type(name)[0] or "application/octet-stream")
         responses.append(_build_prop_response(full_path, name, is_dir, size, mtime, ctype))
     except FileNotFoundError:
-        raise HTTPException(404, detail="Not found")
+        st = None
+    except HTTPException as e:
+        if e.status_code != 404:
+            raise
+        st = None
+
+    if st is None:
+        is_mount_root = False
+        try:
+            _, rel = await VirtualFSService.resolve_adapter_by_path(full_path)
+            is_mount_root = rel == ""
+        except HTTPException:
+            is_mount_root = False
+
+        if not is_mount_root and full_path != "/":
+            listing_probe = await VirtualFSService.list_virtual_dir(full_path, page_num=1, page_size=1)
+            if not (listing_probe.get("items") or []):
+                raise HTTPException(404, detail="Not found")
+
+        name = "/" if full_path == "/" else (full_path.rstrip("/").rsplit("/", 1)[-1] or "/")
+        responses.append(_build_prop_response(full_path, name, True, None, 0, None))
 
     if depth in ("1", "infinity"):
         try:
             listing = await VirtualFSService.list_virtual_dir(full_path, page_num=1, page_size=1000)
-            for ent in listing["items"]:
+            for ent in (listing.get("items") or []):
                 is_dir = bool(ent.get("is_dir"))
                 name = ent.get("name")
                 child_path = full_path.rstrip("/") + "/" + name

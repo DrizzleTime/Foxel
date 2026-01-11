@@ -998,14 +998,16 @@ export default function AiSettingsTab() {
                     <div className="fx-ai-default-desc">{t(info.description)}</div>
                   </div>
                 </div>
-                <Select
-                  allowClear
-                  style={{ minWidth: 280 }}
-                  placeholder={t('Select a model')}
-                  value={defaultSelections[ability] ?? undefined}
-                  options={options}
-                  onChange={(value) => updateSelection(ability, value ?? null)}
-                />
+                <div className="fx-ai-default-control">
+                  <Select
+                    allowClear
+                    className="fx-ai-default-select"
+                    placeholder={t('Select a model')}
+                    value={defaultSelections[ability] ?? undefined}
+                    options={options}
+                    onChange={(value) => updateSelection(ability, value ?? null)}
+                  />
+                </div>
               </div>
             );
           })}

@@ -1,15 +1,13 @@
 .fx-ai-top-bar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 20px 28px;
-  border-radius: 16px;
-  background: linear-gradient(120deg, rgba(99, 102, 241, 0.16), rgba(167, 139, 250, 0.12));
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  align-items: flex-start;
+  gap: 16px;
+  padding: 0 4px;
 }
 
 .fx-ai-provider-card {
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--ant-box-shadow-secondary);
 }
@@ -115,7 +113,7 @@
 }
 
 .fx-ai-empty-card {
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--ant-color-fill-tertiary);
 }
 
@@ -128,16 +126,16 @@
 }
 
 .fx-ai-defaults-card {
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: var(--ant-box-shadow-secondary);
 }
 
 .fx-ai-default-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 360px);
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
-  padding: 12px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--ant-color-border-secondary);
 }
 
@@ -151,15 +149,26 @@
   align-items: center;
 }
 
+.fx-ai-default-control {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.fx-ai-default-select {
+  width: 100%;
+}
+
 .fx-ai-default-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  color: var(--ant-color-text-light-solid);
+  font-size: 20px;
+  background: var(--ant-color-fill-quaternary);
+  border: 1px solid var(--ant-color-border-secondary);
+  color: var(--ant-color-text-secondary);
 }
 
 .fx-ai-default-desc {
@@ -218,7 +227,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--ant-color-fill-quaternary);
   border: 1px solid transparent;
   cursor: pointer;
@@ -251,7 +260,7 @@
 .fx-ai-template-icon.summary {
   width: 56px;
   height: 56px;
-  border-radius: 18px;
+  border-radius: 14px;
   font-size: 26px;
 }
 
@@ -284,7 +293,7 @@
   align-items: center;
   gap: 16px;
   padding: 16px;
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--ant-color-fill-quaternary);
 }
 
@@ -336,26 +345,78 @@
   color: var(--ant-color-text-tertiary);
 }
 
-.fx-ai-chat {
-  background: linear-gradient(135deg, #805ad5, #6b46c1);
+.fx-ai-default-icon.fx-ai-chat {
+  background: rgba(128, 90, 213, 0.12);
+  border-color: rgba(128, 90, 213, 0.25);
+  color: rgb(128, 90, 213);
 }
 
-.fx-ai-vision {
-  background: linear-gradient(135deg, #4c6ef5, #4263eb);
+.fx-ai-default-icon.fx-ai-vision {
+  background: rgba(76, 110, 245, 0.12);
+  border-color: rgba(76, 110, 245, 0.25);
+  color: rgb(76, 110, 245);
 }
 
-.fx-ai-embedding {
-  background: linear-gradient(135deg, #f7b733, #fc4a1a);
+.fx-ai-default-icon.fx-ai-embedding {
+  background: rgba(247, 183, 51, 0.14);
+  border-color: rgba(247, 183, 51, 0.28);
+  color: rgb(215, 145, 0);
 }
 
-.fx-ai-rerank {
-  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+.fx-ai-default-icon.fx-ai-rerank {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.25);
+  color: rgb(14, 165, 233);
 }
 
-.fx-ai-voice {
-  background: linear-gradient(135deg, #f97316, #ea580c);
+.fx-ai-default-icon.fx-ai-voice {
+  background: rgba(249, 115, 22, 0.12);
+  border-color: rgba(249, 115, 22, 0.25);
+  color: rgb(249, 115, 22);
 }
 
-.fx-ai-tools {
-  background: linear-gradient(135deg, #ec4899, #db2777);
+.fx-ai-default-icon.fx-ai-tools {
+  background: rgba(236, 72, 153, 0.12);
+  border-color: rgba(236, 72, 153, 0.25);
+  color: rgb(236, 72, 153);
+}
+
+html[data-theme='dark'] .fx-ai-default-icon.fx-ai-chat {
+  background: rgba(128, 90, 213, 0.18);
+  border-color: rgba(128, 90, 213, 0.35);
+}
+
+html[data-theme='dark'] .fx-ai-default-icon.fx-ai-vision {
+  background: rgba(76, 110, 245, 0.18);
+  border-color: rgba(76, 110, 245, 0.35);
+}
+
+html[data-theme='dark'] .fx-ai-default-icon.fx-ai-embedding {
+  background: rgba(247, 183, 51, 0.2);
+  border-color: rgba(247, 183, 51, 0.38);
+}
+
+html[data-theme='dark'] .fx-ai-default-icon.fx-ai-rerank {
+  background: rgba(14, 165, 233, 0.18);
+  border-color: rgba(14, 165, 233, 0.35);
+}
+
+html[data-theme='dark'] .fx-ai-default-icon.fx-ai-voice {
+  background: rgba(249, 115, 22, 0.18);
+  border-color: rgba(249, 115, 22, 0.35);
+}
+
+html[data-theme='dark'] .fx-ai-default-icon.fx-ai-tools {
+  background: rgba(236, 72, 153, 0.18);
+  border-color: rgba(236, 72, 153, 0.35);
+}
+
+@media (max-width: 768px) {
+  .fx-ai-default-row {
+    grid-template-columns: 1fr;
+  }
+
+  .fx-ai-default-control {
+    justify-content: flex-start;
+  }
 }

@@ -9,8 +9,9 @@ from api.routers import include_routers
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from middleware.exception_handler import (
     global_exception_handler,
     http_exception_handler,
@@ -26,27 +27,38 @@ load_dotenv()
 
 class SPAStaticFiles(StaticFiles):
     async def get_response(self, path, scope):
-        response = await super().get_response(path, scope)
-        if response.status_code == 404:
-            return await super().get_response("index.html", scope)
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code != 404:
+                raise
+            if self._should_spa_fallback(scope):
+                return FileResponse(INDEX_FILE)
+            raise
+
+        if response.status_code == 404 and self._should_spa_fallback(scope):
+            return FileResponse(INDEX_FILE)
         return response
+
+    @staticmethod
+    def _should_spa_fallback(scope) -> bool:
+        return (
+            scope.get("method") == "GET"
+            and _request_accepts_html(scope)
+            and not (scope.get("path") or "").startswith(SPA_EXCLUDE_PREFIXES)
+            and INDEX_FILE.exists()
+        )
 
 
 INDEX_FILE = Path("web/dist/index.html")
 SPA_EXCLUDE_PREFIXES = ("/api", "/docs", "/openapi.json", "/webdav", "/s3")
 
 
-async def spa_fallback_middleware(request: Request, call_next):
-    response = await call_next(request)
-    if (
-        response.status_code == 404
-        and request.method == "GET"
-        and "text/html" in request.headers.get("accept", "")
-        and not request.url.path.startswith(SPA_EXCLUDE_PREFIXES)
-        and INDEX_FILE.exists()
-    ):
-        return FileResponse(INDEX_FILE)
-    return response
+def _request_accepts_html(scope) -> bool:
+    for k, v in scope.get("headers") or []:
+        if k == b"accept":
+            return "text/html" in v.decode("latin-1")
+    return False
 
 
 @asynccontextmanager
@@ -78,7 +90,6 @@ def create_app() -> FastAPI:
         description="A highly extensible private cloud storage solution for individuals and teams",
         lifespan=lifespan,
     )
-    app.middleware("http")(spa_fallback_middleware)
     include_routers(app)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)

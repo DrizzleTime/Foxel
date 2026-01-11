@@ -1,4 +1,5 @@
 from typing import List, Dict, Tuple, AsyncIterator
+import asyncio
 import base64
 import io
 import os
@@ -9,6 +10,16 @@ from telethon.crypto import AuthKey
 from telethon.sessions import StringSession
 from telethon.tl import types
 import socks
+
+_SESSION_LOCKS: Dict[str, asyncio.Lock] = {}
+
+
+def _get_session_lock(session_string: str) -> asyncio.Lock:
+    lock = _SESSION_LOCKS.get(session_string)
+    if lock is None:
+        lock = asyncio.Lock()
+        _SESSION_LOCKS[session_string] = lock
+    return lock
 
 # 适配器类型标识
 ADAPTER_TYPE = "telegram"
@@ -359,6 +370,8 @@ class TelegramAdapter:
             raise HTTPException(status_code=400, detail=f"无效的文件路径格式: {rel}")
 
         client = self._get_client()
+        lock = _get_session_lock(self.session_string)
+        await lock.acquire()
         
         try:
             await client.connect()
@@ -396,7 +409,6 @@ class TelegramAdapter:
             headers = {
                 "Accept-Ranges": "bytes",
                 "Content-Type": mime_type,
-                "Content-Length": str(file_size),
             }
 
             if range_header:
@@ -408,7 +420,6 @@ class TelegramAdapter:
                     if start >= file_size or end >= file_size or start > end:
                         raise HTTPException(status_code=416, detail="Requested Range Not Satisfiable")
                     status = 206
-                    headers["Content-Length"] = str(end - start + 1)
                     headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
                 except ValueError:
                     raise HTTPException(status_code=400, detail="Invalid Range header")
@@ -427,18 +438,28 @@ class TelegramAdapter:
                         if downloaded >= limit:
                             break
                 finally:
-                    if client.is_connected():
-                        await client.disconnect()
+                    try:
+                        if client.is_connected():
+                            await client.disconnect()
+                    finally:
+                        lock.release()
 
             return StreamingResponse(iterator(), status_code=status, headers=headers)
 
+        except HTTPException:
+            if client.is_connected():
+                await client.disconnect()
+            lock.release()
+            raise
         except FileNotFoundError as e:
             if client.is_connected():
                 await client.disconnect()
+            lock.release()
             raise HTTPException(status_code=404, detail=str(e))
         except Exception as e:
             if client.is_connected():
                 await client.disconnect()
+            lock.release()
             raise HTTPException(status_code=500, detail=f"Streaming failed: {str(e)}")
 
     async def stat_file(self, root: str, rel: str):

@@ -30,8 +30,8 @@ class AIProviderBase(BaseModel):
     @classmethod
     def normalize_format(cls, value: str) -> str:
         fmt = value.lower()
-        if fmt not in {"openai", "gemini"}:
-            raise ValueError("api_format must be 'openai' or 'gemini'")
+        if fmt not in {"openai", "gemini", "anthropic", "ollama"}:
+            raise ValueError("api_format must be 'openai', 'gemini', 'anthropic', or 'ollama'")
         return fmt
 
 
@@ -54,8 +54,8 @@ class AIProviderUpdate(BaseModel):
         if value is None:
             return value
         fmt = value.lower()
-        if fmt not in {"openai", "gemini"}:
-            raise ValueError("api_format must be 'openai' or 'gemini'")
+        if fmt not in {"openai", "gemini", "anthropic", "ollama"}:
+            raise ValueError("api_format must be 'openai', 'gemini', 'anthropic', or 'ollama'")
         return fmt
 
 

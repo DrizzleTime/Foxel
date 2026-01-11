@@ -6,7 +6,7 @@ export interface AIProviderPayload {
   name: string;
   identifier: string;
   provider_type?: string | null;
-  api_format: 'openai' | 'gemini';
+  api_format: 'openai' | 'gemini' | 'anthropic' | 'ollama';
   base_url?: string | null;
   api_key?: string | null;
   logo_url?: string | null;

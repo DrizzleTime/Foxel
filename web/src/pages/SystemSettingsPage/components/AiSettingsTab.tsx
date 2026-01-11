@@ -80,7 +80,7 @@ interface ProviderTemplate {
   key: string;
   nameKey: string;
   descriptionKey: string;
-  api_format: 'openai' | 'gemini';
+  api_format: AIProviderPayload['api_format'];
   identifier: string;
   base_url?: string;
   logo_url?: string;
@@ -151,6 +151,28 @@ const providerTemplates: ProviderTemplate[] = [
     doc_url: 'https://platform.openai.com/docs/api-reference',
   },
   {
+    key: 'azure-openai',
+    nameKey: 'Azure OpenAI Provider',
+    descriptionKey: 'Azure OpenAI Provider Description',
+    api_format: 'openai',
+    identifier: 'azure-openai',
+    base_url: 'https://{resource-name}.openai.azure.com/openai/deployments/{deployment-name}',
+    logo_url: '/icon/azure-color.svg',
+    provider_type: 'builtin',
+    doc_url: 'https://learn.microsoft.com/en-us/azure/ai-services/openai/reference',
+  },
+  {
+    key: 'anthropic',
+    nameKey: 'Anthropic Provider',
+    descriptionKey: 'Anthropic Provider Description',
+    api_format: 'anthropic',
+    identifier: 'anthropic',
+    base_url: 'https://api.anthropic.com/v1',
+    logo_url: '/icon/anthropic.svg',
+    provider_type: 'builtin',
+    doc_url: 'https://docs.anthropic.com/claude/reference/messages_post',
+  },
+  {
     key: 'google-ai',
     nameKey: 'Google AI Provider',
     descriptionKey: 'Google AI Provider Description',
@@ -160,6 +182,17 @@ const providerTemplates: ProviderTemplate[] = [
     logo_url: '/icon/gemini-color.svg',
     provider_type: 'builtin',
     doc_url: 'https://ai.google.dev/api/rest',
+  },
+  {
+    key: 'zai',
+    nameKey: 'Z.ai Provider',
+    descriptionKey: 'Z.ai Provider Description',
+    api_format: 'openai',
+    identifier: 'zai',
+    base_url: 'https://open.bigmodel.cn/api/paas/v4',
+    logo_url: '/icon/zai.svg',
+    provider_type: 'builtin',
+    doc_url: 'https://open.bigmodel.cn/dev/api',
   },
   {
     key: 'siliconflow',
@@ -182,6 +215,17 @@ const providerTemplates: ProviderTemplate[] = [
     logo_url: '/icon/deepseek-color.svg',
     provider_type: 'builtin',
     doc_url: 'https://platform.deepseek.com/api-docs',
+  },
+  {
+    key: 'ollama',
+    nameKey: 'Ollama Provider',
+    descriptionKey: 'Ollama Provider Description',
+    api_format: 'ollama',
+    identifier: 'ollama',
+    base_url: 'http://localhost:11434',
+    logo_url: '/icon/ollama.svg',
+    provider_type: 'builtin',
+    doc_url: 'https://github.com/ollama/ollama/blob/main/docs/api.md',
   },
 ];
 
@@ -1071,14 +1115,16 @@ export default function AiSettingsTab() {
                   label={t('API Format')}
                   rules={[{ required: true }]}
                 >
-                  <Select
-                    disabled={!allowFormatChange}
-                    options={[
-                      { value: 'openai', label: 'OpenAI Compatible' },
-                      { value: 'gemini', label: 'Gemini Compatible' },
-                    ]}
-                  />
-                </Form.Item>
+                <Select
+                  disabled={!allowFormatChange}
+                  options={[
+                    { value: 'openai', label: 'OpenAI Compatible' },
+                    { value: 'gemini', label: 'Gemini Compatible' },
+                    { value: 'anthropic', label: 'Anthropic Native' },
+                    { value: 'ollama', label: 'Ollama Native' },
+                  ]}
+                />
+              </Form.Item>
                 <Form.Item name="base_url" label={t('Base URL')} rules={[{ required: true, message: t('Enter base url') }]}>
                   <Input placeholder="https://" />
                 </Form.Item>

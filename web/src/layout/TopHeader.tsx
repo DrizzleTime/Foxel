@@ -1,5 +1,5 @@
 import { Layout, Button, Dropdown, theme, Flex, Avatar, Typography, Tooltip } from 'antd';
-import { SearchOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined, RobotOutlined } from '@ant-design/icons';
+import { SearchOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined, RobotOutlined, BellOutlined } from '@ant-design/icons';
 import { memo, useState } from 'react';
 import SearchDialog from './SearchDialog.tsx';
 import { authApi } from '../api/auth.ts';
@@ -8,6 +8,8 @@ import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import ProfileModal from '../components/ProfileModal';
+import NoticesModal from '../components/NoticesModal';
+import { useSystemStatus } from '../contexts/SystemContext';
 
 const { Header } = Layout;
 
@@ -24,6 +26,8 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }
   const { t } = useI18n();
   const { user } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [noticesOpen, setNoticesOpen] = useState(false);
+  const status = useSystemStatus();
 
   const handleLogout = () => {
     authApi.logout();
@@ -51,6 +55,15 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }
       </Button>
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
       <Flex style={{ marginLeft: 'auto' }} align="center" gap={12}>
+        <Tooltip title={t('Notices')}>
+          <Button
+            type="text"
+            icon={<BellOutlined />}
+            aria-label={t('Notices')}
+            onClick={() => setNoticesOpen(true)}
+            style={{ paddingInline: 8, height: 40 }}
+          />
+        </Tooltip>
         <Tooltip title={t('AI Agent')}>
           <Button
             type="text"
@@ -81,6 +94,7 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }
           </Button>
         </Dropdown>
         <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+        <NoticesModal open={noticesOpen} onClose={() => setNoticesOpen(false)} version={status?.version || ''} />
       </Flex>
     </Header>
   );

@@ -5,8 +5,7 @@ export interface AutomationTask {
   id: number;
   name: string;
   event: string;
-  path_pattern?: string;
-  filename_regex?: string;
+  trigger_config?: Record<string, any>;
   processor_type: string;
   processor_config: Record<string, any>;
   enabled: boolean;

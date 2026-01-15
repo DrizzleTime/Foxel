@@ -59,8 +59,7 @@ async def get_task_status(task_id: str, request: Request, current_user: CurrentU
     body_fields=[
         "name",
         "event",
-        "path_pattern",
-        "filename_regex",
+        "trigger_config",
         "processor_type",
         "processor_config",
         "enabled",
@@ -93,8 +92,7 @@ async def list_tasks(request: Request, current_user: CurrentUser):
     body_fields=[
         "name",
         "event",
-        "path_pattern",
-        "filename_regex",
+        "trigger_config",
         "processor_type",
         "processor_config",
         "enabled",

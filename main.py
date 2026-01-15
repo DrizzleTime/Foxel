@@ -20,7 +20,7 @@ from middleware.exception_handler import (
 )
 import httpx
 from dotenv import load_dotenv
-from domain.tasks import task_queue_service
+from domain.tasks import task_queue_service, task_scheduler
 
 load_dotenv()
 
@@ -73,6 +73,7 @@ async def lifespan(app: FastAPI):
     # 加载已安装的插件
     from domain.plugins import init_plugins
     await init_plugins(app)
+    await task_scheduler.start()
 
     # 在所有路由加载完成后，挂载静态文件服务（放在最后以避免覆盖 API 路由）
     app.mount("/", SPAStaticFiles(directory="web/dist", html=True, check_dir=False), name="static")
@@ -80,6 +81,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await task_scheduler.stop()
         await task_queue_service.stop_worker()
         await close_db()
 

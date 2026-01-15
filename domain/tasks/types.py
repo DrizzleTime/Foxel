@@ -6,8 +6,7 @@ from pydantic import BaseModel, Field
 class AutomationTaskBase(BaseModel):
     name: str
     event: str
-    path_pattern: Optional[str] = None
-    filename_regex: Optional[str] = None
+    trigger_config: Dict[str, Any] = {}
     processor_type: str
     processor_config: Dict[str, Any] = {}
     enabled: bool = True
@@ -22,6 +21,7 @@ class AutomationTaskUpdate(AutomationTaskBase):
     event: Optional[str] = None
     processor_type: Optional[str] = None
     processor_config: Optional[Dict[str, Any]] = None
+    trigger_config: Optional[Dict[str, Any]] = None
     enabled: Optional[bool] = None
 
 

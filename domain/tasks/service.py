@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException
 
 from domain.auth import User, get_current_active_user
 from domain.config import ConfigService
+from .scheduler import task_scheduler
 from .task_queue import task_queue_service
 from .types import (
     AutomationTaskCreate,
@@ -46,6 +47,7 @@ class TaskService:
     @classmethod
     async def create_task(cls, payload: AutomationTaskCreate, user: Optional[User]) -> AutomationTask:
         task = await AutomationTask.create(**payload.model_dump())
+        task_scheduler.refresh()
         return task
 
     @classmethod
@@ -69,6 +71,7 @@ class TaskService:
         for key, value in update_data.items():
             setattr(task, key, value)
         await task.save()
+        task_scheduler.refresh()
         return task
 
     @classmethod
@@ -76,6 +79,7 @@ class TaskService:
         deleted_count = await AutomationTask.filter(id=task_id).delete()
         if not deleted_count:
             raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+        task_scheduler.refresh()
 
     @classmethod
     async def trigger_tasks(cls, event: str, path: str):
@@ -86,11 +90,16 @@ class TaskService:
 
     @classmethod
     def match(cls, task: AutomationTask, path: str) -> bool:
-        if task.path_pattern and not path.startswith(task.path_pattern):
+        trigger_config = task.trigger_config or {}
+        if not isinstance(trigger_config, dict):
+            trigger_config = {}
+        path_prefix = trigger_config.get("path_prefix")
+        filename_regex = trigger_config.get("filename_regex")
+        if path_prefix and not path.startswith(path_prefix):
             return False
-        if task.filename_regex:
+        if filename_regex:
             filename = path.split("/")[-1]
-            if not re.match(task.filename_regex, filename):
+            if not re.match(filename_regex, filename):
                 return False
         return True
 

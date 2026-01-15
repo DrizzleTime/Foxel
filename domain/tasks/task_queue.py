@@ -88,32 +88,27 @@ class TaskQueueService:
                 task.result = result
             elif task.name == "automation_task" or self._is_processor_task(task.name):
                 from models.database import AutomationTask
-                from domain.processors import get_processor
 
                 params = task.task_info
                 auto_task = await AutomationTask.get(id=params["task_id"])
                 path = params["path"]
 
-                processor_type = auto_task.processor_type if task.name == "automation_task" else task.name
-                processor = get_processor(processor_type)
-                if not processor:
-                    raise ValueError(f"Processor {processor_type} not found for task {auto_task.id}")
-
-                if processor_type != auto_task.processor_type:
-                    processor_type = auto_task.processor_type
-                    processor = get_processor(processor_type)
-                    if not processor:
-                        raise ValueError(f"Processor {processor_type} not found for task {auto_task.id}")
-
-                requires_input_bytes = bool(getattr(processor, "requires_input_bytes", True))
-                file_content = b""
-                if requires_input_bytes:
-                    file_content = await VirtualFSService.read_file(path)
-                result = await processor.process(file_content, path, auto_task.processor_config)
-                
-                save_to = auto_task.processor_config.get("save_to")
-                if save_to and getattr(processor, "produces_file", False):
-                    await VirtualFSService.write_file(save_to, result)
+                processor_type = auto_task.processor_type
+                config = auto_task.processor_config or {}
+                save_to = config.get("save_to") if isinstance(config, dict) else None
+                overwrite = bool(config.get("overwrite")) if isinstance(config, dict) else False
+                try:
+                    if await VirtualFSService.path_is_directory(path):
+                        overwrite = True
+                except Exception:
+                    pass
+                await VirtualFSService.process_file(
+                    path=path,
+                    processor_type=processor_type,
+                    config=config if isinstance(config, dict) else {},
+                    save_to=save_to,
+                    overwrite=overwrite,
+                )
                 task.result = "Automation task completed"
             elif task.name == "offline_http_download":
                 from domain.offline_downloads import OfflineDownloadService
@@ -129,7 +124,6 @@ class TaskQueueService:
                 task.result = "Email sent"
             else:
                 raise ValueError(f"Unknown task name: {task.name}")
-            
             task.status = TaskStatus.SUCCESS
 
         except Exception as e:

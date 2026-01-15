@@ -15,7 +15,7 @@ const TasksPage = memo(function TasksPage() {
   const [form] = Form.useForm();
   const [availableProcessors, setAvailableProcessors] = useState<ProcessorTypeMeta[]>([]);
   const { t } = useI18n();
-  const [pathPickerOpen, setPathPickerOpen] = useState(false);
+  const [pathPickerField, setPathPickerField] = useState<'path_prefix' | 'cron_path' | null>(null);
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -42,7 +42,8 @@ const TasksPage = memo(function TasksPage() {
       name: '',
       event: 'file_written',
       enabled: true,
-      processor_config: {}
+      processor_config: {},
+      trigger_config: {}
     });
     setOpen(true);
   };
@@ -52,7 +53,8 @@ const TasksPage = memo(function TasksPage() {
     form.resetFields();
     form.setFieldsValue({
       ...rec,
-      processor_config: rec.processor_config || {}
+      processor_config: rec.processor_config || {},
+      trigger_config: rec.trigger_config || {}
     });
     setOpen(true);
   };
@@ -60,7 +62,15 @@ const TasksPage = memo(function TasksPage() {
   const submit = async () => {
     try {
       const values = await form.validateFields();
-      const body = { ...values };
+      const triggerConfig = { ...(values.trigger_config || {}) };
+      if (values.event === 'cron') {
+        delete triggerConfig.path_prefix;
+        delete triggerConfig.filename_regex;
+      } else {
+        delete triggerConfig.cron_expr;
+        delete triggerConfig.path;
+      }
+      const body = { ...values, trigger_config: triggerConfig };
       setLoading(true);
       if (editing) {
         await tasksApi.update(editing.id, body);
@@ -133,7 +143,10 @@ const TasksPage = memo(function TasksPage() {
 
   const selectedProcessor = Form.useWatch('processor_type', form);
   const currentProcessorMeta = availableProcessors.find(p => p.type === selectedProcessor);
-  const watchedPathPattern = Form.useWatch('path_pattern', form);
+  const selectedEvent = Form.useWatch('event', form);
+  const watchedPathPrefix = Form.useWatch(['trigger_config', 'path_prefix'], form);
+  const watchedCronPath = Form.useWatch(['trigger_config', 'path'], form);
+  const isCron = selectedEvent === 'cron';
 
 
   return (
@@ -158,11 +171,11 @@ const TasksPage = memo(function TasksPage() {
         title={editing ? `${t('Edit Task')}: ${editing.name}` : t('Create Automation Task')}
         width={480}
         open={open}
-        onClose={() => { setOpen(false); setEditing(null); }}
+        onClose={() => { setOpen(false); setEditing(null); setPathPickerField(null); }}
         destroyOnHidden
         extra={
           <Space>
-            <Button onClick={() => { setOpen(false); setEditing(null); }}>{t('Cancel')}</Button>
+            <Button onClick={() => { setOpen(false); setEditing(null); setPathPickerField(null); }}>{t('Cancel')}</Button>
             <Button type="primary" onClick={submit} loading={loading}>{t('Submit')}</Button>
           </Space>
         }
@@ -174,19 +187,45 @@ const TasksPage = memo(function TasksPage() {
           <Form.Item name="event" label={t('Trigger Event')} rules={[{ required: true }]}> 
             <Select options={[ 
               { value: 'file_written', label: t('File Written') }, 
-              { value: 'file_deleted', label: t('File Deleted') }, 
+              { value: 'file_deleted', label: t('File Deleted') },
+              { value: 'cron', label: t('Scheduled') },
             ]} />
           </Form.Item>
-          <Typography.Title level={5} style={{ marginTop: 8, fontSize: 14 }}>{t('Matching Rules')}</Typography.Title>
-          <Form.Item name="path_pattern" label={t('Path Prefix (optional)')}>
-            <Input
-              placeholder="/images/screenshots"
-              addonAfter={<Button size="small" onClick={() => setPathPickerOpen(true)}>{t('Select')}</Button>}
-            />
-          </Form.Item>
-          <Form.Item name="filename_regex" label={t('Filename Regex (optional)')}>
-            <Input placeholder=".*\.png$" />
-          </Form.Item>
+          {isCron ? (
+            <>
+              <Typography.Title level={5} style={{ marginTop: 8, fontSize: 14 }}>{t('Schedule')}</Typography.Title>
+              <Form.Item
+                name={['trigger_config', 'cron_expr']}
+                label={t('Cron Expression')}
+                rules={[{ required: true }]}
+              >
+                <Input placeholder="*/5 * * * * *" />
+              </Form.Item>
+              <Form.Item
+                name={['trigger_config', 'path']}
+                label={t('Target Path')}
+                rules={[{ required: true }]}
+              >
+                <Input
+                  placeholder="/images"
+                  addonAfter={<Button size="small" onClick={() => setPathPickerField('cron_path')}>{t('Select')}</Button>}
+                />
+              </Form.Item>
+            </>
+          ) : (
+            <>
+              <Typography.Title level={5} style={{ marginTop: 8, fontSize: 14 }}>{t('Matching Rules')}</Typography.Title>
+              <Form.Item name={['trigger_config', 'path_prefix']} label={t('Path Prefix (optional)')}>
+                <Input
+                  placeholder="/images/screenshots"
+                  addonAfter={<Button size="small" onClick={() => setPathPickerField('path_prefix')}>{t('Select')}</Button>}
+                />
+              </Form.Item>
+              <Form.Item name={['trigger_config', 'filename_regex']} label={t('Filename Regex (optional)')}>
+                <Input placeholder=".*\\.png$" />
+              </Form.Item>
+            </>
+          )}
           <Form.Item name="enabled" label={t('Enabled')} valuePropName="checked">
             <Switch />
           </Form.Item>
@@ -205,11 +244,18 @@ const TasksPage = memo(function TasksPage() {
         </Form>
       </Drawer>
       <PathSelectorModal
-        open={pathPickerOpen}
-        mode="directory"
-        initialPath={watchedPathPattern || '/'}
-        onCancel={() => setPathPickerOpen(false)}
-        onOk={(p) => { form.setFieldsValue({ path_pattern: p }); setPathPickerOpen(false); }}
+        open={!!pathPickerField}
+        mode={pathPickerField === 'cron_path' ? 'any' : 'directory'}
+        initialPath={(pathPickerField === 'cron_path' ? watchedCronPath : watchedPathPrefix) || '/'}
+        onCancel={() => setPathPickerField(null)}
+        onOk={(p) => {
+          if (pathPickerField === 'cron_path') {
+            form.setFieldValue(['trigger_config', 'path'], p);
+          } else if (pathPickerField === 'path_prefix') {
+            form.setFieldValue(['trigger_config', 'path_prefix'], p);
+          }
+          setPathPickerField(null);
+        }}
       />
     </PageCard>
   );

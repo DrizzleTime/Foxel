@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "aioboto3>=15.5.0",
     "bcrypt>=5.0.0",
+    "croniter>=6.0.0",
     "fastapi>=0.127.0",
     "paramiko>=4.0.0",
     "pillow>=12.0.0",

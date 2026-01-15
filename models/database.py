@@ -116,8 +116,7 @@ class AutomationTask(Model):
     name = fields.CharField(max_length=100)
     event = fields.CharField(max_length=50)
 
-    path_pattern = fields.CharField(max_length=1024, null=True)
-    filename_regex = fields.CharField(max_length=255, null=True)
+    trigger_config = fields.JSONField(null=True)
 
     processor_type = fields.CharField(max_length=100)
     processor_config = fields.JSONField()

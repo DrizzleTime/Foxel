@@ -51,7 +51,7 @@ def _build_system_prompt(current_path: Optional[str]) -> str:
         "3) 用户未给出明确路径时先追问；若提供了“当前文件管理目录”，可以基于它把相对描述补全为绝对路径（以 / 开头）。",
         "4) 修改文件内容：先读取（vfs_read_text）→给出改动点→确认后再写入（vfs_write_text）。",
         "5) processors_run 返回任务 id 后，说明任务已提交，可在任务队列查看进度。",
-        "6) 回答保持简洁中文。",
+        "6) 回答语言跟随用户；用户用英文则用英文，用户用中文则用中文。回答尽量简洁。",
     ]
     if current_path:
         lines.append("")

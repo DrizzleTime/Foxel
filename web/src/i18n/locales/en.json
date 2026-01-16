@@ -536,6 +536,7 @@
   "This will delete all logs irreversibly.": "This will delete all logs irreversibly.",
   "Cleared {count} logs": "Cleared {count} logs",
   "Time": "Time",
+  "Weekday": "Weekday",
   "Level": "Level",
   "Source": "Source",
   "Message": "Message",

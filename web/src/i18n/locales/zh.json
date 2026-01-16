@@ -527,6 +527,7 @@
   "This will delete all logs irreversibly.": "将删除全部日志且不可恢复",
   "Cleared {count} logs": "成功清理 {count} 条日志",
   "Time": "时间",
+  "Weekday": "星期",
   "Level": "级别",
   "Source": "来源",
   "Message": "消息",

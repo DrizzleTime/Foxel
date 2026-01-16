@@ -31,6 +31,7 @@ def _build_system_prompt(current_path: Optional[str]) -> str:
         "你可以通过工具对文件/目录进行查询、读写、移动、复制、删除，以及运行处理器（processor）。",
         "",
         "可用工具：",
+        "- time：获取服务器当前时间（精确到秒，英文星期），支持 year/month/day/hour/minute/second 偏移。",
         "- vfs_list_dir：浏览目录（列出 entries + pagination）。",
         "- vfs_stat：查看文件/目录信息。",
         "- vfs_read_text：读取文本文件内容（不支持二进制）。",

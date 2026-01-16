@@ -54,6 +54,47 @@ function shortId(id: string, keep: number = 6): string {
   return `${s.slice(0, keep)}…${s.slice(-keep)}`;
 }
 
+function clampText(value: string, maxLen: number): string {
+  if (value.length <= maxLen) return value;
+  return `${value.slice(0, maxLen)}…`;
+}
+
+function formatDisplayValue(value: any, maxLen: number = 120): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return clampText(value, maxLen);
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return clampText(JSON.stringify(value), maxLen);
+  } catch {
+    return clampText(String(value), maxLen);
+  }
+}
+
+function isPlainObject(value: any): value is Record<string, any> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+type ToolPayload = {
+  ok?: boolean;
+  summary?: string;
+  view?: {
+    type?: string;
+    title?: string;
+    meta?: Record<string, any>;
+    items?: any[];
+    text?: string;
+    message?: string;
+  };
+  data?: any;
+  error?: any;
+};
+
+function parseToolPayload(raw: string): ToolPayload | null {
+  const parsed = tryParseJson<ToolPayload>(raw);
+  if (!parsed || typeof parsed !== 'object') return null;
+  return parsed;
+}
+
 interface AiAgentWidgetProps {
   currentPath?: string | null;
   open: boolean;
@@ -329,94 +370,37 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
     }
   }, [t]);
 
-  const renderToolResultSummary = useCallback((toolName: string, rawContent: string, toolArgs?: Record<string, any> | null) => {
-    const data = tryParseJson<Record<string, any>>(rawContent);
-    if (!data) return '';
+  const renderToolResultSummary = useCallback((rawContent: string) => {
+    const payload = parseToolPayload(rawContent);
+    if (!payload) return '';
+    const summary = typeof payload.summary === 'string' ? payload.summary.trim() : '';
+    if (summary) return summary;
 
-    if (data.canceled) return t('Canceled');
-    if (data.error) return `${t('Error')}: ${String(data.error)}`;
+    if (payload.ok === false) {
+      const message = typeof payload.error?.message === 'string' ? payload.error.message : '';
+      return message ? `${t('Error')}: ${message}` : t('Error');
+    }
 
-    if (toolName === 'processors_list') {
-      const processors = Array.isArray(data.processors) ? data.processors : [];
-      return `${t('Processors')}: ${processors.length}`;
+    const view = payload.view || {};
+    const viewType = typeof view.type === 'string' ? view.type : '';
+    if (viewType === 'text') {
+      const text = typeof view.text === 'string' ? view.text : '';
+      return text ? `${text.length} ${t('chars')}` : '';
     }
-    if (toolName === 'processors_run') {
-      const ctx = (() => {
-        const processorType = typeof toolArgs?.processor_type === 'string' ? toolArgs.processor_type.trim() : '';
-        const path = typeof toolArgs?.path === 'string' ? toolArgs.path.trim() : '';
-        const parts = [processorType, path].filter(Boolean);
-        return parts.length ? parts.join(' · ') : '';
-      })();
-      if (typeof data.task_id === 'string') {
-        return ctx ? `${t('Task submitted')}: ${ctx} · ${shortId(data.task_id)}` : `${t('Task submitted')}: ${shortId(data.task_id)}`;
-      }
-      const taskIds = Array.isArray(data.task_ids) ? data.task_ids : [];
-      const scheduled = typeof data.scheduled === 'number' ? data.scheduled : taskIds.length;
-      if (scheduled) return ctx ? `${t('Tasks submitted')}: ${ctx} · ${scheduled}` : `${t('Tasks submitted')}: ${scheduled}`;
-      return t('Task submitted');
+    if (viewType === 'list') {
+      const items = Array.isArray(view.items) ? view.items : [];
+      return `${items.length} ${t('items')}`;
     }
-    if (toolName === 'vfs_list_dir') {
-      const path = typeof data.path === 'string' ? data.path : '';
-      const entries = Array.isArray(data.entries) ? data.entries : [];
-      const names = entries
-        .map((it: any) => String(it?.name || '').trim())
-        .filter(Boolean)
-        .slice(0, 3);
-      const head = `${t('Directory')}: ${path || '/'}`;
-      const tail = `${entries.length} ${t('items')}`;
-      const sample = names.length ? ` · ${names.join(', ')}` : '';
-      return `${head} · ${tail}${sample}`;
-    }
-    if (toolName === 'vfs_search') {
-      const query = typeof data.query === 'string' ? data.query : '';
-      const items = Array.isArray(data.items) ? data.items : [];
-      return `${t('Search')}: ${query || '-'} · ${items.length} ${t('results')}`;
-    }
-    if (toolName === 'vfs_stat') {
-      const isDir = Boolean(data.is_dir);
-      const path = typeof data.path === 'string' ? data.path : '';
-      return `${t('Info')}: ${path || '-'} · ${isDir ? t('Folder') : t('File')}`;
-    }
-    if (toolName === 'vfs_read_text') {
-      const path = typeof data.path === 'string' ? data.path : '';
-      const length = typeof data.length === 'number' ? data.length : undefined;
-      const truncated = Boolean(data.truncated);
-      const tail = length != null ? ` · ${length} ${t('chars')}${truncated ? `(${t('Truncated')})` : ''}` : '';
-      return `${t('Read')}: ${path || '-'}${tail}`;
-    }
-    if (toolName === 'vfs_write_text') {
-      const path = typeof data.path === 'string' ? data.path : '';
-      const bytes = typeof data.bytes === 'number' ? data.bytes : undefined;
-      return `${t('Write')}: ${path || '-'}${bytes != null ? ` · ${bytes} bytes` : ''}`;
-    }
-    if (toolName === 'vfs_mkdir') {
-      const path = typeof data.path === 'string' ? data.path : '';
-      return `${t('Created')}: ${path || '-'}`;
-    }
-    if (toolName === 'vfs_delete') {
-      const path = typeof data.path === 'string' ? data.path : '';
-      return `${t('Deleted')}: ${path || '-'}`;
-    }
-    if (toolName === 'vfs_move') {
-      const src = typeof data.src === 'string' ? data.src : '';
-      const dst = typeof data.dst === 'string' ? data.dst : '';
-      return `${t('Moved')}: ${src || '-'} → ${dst || '-'}`;
-    }
-    if (toolName === 'vfs_copy') {
-      const src = typeof data.src === 'string' ? data.src : '';
-      const dst = typeof data.dst === 'string' ? data.dst : '';
-      return `${t('Copied')}: ${src || '-'} → ${dst || '-'}`;
-    }
-    if (toolName === 'vfs_rename') {
-      const src = typeof data.src === 'string' ? data.src : '';
-      const dst = typeof data.dst === 'string' ? data.dst : '';
-      return `${t('Renamed')}: ${src || '-'} → ${dst || '-'}`;
+    if (viewType === 'kv') {
+      const items = Array.isArray(view.items) ? view.items : [];
+      return `${items.length} ${t('items')}`;
     }
     return '';
   }, [t]);
 
-  const renderToolDetails = useCallback((toolKey: string, toolName: string, rawContent: string) => {
-    const data = tryParseJson<Record<string, any>>(rawContent);
+  const renderToolDetails = useCallback((toolKey: string, rawContent: string) => {
+    const payload = parseToolPayload(rawContent);
+    const view = payload?.view;
     const showRaw = !!expandedRaw[toolKey];
     const toggleRaw = () => setExpandedRaw((prev) => ({ ...prev, [toolKey]: !prev[toolKey] }));
 
@@ -454,26 +438,40 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
       </Space>
     );
 
-    if (toolName === 'processors_list') {
-      const processors = Array.isArray(data?.processors) ? data!.processors : [];
+    const viewType = typeof view?.type === 'string' ? view.type : '';
+    const title = typeof view?.title === 'string' ? view.title : '';
+    const metaEntries = isPlainObject(view?.meta) ? Object.entries(view!.meta) : [];
+
+    const renderMeta = () => {
+      if (metaEntries.length === 0 && !title) return null;
+      return (
+        <>
+          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            {title ? (
+              <Text type="secondary" style={{ fontSize: 12 }}>{title}</Text>
+            ) : null}
+            {metaEntries.slice(0, 6).map(([key, value]) => (
+              <Text key={key} type="secondary" style={{ fontSize: 12 }}>
+                {key}: {formatDisplayValue(value, 180) || '-'}
+              </Text>
+            ))}
+          </Space>
+          <Divider style={{ margin: '10px 0' }} />
+        </>
+      );
+    };
+
+    if (viewType === 'error') {
+      const message = typeof view?.message === 'string'
+        ? view.message
+        : (typeof payload?.error?.message === 'string' ? payload.error.message : t('Error'));
       return (
         <div className="fx-agent-tool-details">
           {header}
           <Divider style={{ margin: '10px 0' }} />
-          <List
-            size="small"
-            dataSource={processors}
-            locale={{ emptyText: t('No results') }}
-            renderItem={(item: any) => (
-              <List.Item>
-                <Space size={10} wrap>
-                  <Text code style={{ fontVariantNumeric: 'tabular-nums' }}>{String(item?.type || '')}</Text>
-                  <Text>{String(item?.name || '')}</Text>
-                </Space>
-              </List.Item>
-            )}
-            style={{ background: 'transparent' }}
-          />
+          <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
+            {message || t('Error')}
+          </Paragraph>
           {showRaw && (
             <>
               <Divider style={{ margin: '10px 0' }} />
@@ -484,40 +482,43 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
       );
     }
 
-    if (toolName === 'vfs_list_dir') {
-      const path = typeof data?.path === 'string' ? data!.path : '/';
-      const entries = Array.isArray(data?.entries) ? data!.entries : [];
-      const pagination = data?.pagination && typeof data.pagination === 'object' ? data.pagination : null;
+    if (viewType === 'text') {
+      const text = typeof view?.text === 'string' ? view.text : '';
       return (
         <div className="fx-agent-tool-details">
           {header}
           <Divider style={{ margin: '10px 0' }} />
-          <Space direction="vertical" size={6} style={{ width: '100%' }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>{t('Directory')}: {path}</Text>
-            {pagination?.total != null ? (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {t('Total')}: {String(pagination.total)}
-              </Text>
-            ) : null}
-          </Space>
+          {renderMeta()}
+          <pre className="fx-agent-pre" style={{ marginTop: metaEntries.length || title ? 0 : 10 }}>{text || ''}</pre>
+          {showRaw && (
+            <>
+              <Divider style={{ margin: '10px 0' }} />
+              <pre className="fx-agent-pre">{rawJson}</pre>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    if (viewType === 'kv') {
+      const items = Array.isArray(view?.items) ? view!.items : [];
+      return (
+        <div className="fx-agent-tool-details">
+          {header}
           <Divider style={{ margin: '10px 0' }} />
+          {renderMeta()}
           <List
             size="small"
-            dataSource={entries}
+            dataSource={items}
             locale={{ emptyText: t('No results') }}
-            renderItem={(item: any) => {
-              const name = String(item?.name || '');
-              const type = String(item?.type || (item?.is_dir ? 'dir' : 'file'));
+            renderItem={(item: any, idx) => {
+              const key = typeof item?.key === 'string' ? item.key : (typeof item?.label === 'string' ? item.label : String(idx));
+              const value = typeof item?.value === 'string' ? item.value : formatDisplayValue(item?.value, 200);
               return (
                 <List.Item>
-                  <Space size={10} wrap style={{ width: '100%', justifyContent: 'space-between' }}>
-                    <Space size={10} wrap>
-                      <Text code style={{ fontVariantNumeric: 'tabular-nums' }}>{type}</Text>
-                      <Text>{name}</Text>
-                    </Space>
-                    {!item?.is_dir && typeof item?.size === 'number' ? (
-                      <Text type="secondary" style={{ fontSize: 12 }}>{item.size} bytes</Text>
-                    ) : null}
+                  <Space size={10} wrap>
+                    <Text code style={{ fontVariantNumeric: 'tabular-nums' }}>{key || '-'}</Text>
+                    <Text>{value || '-'}</Text>
                   </Space>
                 </List.Item>
               );
@@ -534,68 +535,45 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
       );
     }
 
-    if (toolName === 'vfs_search') {
-      const query = typeof data?.query === 'string' ? data!.query : '';
-      const mode = typeof data?.mode === 'string' ? data!.mode : '';
-      const items = Array.isArray(data?.items) ? data!.items : [];
-      const pagination = data?.pagination && typeof data.pagination === 'object' ? data.pagination : null;
+    if (viewType === 'list') {
+      const items = Array.isArray(view?.items) ? view!.items : [];
       return (
         <div className="fx-agent-tool-details">
           {header}
           <Divider style={{ margin: '10px 0' }} />
-          <Space direction="vertical" size={6} style={{ width: '100%' }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>{t('Search')}: {query || '-'}</Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>{t('Mode')}: {mode || '-'}</Text>
-            {pagination?.has_more != null ? (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {t('Page')}: {String(pagination.page)} · {t('Has more')}: {String(Boolean(pagination.has_more))}
-              </Text>
-            ) : null}
-          </Space>
-          <Divider style={{ margin: '10px 0' }} />
+          {renderMeta()}
           <List
             size="small"
             dataSource={items}
             locale={{ emptyText: t('No results') }}
             renderItem={(item: any) => {
-              const type = String(item?.source_type || item?.mime || '');
-              const path = String(item?.path || '');
-              const score = item?.score != null ? Number(item.score) : null;
+              if (isPlainObject(item)) {
+                const entries = Object.entries(item);
+                const shown = entries.slice(0, 4);
+                const extra = entries.length - shown.length;
+                return (
+                  <List.Item>
+                    <Space size={10} wrap style={{ width: '100%', justifyContent: 'space-between' }}>
+                      <Space size={10} wrap>
+                        {shown.map(([key, value]) => (
+                          <Text key={key}>
+                            <Text type="secondary">{key}</Text>: {formatDisplayValue(value, 160) || '-'}
+                          </Text>
+                        ))}
+                        {extra > 0 ? <Text type="secondary">+{extra}</Text> : null}
+                      </Space>
+                    </Space>
+                  </List.Item>
+                );
+              }
               return (
                 <List.Item>
-                  <Space size={10} wrap style={{ width: '100%', justifyContent: 'space-between' }}>
-                    <Space size={10} wrap>
-                      {type ? <Text code style={{ fontVariantNumeric: 'tabular-nums' }}>{type}</Text> : null}
-                      <Text>{path}</Text>
-                    </Space>
-                    {score != null && !Number.isNaN(score) ? (
-                      <Text type="secondary" style={{ fontSize: 12 }}>{score.toFixed(3)}</Text>
-                    ) : null}
-                  </Space>
+                  <Text>{formatDisplayValue(item, 200) || '-'}</Text>
                 </List.Item>
               );
             }}
             style={{ background: 'transparent' }}
           />
-          {showRaw && (
-            <>
-              <Divider style={{ margin: '10px 0' }} />
-              <pre className="fx-agent-pre">{rawJson}</pre>
-            </>
-          )}
-        </div>
-      );
-    }
-
-    if (toolName === 'vfs_read_text') {
-      const path = typeof data?.path === 'string' ? data!.path : '';
-      const content = typeof data?.content === 'string' ? data!.content : '';
-      return (
-        <div className="fx-agent-tool-details">
-          {header}
-          <Divider style={{ margin: '10px 0' }} />
-          <Text type="secondary" style={{ fontSize: 12 }}>{t('File')}: {path || '-'}</Text>
-          <pre className="fx-agent-pre" style={{ marginTop: 10 }}>{content || ''}</pre>
           {showRaw && (
             <>
               <Divider style={{ margin: '10px 0' }} />
@@ -614,41 +592,21 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
           <pre className="fx-agent-pre">{rawJson}</pre>
         ) : (
           <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
-            {extractTextContent(data ?? rawContent) || <Text type="secondary">{t('No content')}</Text>}
+            {extractTextContent(payload ?? rawContent) || <Text type="secondary">{t('No content')}</Text>}
           </Paragraph>
         )}
       </div>
     );
   }, [copyToClipboard, expandedRaw, t]);
 
-  const renderToolArgsSummary = useCallback((toolName: string, args?: Record<string, any> | null) => {
-    const a = args || {};
-    if (toolName === 'processors_run') {
-      const path = typeof a.path === 'string' ? a.path : '';
-      return path ? `${t('Path')}: ${path}` : '';
-    }
-    if (toolName === 'vfs_read_text' || toolName === 'vfs_list_dir' || toolName === 'vfs_stat' || toolName === 'vfs_delete' || toolName === 'vfs_mkdir') {
-      const path = typeof a.path === 'string' ? a.path : '';
-      return path ? `${t('Path')}: ${path}` : '';
-    }
-    if (toolName === 'vfs_search') {
-      const query = typeof a.query === 'string' ? a.query : '';
-      return query ? `${t('Search')}: ${query}` : '';
-    }
-    if (toolName === 'vfs_write_text') {
-      const path = typeof a.path === 'string' ? a.path : '';
-      return path ? `${t('Path')}: ${path}` : '';
-    }
-    if (toolName === 'vfs_move' || toolName === 'vfs_copy' || toolName === 'vfs_rename') {
-      const src = typeof a.src === 'string' ? a.src : '';
-      const dst = typeof a.dst === 'string' ? a.dst : '';
-      if (src && dst) return `${src} → ${dst}`;
-      if (src) return src;
-      if (dst) return dst;
-      return '';
-    }
-    return '';
-  }, [t]);
+  const renderToolArgsSummary = useCallback((args?: Record<string, any> | null) => {
+    const entries = Object.entries(args || {})
+      .filter(([, value]) => value != null && String(value).trim() !== '');
+    if (entries.length === 0) return '';
+    return entries.slice(0, 2)
+      .map(([key, value]) => `${key}: ${formatDisplayValue(value, 60)}`)
+      .join(' · ');
+  }, []);
 
   return (
     <>
@@ -715,7 +673,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                   if (isTool) {
                     const rawContent = extractTextContent((m as any).content);
                     const expanded = !!expandedTools[msgKey];
-                    const summary = toolName ? renderToolResultSummary(toolName, rawContent, toolInfo?.args || null) : '';
+                    const summary = rawContent ? renderToolResultSummary(rawContent) : '';
                     return (
                       <div key={msgKey} className="fx-agent-msg fx-agent-msg-tool">
                         <div className="fx-agent-tool-block">
@@ -752,7 +710,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                                   </pre>
                                 </div>
                               )}
-                              {renderToolDetails(msgKey, toolName || t('Tool'), rawContent)}
+                              {renderToolDetails(msgKey, rawContent)}
                             </div>
                           )}
                         </div>
@@ -826,7 +784,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                         const key = `pending:${p.id}`;
                         const expanded = !!expandedTools[key];
                         const running = Object.prototype.hasOwnProperty.call(runningTools, p.id);
-                        const summary = renderToolArgsSummary(p.name, args);
+                        const summary = renderToolArgsSummary(args);
                         return (
                           <div key={p.id} className="fx-agent-tool-block fx-agent-pending-item">
                             <div className="fx-agent-tool-bar">

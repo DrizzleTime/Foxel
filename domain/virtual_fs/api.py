@@ -63,6 +63,16 @@ async def access_public_file(
     return await VirtualFSService.access_public_file(token, request.headers.get("Range"))
 
 
+@router.get("/public/{token}/{filename}")
+@audit(action=AuditAction.DOWNLOAD, description="访问临时链接文件")
+async def access_public_file_with_name(
+    token: str,
+    filename: str,
+    request: Request,
+):
+    return await VirtualFSService.access_public_file(token, request.headers.get("Range"))
+
+
 @router.get("/stat/{full_path:path}")
 @audit(action=AuditAction.READ, description="查看文件信息")
 async def get_file_stat(

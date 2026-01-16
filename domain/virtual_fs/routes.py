@@ -1,5 +1,6 @@
 import mimetypes
 import re
+from urllib.parse import quote
 
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import Response
@@ -112,12 +113,14 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
     async def create_temp_link(cls, full_path: str, expires_in: int):
         full_path = cls._normalize_path(full_path)
         token = await cls.generate_temp_link_token(full_path, expires_in=expires_in)
+        filename = full_path.rstrip("/").split("/")[-1]
+        filename_part = f"/{quote(filename, safe='')}" if filename else ""
         file_domain = await ConfigService.get("FILE_DOMAIN")
         if file_domain:
             file_domain = file_domain.rstrip("/")
-            url = f"{file_domain}/api/fs/public/{token}"
+            url = f"{file_domain}/api/fs/public/{token}{filename_part}"
         else:
-            url = f"/api/fs/public/{token}"
+            url = f"/api/fs/public/{token}{filename_part}"
         return {"token": token, "path": full_path, "url": url}
 
     @classmethod
@@ -128,11 +131,16 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
             raise exc
 
         try:
-            return await cls.stream_file(path, range_header)
+            response = await cls.stream_file(path, range_header)
         except FileNotFoundError:
             raise HTTPException(404, detail="File not found via token")
         except Exception as exc:
             raise HTTPException(500, detail=f"File access error: {exc}")
+
+        filename = path.rstrip("/").split("/")[-1]
+        if filename and not response.headers.get("Content-Disposition"):
+            response.headers["Content-Disposition"] = f"inline; filename*=UTF-8''{quote(filename, safe='')}"
+        return response
 
     @classmethod
     async def stat(cls, full_path: str):

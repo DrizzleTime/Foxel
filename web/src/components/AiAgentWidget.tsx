@@ -1,8 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Avatar, Button, Divider, Drawer, Flex, Input, List, Space, Switch, Tag, Typography, message, theme } from 'antd';
-import { RobotOutlined, SendOutlined, FolderOpenOutlined, DeleteOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Avatar, Button, Divider, Flex, Input, List, Modal, Space, Switch, Tag, Typography, message, theme } from 'antd';
+import { RobotOutlined, SendOutlined, DeleteOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
-import PathSelectorModal from './PathSelectorModal';
+import type { TextAreaRef } from 'antd/es/input/TextArea';
 import { agentApi, type AgentChatMessage, type PendingToolCall } from '../api/agent';
 import { useI18n } from '../i18n';
 import '../styles/ai-agent.css';
@@ -68,11 +68,11 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [pending, setPending] = useState<PendingToolCall[]>([]);
-  const [pathModalOpen, setPathModalOpen] = useState(false);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [expandedRaw, setExpandedRaw] = useState<Record<string, boolean>>({});
   const [runningTools, setRunningTools] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<TextAreaRef | null>(null);
   const streamControllerRef = useRef<AbortController | null>(null);
   const streamSeqRef = useRef(0);
   const baseMessagesRef = useRef<AgentChatMessage[]>([]);
@@ -92,6 +92,14 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
     const t = window.setTimeout(scrollToBottom, 0);
     return () => window.clearTimeout(t);
   }, [messages, open, pending, scrollToBottom]);
+
+  useEffect(() => {
+    if (!open || loading || pending.length > 0) return;
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [open, loading, messages.length, pending.length]);
 
   useEffect(() => {
     return () => {
@@ -295,12 +303,6 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
     if (ids.length === 0) return;
     await runStream({ messages, rejected_tool_call_ids: ids });
   }, [messages, pending, runStream]);
-
-  const handlePathSelected = useCallback((path: string) => {
-    const p = normalizePath(path) || '/';
-    setInput((prev) => (prev.trim() ? `${prev.trim()} ${p}` : p));
-    setPathModalOpen(false);
-  }, []);
 
   const messageItems = useMemo(() => {
     return messages.filter((m) => {
@@ -650,36 +652,44 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
 
   return (
     <>
-      <Drawer
-        title={t('AI Agent')}
+      <Modal
+        title={(
+          <Flex align="center" justify="space-between" gap={12} wrap>
+            <Text strong>{t('AI Agent')}</Text>
+            <Space align="center">
+              <Text type="secondary">{t('Auto execute')}</Text>
+              <Switch size="small" checked={autoExecute} onChange={setAutoExecute} />
+              <Button
+                type="text"
+                size="small"
+                icon={<DeleteOutlined />}
+                onClick={clearChat}
+                disabled={loading || messageItems.length === 0}
+              >
+                {t('Clear')}
+              </Button>
+            </Space>
+          </Flex>
+        )}
         open={open}
-        onClose={() => { streamControllerRef.current?.abort(); onOpenChange(false); }}
-        width={520}
-        mask={false}
+        onCancel={() => { streamControllerRef.current?.abort(); onOpenChange(false); }}
+        width={720}
+        centered
+        closable={false}
         destroyOnHidden
+        footer={null}
         styles={{
           body: {
             padding: 8,
             background: token.colorBgContainer,
+            height: '70vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
           },
         }}
-        extra={
-          <Space align="center">
-            <Text type="secondary">{t('Auto execute')}</Text>
-            <Switch size="small" checked={autoExecute} onChange={setAutoExecute} />
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={clearChat}
-              disabled={loading || messageItems.length === 0}
-            >
-              {t('Clear')}
-            </Button>
-          </Space>
-        }
       >
-        <Flex vertical gap={0} style={{ height: '100%' }} className="fx-agent-container">
+        <Flex vertical gap={0} style={{ flex: 1, minHeight: 0 }} className="fx-agent-container">
           <div
             ref={scrollRef}
             className="fx-agent-chat-scroll"
@@ -880,19 +890,18 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
           <div className="fx-agent-composer">
             <Flex vertical gap={8}>
               <Space wrap>
-                <Button size="small" icon={<FolderOpenOutlined />} onClick={() => setPathModalOpen(true)} disabled={loading}>
-                  {t('Select Path')}
-                </Button>
                 {effectivePath && (
                   <Tag bordered={false} color="blue">{t('Current')}: {effectivePath}</Tag>
                 )}
               </Space>
 
               <Input.TextArea
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={t('Type a message')}
                 autoSize={{ minRows: 2, maxRows: 6 }}
+                autoFocus
                 disabled={loading || pending.length > 0}
                 variant="borderless"
                 onPressEnter={(e) => {
@@ -916,15 +925,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
             </Flex>
           </div>
         </Flex>
-      </Drawer>
-
-      <PathSelectorModal
-        open={pathModalOpen}
-        mode="any"
-        initialPath={effectivePath || '/'}
-        onOk={handlePathSelected}
-        onCancel={() => setPathModalOpen(false)}
-      />
+      </Modal>
     </>
   );
 });

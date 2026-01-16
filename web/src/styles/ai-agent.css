@@ -5,7 +5,7 @@
 .fx-agent-chat-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 0;
+  padding: 8px 4px 12px;
   border-radius: 0;
   background: transparent;
   border: 0;
@@ -54,8 +54,12 @@
 }
 
 .fx-agent-assistant-block {
-  max-width: 100%;
-  padding: 2px 2px;
+  max-width: 92%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-bg-container);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
 }
 
 .fx-agent-tool-block {
@@ -75,9 +79,11 @@
 }
 
 .fx-agent-content {
-  font-size: 13px;
-  line-height: 1.75;
+  font-size: 14px;
+  line-height: 1.7;
   word-break: break-word;
+  overflow-wrap: anywhere;
+  color: var(--ant-color-text);
 }
 
 .fx-agent-tool-pills .ant-tag {
@@ -122,17 +128,56 @@
 }
 
 .fx-agent-md p {
-  margin: 0 0 0.5em;
+  margin: 0 0 0.65em;
+  white-space: pre-wrap;
 }
 
 .fx-agent-md p:last-child {
   margin-bottom: 0;
 }
 
+.fx-agent-md > :first-child {
+  margin-top: 0;
+}
+
+.fx-agent-md > :last-child {
+  margin-bottom: 0;
+}
+
+.fx-agent-md h1,
+.fx-agent-md h2,
+.fx-agent-md h3,
+.fx-agent-md h4 {
+  margin: 0.9em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.fx-agent-md h1 {
+  font-size: 18px;
+}
+
+.fx-agent-md h2 {
+  font-size: 16px;
+}
+
+.fx-agent-md h3 {
+  font-size: 15px;
+}
+
+.fx-agent-md h4 {
+  font-size: 14px;
+}
+
 .fx-agent-md ul,
 .fx-agent-md ol {
-  margin: 0 0 0.5em;
+  margin: 0 0 0.65em;
   padding-left: 1.2em;
+}
+
+.fx-agent-md li {
+  margin-bottom: 0.35em;
+  white-space: pre-wrap;
 }
 
 .fx-agent-md code {
@@ -145,12 +190,13 @@
 }
 
 .fx-agent-md pre {
-  margin: 0 0 0.5em;
-  padding: 8px 10px;
+  margin: 0 0 0.65em;
+  padding: 10px 12px;
   border-radius: 10px;
-  background: var(--ant-color-bg-container);
+  background: rgba(0, 0, 0, 0.03);
   border: 1px solid var(--ant-color-border-secondary);
   overflow: auto;
+  white-space: pre;
 }
 
 .fx-agent-md pre code {
@@ -158,19 +204,54 @@
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 11px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .fx-agent-md blockquote {
-  margin: 0 0 0.65em;
-  padding: 0 0 0 10px;
+  margin: 0 0 0.7em;
+  padding: 6px 10px;
+  border-radius: 8px;
   border-left: 3px solid var(--ant-color-border);
+  background: rgba(0, 0, 0, 0.03);
   color: var(--ant-color-text-tertiary);
 }
 
 .fx-agent-md a {
   color: var(--ant-color-primary);
+  text-decoration: underline;
+}
+
+.fx-agent-md hr {
+  margin: 0.8em 0;
+  border: 0;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-agent-md img {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-agent-md table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 0.8em;
+  font-size: 13px;
+}
+
+.fx-agent-md th,
+.fx-agent-md td {
+  padding: 6px 8px;
+  border: 1px solid var(--ant-color-border-secondary);
+  text-align: left;
+  vertical-align: top;
+}
+
+.fx-agent-md thead th {
+  background: rgba(0, 0, 0, 0.04);
+  font-weight: 600;
 }
 
 .fx-agent-tool-details {
@@ -228,8 +309,8 @@
 }
 
 .fx-agent-composer .ant-input {
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 .fx-agent-running {

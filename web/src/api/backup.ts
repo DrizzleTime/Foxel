@@ -1,8 +1,11 @@
 import request from './client';
 
 export const backupApi = {
-  export: async () => {
-    const response = await request('/backup/export', {
+  export: async (sections?: string[]) => {
+    const params = new URLSearchParams();
+    (sections || []).forEach((section) => params.append('sections', section));
+    const query = params.toString();
+    const response = await request(`/backup/export${query ? `?${query}` : ''}`, {
       method: 'GET',
       rawResponse: true,
     }) as Response;
@@ -27,9 +30,10 @@ export const backupApi = {
     window.URL.revokeObjectURL(url);
   },
 
-  import: async (file: File) => {
+  import: async (file: File, mode: 'replace' | 'merge' = 'replace') => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('mode', mode);
     return request('/backup/import', {
       method: 'POST',
       body: formData,

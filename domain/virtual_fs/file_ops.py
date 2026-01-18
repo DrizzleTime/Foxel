@@ -12,6 +12,29 @@ from .listing import VirtualFSListingMixin
 
 class VirtualFSFileOpsMixin(VirtualFSListingMixin):
     @classmethod
+    def _normalize_written_result(
+        cls,
+        original_path: str,
+        adapter_model: Any,
+        result: Any,
+        size_hint: int,
+    ) -> tuple[str, int]:
+        final_path = original_path
+        size = size_hint
+        if isinstance(result, dict):
+            rel_override = result.get("rel")
+            if isinstance(rel_override, str) and rel_override:
+                final_path = cls._build_absolute_path(adapter_model.path, rel_override)
+            else:
+                path_override = result.get("path")
+                if isinstance(path_override, str) and path_override:
+                    final_path = cls._normalize_path(path_override)
+            size_val = result.get("size")
+            if isinstance(size_val, int):
+                size = size_val
+        return final_path, size
+
+    @classmethod
     async def read_file(cls, path: str) -> Union[bytes, Any]:
         adapter_instance, _, root, rel = await cls.resolve_adapter_and_rel(path)
         if rel.endswith("/") or rel == "":
@@ -21,16 +44,18 @@ class VirtualFSFileOpsMixin(VirtualFSListingMixin):
 
     @classmethod
     async def write_file(cls, path: str, data: bytes):
-        adapter_instance, _, root, rel = await cls.resolve_adapter_and_rel(path)
+        adapter_instance, adapter_model, root, rel = await cls.resolve_adapter_and_rel(path)
         if rel.endswith("/"):
             raise HTTPException(400, detail="Invalid file path")
         write_func = await cls._ensure_method(adapter_instance, "write_file")
-        await write_func(root, rel, data)
-        await TaskService.trigger_tasks("file_written", path)
+        result = await write_func(root, rel, data)
+        final_path, size = cls._normalize_written_result(path, adapter_model, result, len(data))
+        await TaskService.trigger_tasks("file_written", final_path)
+        return {"path": final_path, "size": size}
 
     @classmethod
     async def write_file_stream(cls, path: str, data_iter: AsyncIterator[bytes], overwrite: bool = True):
-        adapter_instance, _, root, rel = await cls.resolve_adapter_and_rel(path)
+        adapter_instance, adapter_model, root, rel = await cls.resolve_adapter_and_rel(path)
         if rel.endswith("/"):
             raise HTTPException(400, detail="Invalid file path")
         exists_func = getattr(adapter_instance, "exists", None)
@@ -46,18 +71,23 @@ class VirtualFSFileOpsMixin(VirtualFSListingMixin):
         size = 0
         stream_func = getattr(adapter_instance, "write_file_stream", None)
         if callable(stream_func):
-            size = await stream_func(root, rel, data_iter)
+            result = await stream_func(root, rel, data_iter)
+            if isinstance(result, dict):
+                size = int(result.get("size") or 0)
+            else:
+                size = int(result or 0)
         else:
             buf = bytearray()
             async for chunk in data_iter:
                 if chunk:
                     buf.extend(chunk)
             write_func = await cls._ensure_method(adapter_instance, "write_file")
-            await write_func(root, rel, bytes(buf))
+            result = await write_func(root, rel, bytes(buf))
             size = len(buf)
 
-        await TaskService.trigger_tasks("file_written", path)
-        return size
+        final_path, size = cls._normalize_written_result(path, adapter_model, result, size)
+        await TaskService.trigger_tasks("file_written", final_path)
+        return {"path": final_path, "size": size}
 
     @classmethod
     async def make_dir(cls, path: str):

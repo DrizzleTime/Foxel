@@ -225,7 +225,10 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
         stat_func = getattr(adapter_instance, "stat_file", None)
         if not callable(stat_func):
             raise HTTPException(501, detail="Adapter does not implement stat_file")
-        info = await stat_func(root, rel)
+        try:
+            info = await stat_func(root, rel)
+        except FileNotFoundError as exc:
+            raise HTTPException(404, detail=str(exc))
 
         if isinstance(info, dict):
             info.setdefault("path", path)

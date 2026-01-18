@@ -150,8 +150,15 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
     @classmethod
     async def write_uploaded_file(cls, full_path: str, data: bytes):
         full_path = cls._normalize_path(full_path)
-        await cls.write_file(full_path, data)
-        return {"written": True, "path": full_path, "size": len(data)}
+        result = await cls.write_file(full_path, data)
+        path = full_path
+        size = len(data)
+        if isinstance(result, dict):
+            path = result.get("path") or path
+            size_val = result.get("size")
+            if isinstance(size_val, int):
+                size = size_val
+        return {"written": True, "path": path, "size": size}
 
     @classmethod
     async def mkdir(cls, path: str):
@@ -227,8 +234,17 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
                     break
                 yield chunk
 
-        size = await cls.write_file_stream(full_path, gen(), overwrite=overwrite)
-        return {"uploaded": True, "path": full_path, "size": size, "overwrite": overwrite}
+        result = await cls.write_file_stream(full_path, gen(), overwrite=overwrite)
+        path = full_path
+        size = 0
+        if isinstance(result, dict):
+            path = result.get("path") or path
+            size_val = result.get("size")
+            if isinstance(size_val, int):
+                size = size_val
+        else:
+            size = int(result or 0)
+        return {"uploaded": True, "path": path, "size": size, "overwrite": overwrite}
 
     @classmethod
     async def list_directory(cls, full_path: str, page_num: int, page_size: int, sort_by: str, sort_order: str):

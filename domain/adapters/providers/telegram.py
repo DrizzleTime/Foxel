@@ -263,7 +263,17 @@ class TelegramAdapter:
 
         try:
             await client.connect()
-            await client.send_file(self.chat_id, file_like, caption=file_like.name)
+            sent = await client.send_file(self.chat_id, file_like, caption=file_like.name)
+            message = sent[0] if isinstance(sent, list) and sent else sent
+            actual_rel = rel
+            if message:
+                stored_name = file_like.name
+                file_meta = getattr(message, "file", None)
+                if file_meta and getattr(file_meta, "name", None):
+                    stored_name = file_meta.name
+                if getattr(message, "id", None) is not None:
+                    actual_rel = f"{message.id}_{stored_name}"
+            return {"rel": actual_rel, "size": len(data)}
         finally:
             if client.is_connected():
                 await client.disconnect()
@@ -285,14 +295,23 @@ class TelegramAdapter:
                         total_size += len(chunk)
             
             await client.connect()
-            await client.send_file(self.chat_id, temp_path, caption=filename)
+            sent = await client.send_file(self.chat_id, temp_path, caption=filename)
+            message = sent[0] if isinstance(sent, list) and sent else sent
+            actual_rel = rel
+            if message:
+                stored_name = filename
+                file_meta = getattr(message, "file", None)
+                if file_meta and getattr(file_meta, "name", None):
+                    stored_name = file_meta.name
+                if getattr(message, "id", None) is not None:
+                    actual_rel = f"{message.id}_{stored_name}"
 
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
             if client.is_connected():
                 await client.disconnect()
-        return total_size
+        return {"rel": actual_rel, "size": total_size}
 
     async def mkdir(self, root: str, rel: str):
         raise NotImplementedError("Telegram 适配器不支持创建目录。")

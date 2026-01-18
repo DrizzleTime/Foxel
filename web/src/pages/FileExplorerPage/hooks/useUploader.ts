@@ -487,7 +487,7 @@ export function useUploader(path: string, onUploadComplete: () => void) {
     const parentDir = task.targetPath.replace(/\/[^/]+$/, '') || '/';
     try {
       await ensureDirectoryTree(parentDir);
-      await vfsApi.uploadStream(task.targetPath, task.file, shouldOverwrite, (loaded, total) => {
+      const uploadResult = await vfsApi.uploadStream(task.targetPath, task.file, shouldOverwrite, (loaded, total) => {
         mutateFiles((prev) => prev.map((f) => {
           if (f.id !== task.id) return f;
           const effectiveTotal = total > 0 ? total : f.size;
@@ -502,9 +502,20 @@ export function useUploader(path: string, onUploadComplete: () => void) {
         }));
       });
 
-      const link = await vfsApi.getTempLinkToken(task.targetPath, 60 * 60 * 24 * 365 * 10);
+      const actualPath = uploadResult?.path || task.targetPath;
+      const finalSize = typeof uploadResult?.size === 'number' && uploadResult.size > 0
+        ? uploadResult.size
+        : task.size;
+      const link = await vfsApi.getTempLinkToken(actualPath, 60 * 60 * 24 * 365 * 10);
       const permanentLink = vfsApi.getTempPublicUrl(link.token);
-      updateFile(task.id, { status: 'success', progress: 100, loadedBytes: task.size, permanentLink });
+      updateFile(task.id, {
+        status: 'success',
+        progress: 100,
+        loadedBytes: finalSize,
+        size: finalSize,
+        targetPath: actualPath,
+        permanentLink,
+      });
     } catch (err: unknown) {
       const error = err instanceof Error ? err.message : t('Upload failed');
       updateFile(task.id, { status: 'error', error, progress: 0 });

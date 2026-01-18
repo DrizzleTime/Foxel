@@ -37,6 +37,20 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     }
   }, [path, refresh, t]);
 
+  const doCreateFile = useCallback(async (name: string) => {
+    if (!name.trim()) {
+      message.warning(t('Please input name'));
+      return;
+    }
+    try {
+      const fullPath = (path === '/' ? '' : path) + '/' + name.trim();
+      await vfsApi.uploadFile(fullPath, new Blob([]));
+      refresh();
+    } catch (e: any) {
+      message.error(e.message);
+    }
+  }, [path, refresh, t]);
+
   const doDelete = useCallback(async (entries: VfsEntry[]) => {
     Modal.confirm({
       title: t('Confirm delete {name}?', { name: entries.length > 1 ? `${entries.length} ${t('items')}` : entries[0].name }),
@@ -193,6 +207,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
 
   return {
     doCreateDir,
+    doCreateFile,
     doDelete,
     doRename,
     doDownload,

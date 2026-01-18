@@ -8,7 +8,7 @@ import { useI18n } from '../../../i18n';
 import {
   FolderFilled, AppstoreOutlined, AppstoreAddOutlined, DownloadOutlined,
   EditOutlined, DeleteOutlined, InfoCircleOutlined, UploadOutlined, PlusOutlined,
-  ShareAltOutlined, LinkOutlined, CopyOutlined, SwapOutlined
+  ShareAltOutlined, LinkOutlined, CopyOutlined, SwapOutlined, FileAddOutlined
 } from '@ant-design/icons';
 
 interface ContextMenuProps {
@@ -28,6 +28,7 @@ interface ContextMenuProps {
   onProcess: (entry: VfsEntry, processorType: string) => void;
   onUploadFile: () => void;
   onUploadDirectory: () => void;
+  onCreateFile: () => void;
   onCreateDir: () => void;
   onShare: (entries: VfsEntry[]) => void;
   onGetDirectLink: (entry: VfsEntry) => void;
@@ -70,6 +71,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
             { key: 'upload-folder', label: t('Upload Folder'), onClick: actions.onUploadDirectory },
           ],
         },
+        { key: 'new-file', label: t('New File'), icon: <FileAddOutlined />, onClick: actions.onCreateFile },
         { key: 'mkdir', label: t('New Folder'), icon: <PlusOutlined />, onClick: actions.onCreateDir },
       ];
     }

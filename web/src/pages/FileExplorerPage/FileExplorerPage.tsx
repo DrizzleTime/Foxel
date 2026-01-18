@@ -17,6 +17,7 @@ import { EmptyState } from './components/EmptyState';
 import { ContextMenu } from './components/ContextMenu';
 import { DropzoneOverlay } from './components/DropzoneOverlay';
 import { CreateDirModal } from './components/Modals/CreateDirModal';
+import { CreateFileModal } from './components/Modals/CreateFileModal';
 import { RenameModal } from './components/Modals/RenameModal';
 import { ProcessorModal } from './components/Modals/ProcessorModal';
 import UploadModal from './components/Modals/UploadModal';
@@ -49,6 +50,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
 
   // --- State for Modals ---
   const [creatingDir, setCreatingDir] = useState(false);
+  const [creatingFile, setCreatingFile] = useState(false);
   const [renaming, setRenaming] = useState<VfsEntry | null>(null);
   const [sharingEntries, setSharingEntries] = useState<VfsEntry[]>([]);
   const [detailEntry, setDetailEntry] = useState<VfsEntry | null>(null);
@@ -138,7 +140,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     clearSearchSelection();
   }, [clearSearchSelection, clearSelection]);
 
-  const { doCreateDir: doCreateDirInCurrentDir } = useFileActions({
+  const { doCreateDir: doCreateDirInCurrentDir, doCreateFile: doCreateFileInCurrentDir } = useFileActions({
     path,
     refresh,
     clearSelection,
@@ -343,6 +345,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
 
       {/* --- Modals & Context Menus --- */}
       <CreateDirModal open={creatingDir} onOk={(name) => { doCreateDirInCurrentDir(name); setCreatingDir(false); }} onCancel={() => setCreatingDir(false)} />
+      <CreateFileModal open={creatingFile} onOk={(name) => { doCreateFileInCurrentDir(name); setCreatingFile(false); }} onCancel={() => setCreatingFile(false)} />
       <RenameModal entry={renaming} onOk={(entry, newName) => { doRename(entry, newName); setRenaming(null); }} onCancel={() => setRenaming(null)} />
       <FileDetailModal entry={detailEntry} loading={detailLoading} data={detailData} onClose={() => setDetailEntry(null)} />
       <MoveCopyModal
@@ -422,6 +425,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           }}
           onUploadFile={openFilePicker}
           onUploadDirectory={openDirectoryPicker}
+          onCreateFile={() => setCreatingFile(true)}
           onCreateDir={() => setCreatingDir(true)}
           onShare={doShare}
           onGetDirectLink={doGetDirectLink}

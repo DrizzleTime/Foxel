@@ -453,6 +453,159 @@ class QuarkAdapter:
             yield data
         return await self.write_file_stream(root, rel, gen())
 
+    async def write_upload_file(self, root: str, rel: str, file_obj, filename: str | None, file_size: int | None = None, content_type: str | None = None):
+        if not rel or rel.endswith("/"):
+            raise HTTPException(400, detail="Invalid file path")
+
+        parent = rel.rsplit("/", 1)[0] if "/" in rel else ""
+        name = filename or rel.rsplit("/", 1)[-1]
+        base_fid = root or self.root_fid
+        parent_fid = await self._resolve_dir_fid_from(base_fid, parent)
+
+        md5 = hashlib.md5()
+        sha1 = hashlib.sha1()
+        total = 0
+        try:
+            if callable(getattr(file_obj, "seek", None)):
+                file_obj.seek(0)
+        except Exception:
+            pass
+        while True:
+            chunk = file_obj.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            md5.update(chunk)
+            sha1.update(chunk)
+
+        md5_hex = md5.hexdigest()
+        sha1_hex = sha1.hexdigest()
+
+        # 预上传，拿到上传信息
+        pre_resp = await self._upload_pre(name, total, parent_fid)
+        pre_data = pre_resp.get("data", {})
+
+        # hash 秒传
+        hash_body = {"md5": md5_hex, "sha1": sha1_hex, "task_id": pre_data.get("task_id")}
+        hash_resp = await self._request("POST", "/file/update/hash", json=hash_body)
+        if (hash_resp.get("data") or {}).get("finish") is True:
+            self._invalidate_children_cache(parent_fid)
+            return {"size": total}
+
+        # 分片上传
+        part_size = int((pre_resp.get("metadata") or {}).get("part_size") or 0)
+        if part_size <= 0:
+            raise HTTPException(502, detail="Invalid part_size from Quark")
+
+        bucket = pre_data.get("bucket")
+        obj_key = pre_data.get("obj_key")
+        upload_id = pre_data.get("upload_id")
+        upload_url = pre_data.get("upload_url")
+        if not (bucket and obj_key and upload_id and upload_url):
+            raise HTTPException(502, detail="Upload pre missing fields")
+
+        try:
+            upload_host = upload_url.split("://", 1)[1]
+        except Exception:
+            upload_host = upload_url
+        base_url = f"https://{bucket}.{upload_host}/{obj_key}"
+
+        try:
+            if callable(getattr(file_obj, "seek", None)):
+                file_obj.seek(0)
+        except Exception:
+            pass
+
+        etags: List[str] = []
+        oss_ua = "aliyun-sdk-js/6.6.1 Chrome 98.0.4758.80 on Windows 10 64-bit"
+        async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
+            part_number = 1
+            left = total
+            while left > 0:
+                sz = min(part_size, left)
+                data_bytes = file_obj.read(sz)
+                if len(data_bytes) != sz:
+                    raise IOError("Failed to read part bytes")
+                now_str = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
+                auth_meta = (
+                    "PUT\n\n"
+                    f"{self._guess_mime(name)}\n"
+                    f"{now_str}\n"
+                    f"x-oss-date:{now_str}\n"
+                    f"x-oss-user-agent:{oss_ua}\n"
+                    f"/{bucket}/{obj_key}?partNumber={part_number}&uploadId={upload_id}"
+                )
+                auth_req_body = {"auth_info": pre_data.get("auth_info"), "auth_meta": auth_meta, "task_id": pre_data.get("task_id")}
+                auth_resp = await self._request("POST", "/file/upload/auth", json=auth_req_body)
+                auth_key = (auth_resp.get("data") or {}).get("auth_key")
+                if not auth_key:
+                    raise HTTPException(502, detail="upload/auth missing auth_key")
+
+                put_headers = {
+                    "Authorization": auth_key,
+                    "Content-Type": self._guess_mime(name),
+                    "Referer": REFERER + "/",
+                    "x-oss-date": now_str,
+                    "x-oss-user-agent": oss_ua,
+                }
+                put_url = f"{base_url}?partNumber={part_number}&uploadId={upload_id}"
+                put_resp = await client.put(put_url, headers=put_headers, content=data_bytes)
+                if put_resp.status_code != 200:
+                    raise HTTPException(502, detail=f"Upload part failed status={put_resp.status_code} text={put_resp.text}")
+                etag = put_resp.headers.get("Etag", "")
+                etags.append(etag)
+                left -= sz
+                part_number += 1
+
+        parts_xml = [f"<Part>\n<PartNumber>{i+1}</PartNumber>\n<ETag>{etags[i]}</ETag>\n</Part>\n" for i in range(len(etags))]
+        body_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CompleteMultipartUpload>\n" + "".join(parts_xml) + "</CompleteMultipartUpload>"
+        content_md5 = base64.b64encode(hashlib.md5(body_xml.encode("utf-8")).digest()).decode("ascii")
+        callback = pre_data.get("callback") or {}
+        try:
+            import json as _json
+            callback_b64 = base64.b64encode(_json.dumps(callback).encode("utf-8")).decode("ascii")
+        except Exception:
+            callback_b64 = ""
+
+        now_str = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
+        auth_meta_commit = (
+            "POST\n"
+            f"{content_md5}\n"
+            "application/xml\n"
+            f"{now_str}\n"
+            f"x-oss-callback:{callback_b64}\n"
+            f"x-oss-date:{now_str}\n"
+            f"x-oss-user-agent:{oss_ua}\n"
+            f"/{bucket}/{obj_key}?uploadId={upload_id}"
+        )
+        auth_commit_resp = await self._request("POST", "/file/upload/auth", json={"auth_info": pre_data.get("auth_info"), "auth_meta": auth_meta_commit, "task_id": pre_data.get("task_id")})
+        auth_key_commit = (auth_commit_resp.get("data") or {}).get("auth_key")
+        if not auth_key_commit:
+            raise HTTPException(502, detail="upload/auth(commit) missing auth_key")
+
+        async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
+            commit_headers = {
+                "Authorization": auth_key_commit,
+                "Content-MD5": content_md5,
+                "Content-Type": "application/xml",
+                "Referer": REFERER + "/",
+                "x-oss-callback": callback_b64,
+                "x-oss-date": now_str,
+                "x-oss-user-agent": oss_ua,
+            }
+            commit_url = f"{base_url}?uploadId={upload_id}"
+            r = await client.post(commit_url, headers=commit_headers, content=body_xml.encode("utf-8"))
+            if r.status_code != 200:
+                raise HTTPException(502, detail=f"Upload commit failed status={r.status_code} text={r.text}")
+
+        await self._request("POST", "/file/upload/finish", json={"obj_key": obj_key, "task_id": pre_data.get("task_id")})
+        try:
+            await asyncio.sleep(1.0)
+        except Exception:
+            pass
+        self._invalidate_children_cache(parent_fid)
+        return {"size": total}
+
     async def write_file_stream(self, root: str, rel: str, data_iter: AsyncIterator[bytes]):
         if not rel or rel.endswith("/"):
             raise HTTPException(400, detail="Invalid file path")

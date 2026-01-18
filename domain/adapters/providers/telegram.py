@@ -21,6 +21,30 @@ def _get_session_lock(session_string: str) -> asyncio.Lock:
         _SESSION_LOCKS[session_string] = lock
     return lock
 
+
+class _NamedFile:
+    def __init__(self, file_obj, name: str):
+        self._file = file_obj
+        self.name = name
+
+    def read(self, *args, **kwargs):
+        return self._file.read(*args, **kwargs)
+
+    def seek(self, *args, **kwargs):
+        return self._file.seek(*args, **kwargs)
+
+    def tell(self):
+        return self._file.tell()
+
+    def seekable(self):
+        return self._file.seekable()
+
+    def close(self):
+        return self._file.close()
+
+    def __getattr__(self, name):
+        return getattr(self._file, name)
+
 # 适配器类型标识
 ADAPTER_TYPE = "telegram"
 
@@ -278,13 +302,45 @@ class TelegramAdapter:
             if client.is_connected():
                 await client.disconnect()
 
+    async def write_upload_file(self, root: str, rel: str, file_obj, filename: str | None, file_size: int | None = None, content_type: str | None = None):
+        client = self._get_client()
+        name = filename or os.path.basename(rel) or "file"
+        file_like = _NamedFile(file_obj, name)
+
+        try:
+            await client.connect()
+            sent = await client.send_file(
+                self.chat_id,
+                file_like,
+                caption=file_like.name,
+                file_size=file_size,
+                mime_type=content_type,
+            )
+            message = sent[0] if isinstance(sent, list) and sent else sent
+            actual_rel = rel
+            size = file_size or 0
+            if message:
+                stored_name = file_like.name
+                file_meta = getattr(message, "file", None)
+                if file_meta and getattr(file_meta, "name", None):
+                    stored_name = file_meta.name
+                if getattr(message, "id", None) is not None:
+                    actual_rel = f"{message.id}_{stored_name}"
+                if file_meta and getattr(file_meta, "size", None):
+                    size = int(file_meta.size)
+            return {"rel": actual_rel, "size": size}
+        finally:
+            if client.is_connected():
+                await client.disconnect()
+
     async def write_file_stream(self, root: str, rel: str, data_iter: AsyncIterator[bytes]):
         """以流式方式上传文件"""
         client = self._get_client()
         filename = os.path.basename(rel) or "file"
         import tempfile
-        temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, filename)
+        suffix = os.path.splitext(filename)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tf:
+            temp_path = tf.name
         
         total_size = 0
         try:

@@ -250,6 +250,30 @@ class FoxelAdapter:
             return True
         raise HTTPException(502, detail="Foxel 写入失败")
 
+    async def write_upload_file(self, root: str, rel: str, file_obj, filename: str | None, file_size: int | None = None, content_type: str | None = None):
+        rel = (rel or "").lstrip("/")
+        full_path = _join_fs_path(root, rel)
+        url = self.base_url + self._file_path(full_path)
+        name = filename or Path(rel).name or "file"
+        mime = content_type or "application/octet-stream"
+        for attempt in range(2):
+            try:
+                if callable(getattr(file_obj, "seek", None)):
+                    file_obj.seek(0)
+            except Exception:
+                pass
+            token = await self._ensure_token()
+            headers = {"Authorization": f"Bearer {token}"}
+            files = {"file": (name, file_obj, mime)}
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+                resp = await client.post(url, headers=headers, files=files)
+            if resp.status_code == 401 and attempt == 0:
+                self._token = None
+                continue
+            resp.raise_for_status()
+            return {"size": file_size or 0}
+        raise HTTPException(502, detail="Foxel 上传失败")
+
     async def write_file_stream(self, root: str, rel: str, data_iter: AsyncIterator[bytes]):
         rel = (rel or "").lstrip("/")
         full_path = _join_fs_path(root, rel)

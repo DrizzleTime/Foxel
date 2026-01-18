@@ -238,6 +238,39 @@ class FTPAdapter:
 
         await asyncio.to_thread(_do_write)
 
+    async def write_upload_file(self, root: str, rel: str, file_obj, filename: str | None, file_size: int | None = None, content_type: str | None = None):
+        path = _join_remote(root, rel)
+
+        def _ensure_dirs(ftp: FTP, dir_path: str):
+            parts = [p for p in dir_path.strip("/").split("/") if p]
+            cur = "/"
+            for p in parts:
+                cur = _join_remote(cur, p)
+                try:
+                    ftp.mkd(cur)
+                except Exception:
+                    pass
+
+        def _do_upload():
+            ftp = self._connect()
+            try:
+                parent = "/" if "/" not in path.strip("/") else path.rsplit("/", 1)[0]
+                _ensure_dirs(ftp, parent)
+                try:
+                    if callable(getattr(file_obj, "seek", None)):
+                        file_obj.seek(0)
+                except Exception:
+                    pass
+                ftp.storbinary("STOR " + path, file_obj)
+            finally:
+                try:
+                    ftp.quit()
+                except Exception:
+                    pass
+
+        await asyncio.to_thread(_do_upload)
+        return {"size": file_size or 0}
+
     async def write_file_stream(self, root: str, rel: str, data_iter: AsyncIterator[bytes]):
         # KISS: 聚合后一次性写入
         buf = bytearray()

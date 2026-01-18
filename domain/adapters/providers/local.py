@@ -114,6 +114,32 @@ class LocalAdapter:
         if not pre_exists:
             await asyncio.to_thread(_apply_mode, fp, DEFAULT_FILE_MODE)
 
+    async def write_upload_file(self, root: str, rel: str, file_obj, filename: str | None, file_size: int | None = None, content_type: str | None = None):
+        fp = _safe_join(root, rel)
+        pre_exists = fp.exists()
+        await asyncio.to_thread(os.makedirs, fp.parent, mode=DEFAULT_DIR_MODE, exist_ok=True)
+
+        def _copy():
+            try:
+                if callable(getattr(file_obj, "seek", None)):
+                    file_obj.seek(0)
+            except Exception:
+                pass
+            with open(fp, "wb") as f:
+                shutil.copyfileobj(file_obj, f)
+
+        await asyncio.to_thread(_copy)
+        if not pre_exists:
+            await asyncio.to_thread(_apply_mode, fp, DEFAULT_FILE_MODE)
+
+        size = file_size
+        if size is None:
+            try:
+                size = fp.stat().st_size
+            except Exception:
+                size = 0
+        return {"size": int(size or 0)}
+
     async def write_file_stream(self, root: str, rel: str, data_iter: AsyncIterator[bytes]):
         fp = _safe_join(root, rel)
         pre_exists = fp.exists()

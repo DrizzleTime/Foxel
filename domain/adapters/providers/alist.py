@@ -381,6 +381,31 @@ class AListApiAdapterBase:
             except Exception:
                 pass
 
+    async def write_upload_file(self, root: str, rel: str, file_obj, filename: str | None, file_size: int | None = None, content_type: str | None = None):
+        full_path = _join_fs_path(root, rel)
+        token = await self._ensure_token()
+        headers = {
+            "Authorization": token,
+            "File-Path": quote(full_path, safe="/"),
+        }
+        name = filename or Path(rel).name or "file"
+        mime = content_type or "application/octet-stream"
+        files = {"file": (name, file_obj, mime)}
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+            resp = await client.put(self.base_url + "/api/fs/form", headers=headers, files=files)
+            resp.raise_for_status()
+            payload = resp.json()
+        if not isinstance(payload, dict):
+            raise HTTPException(502, detail=f"{self.product_name} upload: invalid response")
+        code = payload.get("code")
+        if code not in (0, 200):
+            msg = payload.get("message") or payload.get("msg") or ""
+            raise HTTPException(502, detail=f"{self.product_name} upload failed: {msg}")
+        data = payload.get("data")
+        if isinstance(data, dict) and file_size is not None and "size" not in data:
+            data["size"] = file_size
+        return data
+
     async def write_file_stream(self, root: str, rel: str, data_iter: AsyncIterator[bytes]):
         full_path = _join_fs_path(root, rel)
         suffix = Path(rel).suffix

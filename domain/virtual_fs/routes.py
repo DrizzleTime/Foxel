@@ -6,6 +6,7 @@ from fastapi import HTTPException, UploadFile
 from fastapi.responses import Response
 
 from domain.config import ConfigService
+from domain.tasks import TaskService
 from .thumbnail import (
     get_or_create_thumb,
     is_image_filename,
@@ -216,7 +217,7 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
         full_path = cls._normalize_path(full_path)
         if full_path.endswith("/"):
             raise HTTPException(400, detail="Path must be a file")
-        adapter, _m, root, rel = await cls.resolve_adapter_and_rel(full_path)
+        adapter, adapter_model, root, rel = await cls.resolve_adapter_and_rel(full_path)
         exists_func = getattr(adapter, "exists", None)
         if not overwrite and callable(exists_func):
             try:
@@ -226,6 +227,21 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
                 raise
             except Exception:
                 pass
+
+        upload_func = getattr(adapter, "write_upload_file", None)
+        if callable(upload_func):
+            try:
+                await file.seek(0)
+            except Exception:
+                pass
+            size_hint = getattr(file, "size", None)
+            if not isinstance(size_hint, int):
+                size_hint = None
+            filename = file.filename or (rel.rsplit("/", 1)[-1] if rel else "file")
+            result = await upload_func(root, rel, file.file, filename, size_hint, file.content_type)
+            final_path, size = cls._normalize_written_result(full_path, adapter_model, result, size_hint or 0)
+            await TaskService.trigger_tasks("file_written", final_path)
+            return {"uploaded": True, "path": final_path, "size": size, "overwrite": overwrite}
 
         async def gen():
             while True:

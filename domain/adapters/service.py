@@ -36,6 +36,11 @@ class AdapterService:
                 missing.append(k)
         if missing:
             raise HTTPException(400, detail="缺少必填配置字段: " + ", ".join(missing))
+        if adapter_type in ("alist", "openlist"):
+            username = out.get("username")
+            password = out.get("password")
+            if (username and not password) or (password and not username):
+                raise HTTPException(400, detail="用户名和密码必须同时填写或同时留空")
         return out
 
     @classmethod

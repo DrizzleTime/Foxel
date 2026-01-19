@@ -81,8 +81,9 @@ class AListApiAdapterBase:
             raise ValueError(f"{product_name} requires base_url http/https")
         self.username: str = str(cfg.get("username") or "")
         self.password: str = str(cfg.get("password") or "")
-        if not self.username or not self.password:
-            raise ValueError(f"{product_name} requires username and password")
+        if (self.username and not self.password) or (self.password and not self.username):
+            raise ValueError(f"{product_name} requires both username and password")
+        self.use_auth: bool = bool(self.username and self.password)
 
         self.timeout: float = float(cfg.get("timeout", 30))
         self.root_path: str = _normalize_fs_path(str(cfg.get("root") or "/"))
@@ -98,6 +99,8 @@ class AListApiAdapterBase:
         return base
 
     async def _ensure_token(self) -> str:
+        if not self.use_auth:
+            return ""
         if self._token:
             return self._token
         async with self._login_lock:
@@ -137,12 +140,14 @@ class AListApiAdapterBase:
     ) -> Any:
         token = await self._ensure_token()
         url = self.base_url + endpoint
-        req_headers: Dict[str, str] = {"Authorization": token}
+        req_headers: Dict[str, str] = {}
+        if token:
+            req_headers["Authorization"] = token
         if headers:
             req_headers.update(headers)
         async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             resp = await client.request(method, url, json=json, headers=req_headers, files=files)
-        if resp.status_code == 401 and retry:
+        if resp.status_code == 401 and retry and self.use_auth:
             self._token = None
             return await self._api_json(method, endpoint, json=json, headers=headers, retry=False, files=files)
         resp.raise_for_status()
@@ -153,7 +158,7 @@ class AListApiAdapterBase:
         code = payload.get("code")
         if code in (0, 200):
             return payload.get("data")
-        if code in (401, 403) and retry:
+        if code in (401, 403) and retry and self.use_auth:
             self._token = None
             return await self._api_json(method, endpoint, json=json, headers=headers, retry=False, files=files)
         if code == 404:
@@ -349,10 +354,9 @@ class AListApiAdapterBase:
 
     async def _upload_file(self, full_path: str, file_path: Path) -> Any:
         token = await self._ensure_token()
-        headers = {
-            "Authorization": token,
-            "File-Path": quote(full_path, safe="/"),
-        }
+        headers = {"File-Path": quote(full_path, safe="/")}
+        if token:
+            headers["Authorization"] = token
         with file_path.open("rb") as f:
             files = {"file": (file_path.name, f, "application/octet-stream")}
             async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
@@ -384,10 +388,9 @@ class AListApiAdapterBase:
     async def write_upload_file(self, root: str, rel: str, file_obj, filename: str | None, file_size: int | None = None, content_type: str | None = None):
         full_path = _join_fs_path(root, rel)
         token = await self._ensure_token()
-        headers = {
-            "Authorization": token,
-            "File-Path": quote(full_path, safe="/"),
-        }
+        headers = {"File-Path": quote(full_path, safe="/")}
+        if token:
+            headers["Authorization"] = token
         name = filename or Path(rel).name or "file"
         mime = content_type or "application/octet-stream"
         files = {"file": (name, file_obj, mime)}
@@ -504,8 +507,8 @@ ADAPTER_TYPES = {"alist": AListAdapter, "openlist": OpenListAdapter}
 
 CONFIG_SCHEMA = [
     {"key": "base_url", "label": "基础地址", "type": "string", "required": True, "placeholder": "http://127.0.0.1:5244"},
-    {"key": "username", "label": "用户名", "type": "string", "required": True},
-    {"key": "password", "label": "密码", "type": "password", "required": True},
+    {"key": "username", "label": "用户名", "type": "string", "required": False, "placeholder": "留空则匿名访问"},
+    {"key": "password", "label": "密码", "type": "password", "required": False, "placeholder": "留空则匿名访问"},
     {"key": "root", "label": "根目录", "type": "string", "required": False, "default": "/"},
     {"key": "timeout", "label": "超时(秒)", "type": "number", "required": False, "default": 30},
     {"key": "enable_direct_download_307", "label": "启用 307 直链下载", "type": "boolean", "default": False},

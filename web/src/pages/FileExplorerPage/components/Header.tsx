@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Flex, Typography, Divider, Button, Space, Tooltip, Segmented, Breadcrumb, Input, theme, Dropdown } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, ReloadOutlined, PlusOutlined, UploadOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
@@ -41,9 +41,26 @@ export const Header: React.FC<HeaderProps> = ({
   const { t } = useI18n();
   const [editingPath, setEditingPath] = useState(false);
   const [pathInputValue, setPathInputValue] = useState('');
+  const clickTimerRef = useRef<number | null>(null);
   const pathEditorHeight = token.fontSizeSM * token.lineHeight + token.paddingXXS * 2;
 
+  const clearClickTimer = () => {
+    if (clickTimerRef.current !== null) {
+      window.clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+  };
+
+  const scheduleNavigate = (nextPath: string) => {
+    clearClickTimer();
+    clickTimerRef.current = window.setTimeout(() => {
+      onNavigate(nextPath);
+      clickTimerRef.current = null;
+    }, 250);
+  };
+
   const handlePathEdit = () => {
+    clearClickTimer();
     setEditingPath(true);
     setPathInputValue(path);
   };
@@ -59,6 +76,10 @@ export const Header: React.FC<HeaderProps> = ({
   const handlePathCancel = () => {
     setEditingPath(false);
     setPathInputValue('');
+  };
+
+  const handleBreadcrumbDoubleClick = () => {
+    handlePathEdit();
   };
 
   const renderBreadcrumb = () => {
@@ -78,12 +99,12 @@ export const Header: React.FC<HeaderProps> = ({
     }
 
     const breadcrumbItems = [
-      { key: 'root', title: <span style={{ cursor: 'pointer' }} onClick={() => onNavigate('/')}>{t('Home')}</span> },
+      { key: 'root', title: <span style={{ cursor: 'pointer' }} onClick={() => scheduleNavigate('/')}>{t('Home')}</span> },
       ...path.split('/').filter(Boolean).map((segment, index, arr) => {
         const segmentPath = '/' + arr.slice(0, index + 1).join('/');
         return {
           key: segmentPath,
-          title: <span style={{ cursor: 'pointer' }} onClick={() => onNavigate(segmentPath)}>{segment}</span>
+          title: <span style={{ cursor: 'pointer' }} onClick={() => scheduleNavigate(segmentPath)}>{segment}</span>
         };
       })
     ];
@@ -91,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
     return (
       <div
         style={{
-          cursor: 'pointer',
+          cursor: 'text',
           padding: `${token.paddingXXS}px ${token.paddingXS}px`,
           borderRadius: token.borderRadius,
           transition: 'background-color 0.2s',
@@ -104,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
         }}
         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = token.colorFillTertiary; }}
         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-        onClick={handlePathEdit}
+        onDoubleClick={handleBreadcrumbDoubleClick}
       >
         <Breadcrumb items={breadcrumbItems} separator="/" style={{ fontSize: token.fontSizeSM }} />
       </div>

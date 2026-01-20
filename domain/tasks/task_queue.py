@@ -86,6 +86,12 @@ class TaskQueueService:
                     overwrite=params.get("overwrite", False),
                 )
                 task.result = result
+            elif task.name == "process_directory_scan":
+                from domain.processors import ProcessDirectoryRequest, ProcessorService
+
+                params = task.task_info or {}
+                req = ProcessDirectoryRequest(**params)
+                task.result = await ProcessorService.scan_directory(req)
             elif task.name == "automation_task" or self._is_processor_task(task.name):
                 from models.database import AutomationTask
 

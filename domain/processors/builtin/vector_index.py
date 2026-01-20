@@ -114,8 +114,15 @@ class VectorIndexProcessor:
         }
     ]
     produces_file = False
+    requires_input_bytes = False
 
     async def process(self, input_bytes: bytes, path: str, config: Dict[str, Any]) -> Response:
+        async def ensure_input_bytes() -> bytes:
+            if input_bytes:
+                return input_bytes
+            from domain.virtual_fs import VirtualFSService
+            return await VirtualFSService.read_file(path)
+
         action = config.get("action", "create")
         index_type = config.get("index_type", "vector")
         vector_db = VectorDBService()
@@ -159,7 +166,8 @@ class VectorIndexProcessor:
         await vector_db.delete_vector(vector_collection, path)
 
         if file_ext in ["jpg", "jpeg", "png", "bmp"]:
-            processed_bytes, compression = _compress_image_for_embedding(input_bytes)
+            file_bytes = await ensure_input_bytes()
+            processed_bytes, compression = _compress_image_for_embedding(file_bytes)
             base64_image = base64.b64encode(processed_bytes).decode("utf-8")
             description = await describe_image_base64(base64_image)
             embedding = await get_text_embedding(description)
@@ -180,7 +188,8 @@ class VectorIndexProcessor:
 
         if file_ext in ["txt", "md"]:
             try:
-                text = input_bytes.decode("utf-8")
+                file_bytes = await ensure_input_bytes()
+                text = file_bytes.decode("utf-8")
             except UnicodeDecodeError:
                 return Response(content="文本文件解码失败", status_code=400)
 

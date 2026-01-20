@@ -617,6 +617,7 @@
   "Source Editor": "Source Editor",
   "Module Path": "Module Path",
   "Directory processing always overwrites original files": "Directory processing always overwrites original files",
+  "Directory execution will enqueue one task per file": "Directory execution will enqueue a scan task, then one task per file",
   "No data": "No data",
   "Select File": "Select File",
   "Select Path": "Select Path",

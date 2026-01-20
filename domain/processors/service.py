@@ -91,6 +91,44 @@ class ProcessorService:
         else:
             overwrite = False
             suffix = None
+        payload = {
+            "path": req.path,
+            "processor_type": req.processor_type,
+            "config": req.config,
+            "overwrite": overwrite,
+            "max_depth": req.max_depth,
+            "suffix": suffix,
+        }
+        task = await task_queue_service.add_task("process_directory_scan", payload)
+        return {"task_id": task.id}
+
+    @classmethod
+    async def scan_directory(cls, req: ProcessDirectoryRequest):
+        if req.max_depth is not None and req.max_depth < 0:
+            raise HTTPException(400, detail="max_depth must be >= 0")
+
+        is_dir = await VirtualFSService.path_is_directory(req.path)
+        if not is_dir:
+            raise HTTPException(400, detail="Path must be a directory")
+
+        schema = get_config_schema(req.processor_type)
+        _processor = get(req.processor_type)
+        if not schema or not _processor:
+            raise HTTPException(404, detail="Processor not found")
+
+        produces_file = bool(schema.get("produces_file"))
+        raw_suffix = req.suffix if req.suffix is not None else None
+        if raw_suffix is not None and raw_suffix.strip() == "":
+            raw_suffix = None
+        suffix = raw_suffix
+        overwrite = req.overwrite
+
+        if produces_file:
+            if not overwrite and not suffix:
+                raise HTTPException(400, detail="Suffix is required when not overwriting files")
+        else:
+            overwrite = False
+            suffix = None
 
         supported_exts = schema.get("supported_exts") or []
         allowed_exts = {
@@ -133,7 +171,7 @@ class ProcessorService:
                 new_name = f"{name}{suffix_str}"
             return str(path_obj.with_name(new_name))
 
-        scheduled_tasks: List[str] = []
+        scheduled_count = 0
         stack: List[Tuple[str, int]] = [(rel, 0)]
         page_size = 200
 
@@ -161,7 +199,7 @@ class ProcessorService:
                     save_to = None
                     if produces_file and not overwrite and suffix:
                         save_to = apply_suffix(absolute_path, suffix)
-                    task = await task_queue_service.add_task(
+                    await task_queue_service.add_task(
                         "process_file",
                         {
                             "path": absolute_path,
@@ -171,16 +209,13 @@ class ProcessorService:
                             "overwrite": overwrite,
                         },
                     )
-                    scheduled_tasks.append(task.id)
+                    scheduled_count += 1
 
                 if total is None or page * page_size >= total:
                     break
                 page += 1
 
-        return {
-            "task_ids": scheduled_tasks,
-            "scheduled": len(scheduled_tasks),
-        }
+        return {"scheduled": scheduled_count}
 
     @classmethod
     async def get_source(cls, processor_type: str):

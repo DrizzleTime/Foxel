@@ -276,7 +276,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
             max_depth: maxDepth,
             suffix: suffixValue,
           });
-          messageApi.success(`${t('Task submitted')}: ${resp.scheduled}`);
+          messageApi.success(`${t('Task submitted')}: ${resp.task_id}`);
         }
       } else {
         const payload: any = {

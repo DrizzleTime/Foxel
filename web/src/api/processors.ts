@@ -43,7 +43,7 @@ export const processorsApi = {
     max_depth?: number | null;
     suffix?: string | null;
   }) =>
-    request<{ task_ids: string[]; scheduled: number }>('/processors/process-directory', {
+    request<{ task_id: string }>('/processors/process-directory', {
       method: 'POST',
       json: params,
     }),

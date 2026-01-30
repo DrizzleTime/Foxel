@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from api.response import success
 from domain.audit import AuditAction, audit
 from domain.auth import User, get_current_active_user
+from domain.permission.service import PermissionService
+from domain.permission.types import PathAction
 from .service import VirtualFSService
 from .types import MkdirRequest, MoveRequest
 
@@ -18,6 +20,7 @@ async def get_file(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
+    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.READ)
     return await VirtualFSService.serve_file(full_path, request.headers.get("Range"))
 
 
@@ -50,6 +53,7 @@ async def get_temp_link(
     current_user: Annotated[User, Depends(get_current_active_user)],
     expires_in: int = Query(3600, description="有效时间(秒), 0或负数表示永久"),
 ):
+    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.SHARE)
     data = await VirtualFSService.create_temp_link(full_path, expires_in)
     return success(data)
 
@@ -80,6 +84,7 @@ async def get_file_stat(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
+    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.READ)
     stat = await VirtualFSService.stat(full_path)
     return success(stat)
 
@@ -92,6 +97,7 @@ async def put_file(
     full_path: str,
     file: UploadFile = File(...),
 ):
+    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.WRITE)
     data = await file.read()
     result = await VirtualFSService.write_uploaded_file(full_path, data)
     return success(result)
@@ -104,6 +110,7 @@ async def api_mkdir(
     current_user: Annotated[User, Depends(get_current_active_user)],
     body: MkdirRequest,
 ):
+    await PermissionService.require_path_permission(current_user.id, body.path, PathAction.WRITE)
     result = await VirtualFSService.mkdir(body.path)
     return success(result)
 
@@ -116,6 +123,9 @@ async def api_move(
     body: MoveRequest,
     overwrite: bool = Query(False, description="是否允许覆盖已存在目标"),
 ):
+    # 移动需要源路径的删除权限和目标路径的写权限
+    await PermissionService.require_path_permission(current_user.id, body.src, PathAction.DELETE)
+    await PermissionService.require_path_permission(current_user.id, body.dst, PathAction.WRITE)
     result = await VirtualFSService.move(body.src, body.dst, overwrite)
     return success(result)
 
@@ -128,6 +138,8 @@ async def api_rename(
     body: MoveRequest,
     overwrite: bool = Query(False, description="是否允许覆盖已存在目标"),
 ):
+    # 重命名需要写权限
+    await PermissionService.require_path_permission(current_user.id, body.src, PathAction.WRITE)
     result = await VirtualFSService.rename(body.src, body.dst, overwrite)
     return success(result)
 
@@ -140,6 +152,9 @@ async def api_copy(
     body: MoveRequest,
     overwrite: bool = Query(False, description="是否覆盖已存在目标"),
 ):
+    # 复制需要源路径的读权限和目标路径的写权限
+    await PermissionService.require_path_permission(current_user.id, body.src, PathAction.READ)
+    await PermissionService.require_path_permission(current_user.id, body.dst, PathAction.WRITE)
     result = await VirtualFSService.copy(body.src, body.dst, overwrite)
     return success(result)
 
@@ -154,6 +169,7 @@ async def upload_stream(
     overwrite: bool = Query(True, description="是否覆盖已存在文件"),
     chunk_size: int = Query(1024 * 1024, ge=8 * 1024, le=8 * 1024 * 1024, description="单次读取块大小"),
 ):
+    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.WRITE)
     result = await VirtualFSService.upload_stream_from_upload_file(full_path, file, chunk_size, overwrite)
     return success(result)
 
@@ -169,7 +185,10 @@ async def browse_fs(
     sort_by: str = Query("name", description="按字段排序: name, size, mtime"),
     sort_order: str = Query("asc", description="排序顺序: asc, desc"),
 ):
-    data = await VirtualFSService.list_directory(full_path, page_num, page_size, sort_by, sort_order)
+    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.READ)
+    data = await VirtualFSService.list_directory_with_permission(
+        full_path, current_user.id, page_num, page_size, sort_by, sort_order
+    )
     return success(data)
 
 
@@ -180,6 +199,7 @@ async def api_delete(
     current_user: Annotated[User, Depends(get_current_active_user)],
     full_path: str,
 ):
+    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.DELETE)
     result = await VirtualFSService.delete(full_path)
     return success(result)
 
@@ -194,5 +214,8 @@ async def root_listing(
     sort_by: str = Query("name", description="按字段排序: name, size, mtime"),
     sort_order: str = Query("asc", description="排序顺序: asc, desc"),
 ):
-    data = await VirtualFSService.list_directory("/", page_num, page_size, sort_by, sort_order)
+    # 根目录不需要权限检查，但需要过滤无权限的子目录
+    data = await VirtualFSService.list_directory_with_permission(
+        "/", current_user.id, page_num, page_size, sort_by, sort_order
+    )
     return success(data)

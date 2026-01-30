@@ -140,6 +140,7 @@ class AuthService:
                 email=user.email,
                 full_name=user.full_name,
                 disabled=user.disabled,
+                is_admin=user.is_admin,
                 hashed_password=user.hashed_password,
             )
         return None
@@ -166,12 +167,14 @@ class AuthService:
         if exists:
             raise HTTPException(status_code=400, detail="用户名已存在")
         hashed = cls.get_password_hash(payload.password)
+        # 第一个用户自动成为超级管理员
         user = await UserAccount.create(
             username=payload.username,
             email=payload.email,
             full_name=payload.full_name,
             hashed_password=hashed,
             disabled=False,
+            is_admin=True,  # 第一个用户是超级管理员
         )
         return user
 
@@ -195,6 +198,13 @@ class AuthService:
                 detail="用户名或密码错误",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        
+        # 更新最后登录时间
+        db_user = await UserAccount.get_or_none(id=user.id)
+        if db_user:
+            db_user.last_login = _now()
+            await db_user.save(update_fields=["last_login"])
+        
         access_token_expires = timedelta(minutes=cls.access_token_expire_minutes)
         access_token = await cls.create_access_token(
             data={"sub": user.username}, expires_delta=access_token_expires
@@ -212,6 +222,7 @@ class AuthService:
             "email": getattr(user, "email", None),
             "full_name": getattr(user, "full_name", None),
             "gravatar_url": gravatar_url,
+            "is_admin": getattr(user, "is_admin", False),
         }
 
     @classmethod

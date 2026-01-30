@@ -1,7 +1,7 @@
 import { Layout, Menu, theme, Button, Modal, Tag, Tooltip, Descriptions, Alert, Divider, Spin } from 'antd';
 import { navGroups } from './nav.ts';
 import type { NavItem, NavGroup } from './nav.ts';
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, useMemo } from 'react';
 import { useSystemStatus } from '../contexts/SystemContext.tsx';
 import {
   CheckCircleOutlined,
@@ -19,6 +19,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
 import WeChatModal from '../components/WeChatModal';
+import { useAuth } from '../contexts/AuthContext';
 const { Sider } = Layout;
 
 export interface SideNavProps {
@@ -33,12 +34,24 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
   const { token } = theme.useToken();
   const { resolvedMode } = useTheme();
   const { t } = useI18n();
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [latestVersion, setLatestVersion] = useState<{
     version: string;
     body: string;
   } | null>(null);
+  
+  // 根据用户权限过滤导航项
+  const filteredNavGroups = useMemo(() => {
+    const isAdmin = user?.is_admin ?? false;
+    return navGroups
+      .map(group => ({
+        ...group,
+        children: group.children.filter(item => !item.adminOnly || isAdmin)
+      }))
+      .filter(group => group.children.length > 0);
+  }, [user]);
 
   useEffect(() => {
     getLatestVersion().then(resp => {
@@ -124,7 +137,7 @@ const SideNav = memo(function SideNav({ collapsed, activeKey, onChange, onToggle
         </div>
         {/* 分组渲染 */}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 4px 8px' }}>
-          {navGroups.map((group: NavGroup) => (
+          {filteredNavGroups.map((group: NavGroup) => (
             <div key={group.key} style={{ marginBottom: 12 }}>
               {group.title && (
                 <div

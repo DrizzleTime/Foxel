@@ -22,9 +22,93 @@ class UserAccount(Model):
     full_name = fields.CharField(max_length=100, null=True)
     hashed_password = fields.CharField(max_length=128)
     disabled = fields.BooleanField(default=False)
+    is_admin = fields.BooleanField(default=False)
+    created_by: fields.ForeignKeyNullableRelation["UserAccount"] = fields.ForeignKeyField(
+        "models.UserAccount", null=True, related_name="created_users", on_delete=fields.SET_NULL
+    )
+    created_at = fields.DatetimeField(auto_now_add=True)
+    last_login = fields.DatetimeField(null=True)
 
     class Meta:
         table = "user"
+
+
+class Role(Model):
+    """角色表"""
+
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True)  # 角色名称
+    description = fields.CharField(max_length=255, null=True)
+    is_system = fields.BooleanField(default=False)  # 系统内置角色不可删除
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "roles"
+
+
+class UserRole(Model):
+    """用户-角色关联表"""
+
+    id = fields.IntField(pk=True)
+    user: fields.ForeignKeyRelation[UserAccount] = fields.ForeignKeyField(
+        "models.UserAccount", related_name="user_roles", on_delete=fields.CASCADE
+    )
+    role: fields.ForeignKeyRelation[Role] = fields.ForeignKeyField(
+        "models.Role", related_name="role_users", on_delete=fields.CASCADE
+    )
+
+    class Meta:
+        table = "user_roles"
+        unique_together = (("user", "role"),)
+
+
+class Permission(Model):
+    """权限定义表"""
+
+    id = fields.IntField(pk=True)
+    code = fields.CharField(max_length=50, unique=True)  # 权限代码
+    name = fields.CharField(max_length=100)  # 权限名称
+    category = fields.CharField(max_length=50)  # 分类：system/adapter/file
+    description = fields.CharField(max_length=255, null=True)
+
+    class Meta:
+        table = "permissions"
+
+
+class RolePermission(Model):
+    """角色-权限关联表"""
+
+    id = fields.IntField(pk=True)
+    role: fields.ForeignKeyRelation[Role] = fields.ForeignKeyField(
+        "models.Role", related_name="role_permissions", on_delete=fields.CASCADE
+    )
+    permission: fields.ForeignKeyRelation[Permission] = fields.ForeignKeyField(
+        "models.Permission", related_name="permission_roles", on_delete=fields.CASCADE
+    )
+
+    class Meta:
+        table = "role_permissions"
+        unique_together = (("role", "permission"),)
+
+
+class PathRule(Model):
+    """路径权限规则表"""
+
+    id = fields.IntField(pk=True)
+    role: fields.ForeignKeyRelation[Role] = fields.ForeignKeyField(
+        "models.Role", related_name="path_rules", on_delete=fields.CASCADE
+    )
+    path_pattern = fields.CharField(max_length=512)  # 路径模式
+    is_regex = fields.BooleanField(default=False)  # 是否为正则表达式
+    can_read = fields.BooleanField(default=True)
+    can_write = fields.BooleanField(default=False)
+    can_delete = fields.BooleanField(default=False)
+    can_share = fields.BooleanField(default=False)
+    priority = fields.IntField(default=0)  # 优先级，数值越大优先级越高
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "path_rules"
 
 
 class Configuration(Model):

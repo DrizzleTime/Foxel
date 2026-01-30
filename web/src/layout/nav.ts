@@ -11,10 +11,11 @@ import {
   AppstoreOutlined,
   CodeOutlined,
   ClockCircleOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import type { ReactNode } from 'react';
 
-export interface NavItem { key: string; icon: ReactNode; label: string; }
+export interface NavItem { key: string; icon: ReactNode; label: string; adminOnly?: boolean; }
 export interface NavGroup { key: string; title?: string; children: NavItem[]; }
 
 export const navGroups: NavGroup[] = [
@@ -42,6 +43,7 @@ export const navGroups: NavGroup[] = [
     key: 'system',
     title: 'System',
     children: [
+      { key: 'users', icon: React.createElement(UserOutlined), label: 'User Management', adminOnly: true },
       { key: 'settings', icon: React.createElement(SettingOutlined), label: 'System Settings' },
       { key: 'backup', icon: React.createElement(DatabaseOutlined), label: 'Backup & Restore' },
       { key: 'audit', icon: React.createElement(BugOutlined), label: 'Audit Logs' }

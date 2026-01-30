@@ -5,6 +5,8 @@ from fastapi import HTTPException
 from api.response import page
 from domain.adapters import runtime_registry
 from domain.ai import FILE_COLLECTION_NAME, VECTOR_COLLECTION_NAME, VectorDBService
+from domain.permission.service import PermissionService
+from domain.permission.types import PathAction
 from .thumbnail import is_image_filename, is_video_filename
 from models import StorageAdapter
 
@@ -245,3 +247,54 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
                     info["vector_index"] = vector_index
 
         return info
+
+    @classmethod
+    async def list_virtual_dir_with_permission(
+        cls,
+        path: str,
+        user_id: int,
+        page_num: int = 1,
+        page_size: int = 50,
+        sort_by: str = "name",
+        sort_order: str = "asc",
+    ) -> Dict:
+        """
+        带权限过滤的目录列表
+        
+        过滤掉用户没有读取权限的条目
+        """
+        # 首先获取完整的目录列表
+        result = await cls.list_virtual_dir(path, page_num, page_size, sort_by, sort_order)
+        
+        # 检查用户是否是管理员（管理员可以看到所有内容）
+        from models.database import UserAccount
+        user = await UserAccount.get_or_none(id=user_id)
+        if user and user.is_admin:
+            return result
+        
+        # 过滤无权限的条目
+        items = result.get("items", [])
+        if not items:
+            return result
+        
+        norm = cls._normalize_path(path).rstrip("/") or "/"
+        filtered_items = []
+        
+        for item in items:
+            item_name = item.get("name", "")
+            if norm == "/":
+                item_path = f"/{item_name}"
+            else:
+                item_path = f"{norm}/{item_name}"
+            
+            # 检查用户是否有读取权限
+            has_permission = await PermissionService.check_path_permission(
+                user_id, item_path, PathAction.READ
+            )
+            if has_permission:
+                filtered_items.append(item)
+        
+        # 更新结果
+        result["items"] = filtered_items
+        
+        return result

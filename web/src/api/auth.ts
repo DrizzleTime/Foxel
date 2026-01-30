@@ -23,6 +23,7 @@ export interface MeResponse {
   email?: string | null;
   full_name?: string | null;
   gravatar_url: string;
+  is_admin?: boolean;
 }
 
 export interface UpdateMePayload {

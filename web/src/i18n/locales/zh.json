@@ -674,6 +674,7 @@
   "Coming soon v2": "敬请期待 v2",
   "Initialization succeeded! Logging you in...": "初始化成功！正在为您登录，请不要刷新。",
   "Initialization failed, please try later": "初始化失败，请稍后重试",
+  "Vector DB setup failed, you can configure it later in System Settings": "向量数据库配置失败，可稍后在系统设置中配置",
   "Database Setup": "数据库设置",
   "Choose database driver": "选择数据库驱动",
   "Select database and vector database for system data": "选择用于存储系统数据的数据库和向量数据库。",

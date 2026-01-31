@@ -250,7 +250,7 @@ async def get_vector_db_stats(request: Request, user: User = Depends(get_current
 
 @audit(action=AuditAction.READ, description="获取向量数据库提供者列表")
 @router_vector_db.get("/providers", summary="列出可用向量数据库提供者")
-async def list_vector_providers(request: Request, user: User = Depends(get_current_active_user)):
+async def list_vector_providers(request: Request):
     return success(list_providers())
 
 

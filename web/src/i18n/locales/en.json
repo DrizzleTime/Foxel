@@ -674,6 +674,7 @@
   "Coming soon v2": "Coming soon v2",
   "Initialization succeeded! Logging you in...": "Initialization succeeded! Logging you in...",
   "Initialization failed, please try later": "Initialization failed, please try later",
+  "Vector DB setup failed, you can configure it later in System Settings": "Vector DB setup failed, you can configure it later in System Settings",
   "Database Setup": "Database Setup",
   "Choose database driver": "Choose database driver",
   "Select database and vector database for system data": "Select database and vector database for system data",

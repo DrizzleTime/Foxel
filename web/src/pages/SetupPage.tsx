@@ -1,20 +1,48 @@
 import { useEffect, useState } from 'react';
-import { Form, Input, Button, Card, message, Steps, Select, Space, Typography } from 'antd';
+import { Form, Input, Button, Card, message, Steps, Select, Space, Typography, Alert, Grid } from 'antd';
 import { UserOutlined, LockOutlined, HddOutlined } from '@ant-design/icons';
 import { adaptersApi } from '../api/adapters';
 import { setConfig } from '../api/config';
+import { vectorDBApi, type VectorDBProviderMeta } from '../api/vectorDB';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const { Title, Text } = Typography;
 
+const buildProviderConfigValues = (
+  provider: VectorDBProviderMeta | undefined,
+  existing?: Record<string, string>,
+) => {
+  if (!provider) return {};
+  const values: Record<string, string> = {};
+  const schema = provider.config_schema || [];
+  schema.forEach((field) => {
+    const current = existing && existing[field.key] !== undefined && existing[field.key] !== null
+      ? String(existing[field.key])
+      : undefined;
+    if (current !== undefined) {
+      values[field.key] = current;
+    } else if (field.default !== undefined && field.default !== null) {
+      values[field.key] = String(field.default);
+    } else {
+      values[field.key] = '';
+    }
+  });
+  return values;
+};
+
 const SetupPage = () => {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
   const { login, register } = useAuth();
   const { t } = useI18n();
+  const [vectorProviders, setVectorProviders] = useState<VectorDBProviderMeta[]>([]);
+  const [vectorProvidersLoading, setVectorProvidersLoading] = useState(false);
+  const [selectedVectorProviderType, setSelectedVectorProviderType] = useState<string | null>(null);
 
   useEffect(() => {
     const origin = window.location.origin;
@@ -23,6 +51,48 @@ const SetupPage = () => {
       file_domain: origin,
     });
   }, [form]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadVectorProviders() {
+      setVectorProvidersLoading(true);
+      try {
+        const providers = await vectorDBApi.getProviders();
+        if (!mounted) return;
+        setVectorProviders(providers);
+
+        const enabled = providers.filter((item) => item.enabled);
+        const currentType = form.getFieldValue('vector_db_type') as string | undefined;
+        let nextType = currentType;
+        if (!nextType || !providers.some((item) => item.type === nextType && item.enabled)) {
+          nextType = enabled.find((item) => item.type === 'milvus_lite')?.type
+            ?? enabled[0]?.type
+            ?? providers[0]?.type
+            ?? 'milvus_lite';
+        }
+
+        setSelectedVectorProviderType(nextType);
+        const provider = providers.find((item) => item.type === nextType);
+        const existingConfig = nextType === currentType ? (form.getFieldValue('vector_db_config') as Record<string, string> | undefined) : undefined;
+        const configValues = buildProviderConfigValues(provider, existingConfig);
+        form.setFieldsValue({ vector_db_type: nextType, vector_db_config: configValues });
+      } catch (e: any) {
+        console.error(e);
+        message.error(e?.message || t('Load failed'));
+        if (mounted) {
+          form.setFieldsValue({ vector_db_type: 'milvus_lite' });
+          setSelectedVectorProviderType('milvus_lite');
+        }
+      } finally {
+        if (mounted) setVectorProvidersLoading(false);
+      }
+    }
+    loadVectorProviders();
+    return () => {
+      mounted = false;
+    };
+  }, [form, t]);
+
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
@@ -42,6 +112,19 @@ const SetupPage = () => {
           }
           if (tasks.length) {
             await Promise.all(tasks);
+          }
+          if (values.vector_db_type) {
+            const configPayload = Object.fromEntries(
+              Object.entries(values.vector_db_config || {})
+                .filter(([, val]) => val !== undefined && val !== null && String(val).trim() !== '')
+                .map(([key, val]) => [key, String(val)]),
+            );
+            try {
+              await vectorDBApi.updateConfig({ type: values.vector_db_type, config: configPayload });
+            } catch (e: any) {
+              console.error(e);
+              message.warning(e?.message || t('Vector DB setup failed, you can configure it later in System Settings'));
+            }
           }
           await adaptersApi.create({
             name: values.adapter_name,
@@ -67,11 +150,23 @@ const SetupPage = () => {
     }
   };
 
-  const stepFields = [
-    ['db_driver', 'vector_db_driver'],
+  const selectedVectorProvider = vectorProviders.find((item) => item.type === selectedVectorProviderType) || vectorProviders.find((item) => item.enabled) || vectorProviders[0];
+  const requiredVectorConfigFields = (selectedVectorProvider?.config_schema || [])
+    .filter((field) => field.required)
+    .map((field) => ['vector_db_config', field.key]);
+
+  const stepFields: any[] = [
+    ['db_driver', 'vector_db_type', ...requiredVectorConfigFields],
     ['adapter_name', 'adapter_type', 'path', 'root_dir'],
     ['username', 'full_name', 'email', 'password', 'confirm'],
   ]
+
+  const handleVectorProviderChange = (value: string) => {
+    setSelectedVectorProviderType(value);
+    const provider = vectorProviders.find((item) => item.type === value);
+    const configValues = buildProviderConfigValues(provider);
+    form.setFieldsValue({ vector_db_type: value, vector_db_config: configValues });
+  };
 
   const next = () => {
     form.validateFields(stepFields[currentStep]).then(() => {
@@ -100,12 +195,44 @@ const SetupPage = () => {
           </Form.Item>
           <Form.Item
             label={t('Vector DB Driver')}
-            name="vector_db_driver"
-            initialValue="milvus"
+            name="vector_db_type"
+            initialValue="milvus_lite"
             rules={[{ required: true }]}
           >
-            <Select size="large" disabled options={[{ label: 'Milvus', value: 'milvus' }]} />
+            <Select
+              size="large"
+              loading={vectorProvidersLoading}
+              disabled={vectorProvidersLoading || !vectorProviders.length}
+              options={vectorProviders.map((provider) => ({
+                value: provider.type,
+                label: provider.label,
+                disabled: !provider.enabled,
+              }))}
+              onChange={handleVectorProviderChange}
+            />
           </Form.Item>
+          {selectedVectorProvider?.description ? (
+            <Alert
+              type="info"
+              showIcon
+              message={t(selectedVectorProvider.description)}
+              style={{ marginBottom: 16 }}
+            />
+          ) : null}
+          {selectedVectorProvider?.config_schema?.map((field) => (
+            <Form.Item
+              key={field.key}
+              name={['vector_db_config', field.key]}
+              label={t(field.label)}
+              rules={field.required ? [{ required: true, message: t('Please input {label}', { label: t(field.label) }) }] : []}
+            >
+              {field.type === 'password' ? (
+                <Input.Password size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+              ) : (
+                <Input size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+              )}
+            </Form.Item>
+          ))}
         </>
       )
     },
@@ -228,23 +355,30 @@ const SetupPage = () => {
   return (
     <div style={{
       display: 'flex',
-      width: '100vw',
-      height: '100vh',
-      alignItems: 'center',
+      width: '100%',
+      minHeight: '100vh',
+      alignItems: isMobile ? 'flex-start' : 'center',
       justifyContent: 'center',
+      padding: isMobile ? '64px 12px 24px' : '32px 24px',
+      boxSizing: 'border-box',
       background: 'linear-gradient(to right, var(--ant-color-bg-layout, #f0f2f5), var(--ant-color-fill-secondary, #d7d7d7))'
     }}>
       <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 1000 }}>
         <LanguageSwitcher />
       </div>
-      <Card style={{ width: 'clamp(400px, 40vw, 600px)', padding: '24px 16px' }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+      <Card
+        style={{ width: '100%', maxWidth: 800 }}
+        styles={{ body: { padding: isMobile ? '18px 14px' : '24px 20px' } }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: isMobile ? 20 : 32 }}>
           <img src="/logo.svg" alt="Foxel Logo" style={{ width: 48, marginBottom: 16 }} />
           <Title level={2}>{t('System Initialization')}</Title>
         </div>
         <Steps
           current={currentStep}
-          style={{ marginBottom: 32 }}
+          direction={isMobile ? 'vertical' : 'horizontal'}
+          size={isMobile ? 'small' : 'default'}
+          style={{ marginBottom: isMobile ? 20 : 32 }}
           items={steps.map((item) => ({ title: item.title }))}
         />
 
@@ -256,20 +390,20 @@ const SetupPage = () => {
           ))}
         </Form>
 
-        <div style={{ marginTop: 24 }}>
-          <Space>
+        <div style={{ marginTop: isMobile ? 16 : 24 }}>
+          <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
             {currentStep > 0 && (
-              <Button style={{ margin: '0 8px' }} onClick={() => prev()}>
+              <Button block={isMobile} onClick={() => prev()}>
                 {t('Previous')}
               </Button>
             )}
             {currentStep < steps.length - 1 && (
-              <Button type="primary" onClick={() => next()}>
+              <Button type="primary" block={isMobile} onClick={() => next()}>
                 {t('Next')}
               </Button>
             )}
             {currentStep === steps.length - 1 && (
-              <Button type="primary" htmlType="submit" loading={loading} onClick={() => form.submit()}>
+              <Button type="primary" block={isMobile} htmlType="submit" loading={loading} onClick={() => form.submit()}>
                 {t('Finish Initialization')}
               </Button>
             )}

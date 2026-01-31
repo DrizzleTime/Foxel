@@ -1,6 +1,7 @@
 import { Modal, Input, Flex, Segmented } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { InputRef } from 'antd/es/input/Input';
 import { useI18n } from '../i18n';
 import { useLocation, useNavigate } from 'react-router';
 
@@ -18,6 +19,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ open, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isOnFiles = location.pathname.startsWith('/files');
+  const inputRef = useRef<InputRef | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -41,11 +43,16 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ open, onClose }) => {
     <Modal
       open={open}
       onCancel={handleClose}
+      afterOpenChange={(nextOpen) => {
+        if (!nextOpen) return;
+        window.setTimeout(() => inputRef.current?.focus(), 0);
+      }}
       footer={null}
       width={720}
       centered
       title={null}
       closable={false}
+      destroyOnHidden
       styles={{
         body: {
           padding: '12px 16px 16px',
@@ -81,13 +88,14 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ open, onClose }) => {
             placeholder={t('Search files / tags / types')}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ fontSize: 18, height: 40, flex: 1, minWidth: 240 }}
+            size="large"
+            style={{ flex: 1, minWidth: 240 }}
             styles={{
-              input: {
+              root: {
                 borderRadius: 20,
               },
             }}
-            autoFocus
+            ref={inputRef}
             onPressEnter={() => {
               const trimmed = search.trim();
               if (!trimmed) {

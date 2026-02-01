@@ -15,14 +15,14 @@
     "antd": "6",
     "artplayer": "^5.3.0",
     "date-fns": "^4.1.0",
-    "react": "^19.2.3",
+    "react": "^19.2.4",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
     "react-router": "^7.11.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@types/react": "^19.2.7",
+    "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
     "eslint": "^9.39.2",

@@ -123,6 +123,12 @@ export default function LoginPage() {
                     {t('Sign In')}
                   </Button>
                 </Form.Item>
+
+                <Form.Item style={{ marginBottom: 0, textAlign: 'center' }}>
+                  <Button type="link" onClick={() => navigate('/register')} style={{ padding: 0 }}>
+                    {t('Sign Up')}
+                  </Button>
+                </Form.Item>
               </Form>
             </Space>
           </div>

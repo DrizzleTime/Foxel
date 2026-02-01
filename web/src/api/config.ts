@@ -15,6 +15,10 @@ export async function getAllConfig() {
   return request<Record<string, string>>('/config/all');
 }
 
+export async function getPublicConfig() {
+  return request<Record<string, string>>('/config/public');
+}
+
 export interface SystemStatus {
   version: string;
   title: string;

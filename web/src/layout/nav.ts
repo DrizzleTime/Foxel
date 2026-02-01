@@ -44,7 +44,7 @@ export const navGroups: NavGroup[] = [
     title: 'System',
     children: [
       { key: 'users', icon: React.createElement(UserOutlined), label: 'User Management', adminOnly: true },
-      { key: 'settings', icon: React.createElement(SettingOutlined), label: 'System Settings' },
+      { key: 'settings', icon: React.createElement(SettingOutlined), label: 'System Settings', adminOnly: true },
       { key: 'backup', icon: React.createElement(DatabaseOutlined), label: 'Backup & Restore' },
       { key: 'audit', icon: React.createElement(BugOutlined), label: 'Audit Logs' }
     ]

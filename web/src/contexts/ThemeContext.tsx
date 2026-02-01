@@ -3,7 +3,7 @@ import { ConfigProvider, theme as antdTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import type { ThemeConfig } from 'antd/es/config-provider/context';
-import { getAllConfig } from '../api/config';
+import { getPublicConfig } from '../api/config';
 import { useAuth } from './AuthContext';
 import baseTheme from '../theme';
 import { useI18n } from '../i18n';
@@ -149,7 +149,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const cfg = await getAllConfig();
+      const cfg = await getPublicConfig();
       const mode = (cfg[CONFIG_KEYS.MODE] as ThemeMode) || 'light';
       const primary = (cfg[CONFIG_KEYS.PRIMARY] as string) || null;
       const radiusStr = cfg[CONFIG_KEYS.RADIUS];

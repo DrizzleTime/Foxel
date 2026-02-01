@@ -26,7 +26,7 @@ class UserInDB(User):
 class RegisterRequest(BaseModel):
     username: str
     password: str
-    email: str | None = None
+    email: str
     full_name: str | None = None
 
 

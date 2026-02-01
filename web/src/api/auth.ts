@@ -8,7 +8,7 @@ export interface LoginPayload {
 export interface RegisterPayload {
   username: string;
   password: string;
-  email?: string;
+  email: string;
   full_name?: string;
 }
 
@@ -43,7 +43,7 @@ export interface PasswordResetConfirmPayload {
 }
 
 export const authApi = {
-  register: async (username: string, password: string, email?: string, full_name?: string): Promise<any> => {
+  register: async (username: string, password: string, email: string, full_name?: string): Promise<any> => {
     return request('/auth/register', {
       method: 'POST',
       json: { username, password, email, full_name },

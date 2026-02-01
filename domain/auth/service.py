@@ -12,7 +12,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 
 from domain.config import ConfigService
-from models.database import UserAccount
+from models.database import Role, UserAccount, UserRole
 from .types import (
     PasswordResetConfirm,
     PasswordResetRequest,
@@ -161,21 +161,60 @@ class AuthService:
 
     @classmethod
     async def register_user(cls, payload: RegisterRequest):
-        if await cls.has_users():
-            raise HTTPException(status_code=403, detail="系统已初始化，不允许注册新用户")
+        has_users = await cls.has_users()
+        normalized_email = cls._normalize_email(payload.email)
+        if not normalized_email:
+            raise HTTPException(status_code=400, detail="邮箱不能为空")
+
+        if has_users:
+            allow_register = str(await ConfigService.get("AUTH_ALLOW_REGISTER", "false") or "").strip().lower()
+            if allow_register not in ("1", "true", "yes", "on"):
+                raise HTTPException(status_code=403, detail="系统未开放注册")
+
+            default_role_id_raw = str(await ConfigService.get("AUTH_DEFAULT_REGISTER_ROLE_ID", "") or "").strip()
+            if not default_role_id_raw:
+                raise HTTPException(status_code=400, detail="未配置默认注册角色")
+            try:
+                default_role_id = int(default_role_id_raw)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="默认注册角色配置错误") from exc
+
+            role = await Role.get_or_none(id=default_role_id)
+            if not role:
+                raise HTTPException(status_code=400, detail="默认注册角色不存在")
+
         exists = await UserAccount.get_or_none(username=payload.username)
         if exists:
             raise HTTPException(status_code=400, detail="用户名已存在")
+
+        existing_email = await UserAccount.get_or_none(email=normalized_email)
+        if existing_email:
+            raise HTTPException(status_code=400, detail="邮箱已被使用")
+
         hashed = cls.get_password_hash(payload.password)
-        # 第一个用户自动成为超级管理员
+
+        # 第一个用户自动成为超级管理员（不受开放注册开关影响）
+        if not has_users:
+            user = await UserAccount.create(
+                username=payload.username,
+                email=normalized_email,
+                full_name=payload.full_name,
+                hashed_password=hashed,
+                disabled=False,
+                is_admin=True,
+            )
+            return user
+
+        # 系统已初始化：按默认角色创建普通用户
         user = await UserAccount.create(
             username=payload.username,
-            email=payload.email,
+            email=normalized_email,
             full_name=payload.full_name,
             hashed_password=hashed,
             disabled=False,
-            is_admin=True,  # 第一个用户是超级管理员
+            is_admin=False,
         )
+        await UserRole.create(user_id=user.id, role_id=default_role_id)
         return user
 
     @classmethod

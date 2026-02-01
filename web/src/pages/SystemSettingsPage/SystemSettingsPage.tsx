@@ -1,21 +1,22 @@
-import { message, Tabs, Space } from 'antd';
+import { Alert, message, Tabs, Space } from 'antd';
 import { useEffect, useState } from 'react';
 import PageCard from '../../components/PageCard';
 import { getAllConfig, setConfig } from '../../api/config';
-import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined, UserOutlined } from '@ant-design/icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import '../../styles/settings-tabs.css';
 import { useI18n } from '../../i18n';
 import AppearanceSettingsTab from './components/AppearanceSettingsTab';
 import AppSettingsTab from './components/AppSettingsTab';
+import AuthSettingsTab from './components/AuthSettingsTab';
 import AiSettingsTab from './components/AiSettingsTab';
 import VectorDbSettingsTab from './components/VectorDbSettingsTab';
 import EmailSettingsTab from './components/EmailSettingsTab';
 import ProtocolMappingsTab from './components/ProtocolMappingsTab';
 
-type TabKey = 'appearance' | 'app' | 'email' | 'ai' | 'vector-db' | 'mappings';
+type TabKey = 'appearance' | 'app' | 'auth' | 'email' | 'ai' | 'vector-db' | 'mappings';
 
-const TAB_KEYS: TabKey[] = ['appearance', 'app', 'email', 'ai', 'vector-db', 'mappings'];
+const TAB_KEYS: TabKey[] = ['appearance', 'app', 'auth', 'email', 'ai', 'vector-db', 'mappings'];
 const DEFAULT_TAB: TabKey = 'appearance';
 
 const isValidTab = (key?: string): key is TabKey => !!key && (TAB_KEYS as string[]).includes(key);
@@ -45,6 +46,7 @@ const THEME_KEYS = {
 export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSettingsPageProps) {
   const [loading, setLoading] = useState(false);
   const [config, setConfigState] = useState<Record<string, string> | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>(() =>
     isValidTab(tabKey) ? tabKey : DEFAULT_TAB
   );
@@ -52,8 +54,16 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
   const { t } = useI18n();
 
   useEffect(() => {
-    getAllConfig().then((data) => setConfigState(data as Record<string, string>));
-  }, []);
+    getAllConfig()
+      .then((data) => {
+        setLoadError(null);
+        setConfigState(data as Record<string, string>);
+      })
+      .catch((e: any) => {
+        setLoadError(e?.message || t('Load failed'));
+        setConfigState({});
+      });
+  }, [t]);
 
   const handleSave = async (values: Record<string, unknown>) => {
     setLoading(true);
@@ -102,6 +112,14 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
     onTabNavigate?.(nextKey);
   };
 
+  if (loadError) {
+    return (
+      <PageCard title={t('System Settings')}>
+        <Alert type="error" showIcon message={loadError} />
+      </PageCard>
+    );
+  }
+
   if (!config) {
     return <PageCard title={t('System Settings')}><div>{t('Loading...')}</div></PageCard>;
   }
@@ -148,6 +166,22 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
                   loading={loading}
                   onSave={handleSave}
                   configKeys={APP_CONFIG_KEYS}
+                />
+              ),
+            },
+            {
+              key: 'auth',
+              label: (
+                <span>
+                  <UserOutlined style={{ marginRight: 8 }} />
+                  {t('Registration Settings')}
+                </span>
+              ),
+              children: (
+                <AuthSettingsTab
+                  config={config}
+                  loading={loading}
+                  onSave={handleSave}
                 />
               ),
             },

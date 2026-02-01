@@ -18,16 +18,16 @@ from .types import (
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/register", summary="注册第一个管理员用户")
+@router.post("/register", summary="注册用户（首个用户为管理员）")
 @audit(
     action=AuditAction.REGISTER,
-    description="注册管理员",
+    description="注册用户",
     body_fields=["username", "email", "full_name"],
     redact_fields=["password"],
 )
 async def register(request: Request, data: RegisterRequest):
     user = await AuthService.register_user(data)
-    return success({"username": user.username}, msg="初始用户注册成功")
+    return success({"username": user.username}, msg="注册成功")
 
 
 @router.post("/login")

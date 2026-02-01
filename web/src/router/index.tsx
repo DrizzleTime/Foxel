@@ -2,6 +2,7 @@ import { Navigate, Routes, Route, useLocation } from 'react-router';
 import type { RouteObject } from 'react-router';
 import LayoutShell from './LayoutShell.tsx';
 import LoginPage from '../pages/LoginPage.tsx';
+import RegisterPage from '../pages/RegisterPage.tsx';
 import SetupPage from '../pages/SetupPage.tsx';
 import PublicSharePage from '../pages/PublicSharePage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
@@ -13,6 +14,7 @@ export const routes: RouteObject[] = [
   { path: '/', element: <Navigate to="/files" replace /> },
   { path: '/:navKey/*', element: <LayoutShell /> },
   { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
   { path: '/share/:token', element: <PublicSharePage /> },
   { path: '/setup', element: <SetupPage /> },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },

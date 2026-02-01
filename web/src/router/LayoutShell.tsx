@@ -14,7 +14,7 @@ import SystemSettingsPage from '../pages/SystemSettingsPage/SystemSettingsPage.t
 import AuditLogsPage from '../pages/AuditLogsPage.tsx';
 import BackupPage from '../pages/SystemSettingsPage/BackupPage.tsx';
 import PluginsPage from '../pages/PluginsPage.tsx';
-import UsersPage from '../pages/AdminPage/UsersPage.tsx';
+import UsersPage from '../pages/UsersPage/UsersPage.tsx';
 import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext';
 import { AppWindowsLayer } from '../apps/AppWindowsLayer';
 import AiAgentWidget from '../components/AiAgentWidget';

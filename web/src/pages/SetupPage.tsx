@@ -315,7 +315,10 @@ const SetupPage = () => {
           <Form.Item
             label={t('Email')}
             name="email"
-            rules={[{ type: 'email', message: t('Please input a valid email!') }]}
+            rules={[
+              { required: true, message: t('Please input email!') },
+              { type: 'email', message: t('Please input a valid email!') },
+            ]}
           >
             <Input size="large" prefix={<UserOutlined />} />
           </Form.Item>

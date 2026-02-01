@@ -6,7 +6,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     login: (username: string, password: string) => Promise<void>;
     logout: () => void;
-    register: (username: string, password: string, email?: string, full_name?: string) => Promise<void>;
+    register: (username: string, password: string, email: string, full_name?: string) => Promise<void>;
     user: MeResponse | null;
     refreshUser: () => Promise<void>;
 }
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
     };
 
-    const register = async (username: string, password: string, email?: string, full_name?: string) => {
+    const register = async (username: string, password: string, email: string, full_name?: string) => {
         await authApi.register(username, password, email, full_name);
     };
 

@@ -13,7 +13,7 @@ TORTOISE_ORM = {
 }
 
 async def init_db():
-    await Tortoise.init(config=TORTOISE_ORM)
+    await Tortoise.init(config=TORTOISE_ORM, _enable_global_fallback=True)
     await Tortoise.generate_schemas()
     await runtime_registry.refresh()
 

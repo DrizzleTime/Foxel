@@ -19,6 +19,6 @@ dependencies = [
     "python-multipart>=0.0.21",
     "qdrant-client>=1.16.2",
     "telethon>=1.42.0",
-    "tortoise-orm>=0.25.3",
+    "tortoise-orm>=1.0.0",
     "uvicorn>=0.40.0",
 ]

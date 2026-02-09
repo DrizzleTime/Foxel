@@ -56,7 +56,7 @@ Follow the development setup below before opening a pull request. Keep changes f
 Install the following tooling first:
 
 - **Git** for version control
-- **Python** 3.13 or newer
+- **Python** 3.14 or newer
 - **Bun** for frontend package management and scripts
 
 ### Backend (FastAPI)

@@ -29,48 +29,105 @@
 
 ## ✨ Core Features
 
-- **Unified File Management**: Centralize management of files distributed across different storage backends.
-- **Pluggable Storage Backends**: Utilizes an extensible adapter pattern to easily integrate various storage types.
-- **Semantic Search**: Supports natural language search for content within unstructured data like images and documents.
-- **Built-in File Preview**: Preview images, videos, PDFs, Office documents, text, and code files directly without downloading.
-- **Permissions and Sharing**: Supports public or private sharing links for easy file distribution.
-- **Task Processing Center**: Supports asynchronous task processing, such as file indexing and data backups, without impacting the main application.
+### 📁 Unified File Management
+
+Centralize management of files distributed across different storage backends. Browse, upload, download, move, copy, and delete — all through a single, unified interface.
+
+### 🔌 Pluggable Storage Backends
+
+Utilizes an extensible adapter pattern to easily integrate various storage types:
+
+| Category | Adapters |
+|---|---|
+| **Standard Protocols** | Local, S3-compatible, WebDAV, SFTP, FTP |
+| **Cloud Drives** | Google Drive, OneDrive, Dropbox, Quark |
+| **Special** | Telegram, AList, Foxel-to-Foxel |
+
+### 🔍 AI-Powered Semantic Search
+
+Go beyond filename matching — search by natural language descriptions to find content within images, documents, and other unstructured data. Powered by configurable embedding providers and vector databases (Milvus, Qdrant).
+
+### 👁️ Built-in File Preview
+
+Preview images, videos, PDFs, Office documents, text, and code files directly in the browser — no downloads required.
+
+### 🔐 Permissions & Access Control
+
+A full-featured **Role-Based Access Control (RBAC)** system to secure your data:
+
+- **Built-in Roles**: Three system roles — **Admin** (full access), **User** (configurable access), and **Viewer** (read-only).
+- **Custom Roles**: Create tailored roles with fine-grained system and adapter permissions.
+- **Path-based Rules**: Define read / write / delete / share permissions per path, with support for **wildcards**, **regex patterns**, and **priority-based rule ordering**.
+- **Audit Logging**: Every user action is recorded with full traceability (user, IP, method, status, duration).
+### 🔗 Sharing
+
+Generate public or password-protected share links with configurable expiration dates. Recipients can browse shared files and folders without logging in.
+
+### 🧩 Plugin System
+
+Extend Foxel's capabilities through a manifest-based plugin architecture. Load React frontend components and custom backend routes at runtime, without modifying the core codebase.
+
+### ⚙️ Task Processing Center
+
+Run asynchronous background tasks — file indexing, data backups, scheduled jobs — without impacting the main application.
+
+### 🤖 AI Agent
+
+An integrated AI agent with built-in tools for VFS operations, web fetching, and file processing — bringing intelligent automation directly into your cloud storage.
+
+### 🌐 Protocol Mappings
+
+Access your files through familiar protocols:
+
+- **S3 API** — S3-compatible endpoint for programmatic access
+- **WebDAV** — Mount as a network drive in your OS file manager
+- **Direct Links** — Temporary signed URLs for direct file access
+
+## 🛠️ Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| **Backend** | Python 3.14+, FastAPI, Tortoise ORM, SQLite |
+| **Frontend** | React 19, TypeScript, Vite, Ant Design |
+| **Auth** | JWT (OAuth2), bcrypt |
+| **Vector DB** | Milvus Lite / Server, Qdrant |
+| **Deployment** | Docker, Gunicorn + Uvicorn |
+| **Package Managers** | uv (Python), Bun (JS) |
 
 ## 🚀 Quick Start
 
 Using Docker Compose is the most recommended way to start Foxel.
 
-1. **Create Data Directories**
+### 1. Create Data Directories
 
-   Create a `data` folder for persistent data:
+Create a `data` folder for persistent data:
 
-   ```bash
-   mkdir -p data/db
-   mkdir -p data/mount
-   chmod 777 data/db data/mount
-   ```
+```bash
+mkdir -p data/db data/mount
+chmod 777 data/db data/mount
+```
 
-2. **Download Docker Compose File**
+### 2. Download Docker Compose File
 
-   ```bash
-   curl -L -O https://github.com/DrizzleTime/Foxel/raw/main/compose.yaml
-   ```
+```bash
+curl -L -O https://github.com/DrizzleTime/Foxel/raw/main/compose.yaml
+```
 
-   After downloading, it is **strongly recommended** to modify the environment variables in the `compose.yaml` file to ensure security:
+After downloading, it is **strongly recommended** to modify the environment variables in the `compose.yaml` file to ensure security:
 
-   - Modify `SECRET_KEY` and `TEMP_LINK_SECRET_KEY`: Replace the default keys with randomly generated strong keys.
+- Modify `SECRET_KEY` and `TEMP_LINK_SECRET_KEY`: Replace the default keys with randomly generated strong keys.
 
-3. **Start the Services**
+### 3. Start the Services
 
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+docker-compose up -d
+```
 
-4. **Access the Application**
+### 4. Access the Application
 
-   Once the services are running, open the page in your browser.
+Once the services are running, open the page in your browser.
 
-   > On the first launch, please follow the setup guide to initialize the administrator account.
+> On the first launch, please follow the setup guide to initialize the administrator account.
 
 ## 🤝 How to Contribute
 
@@ -87,3 +144,7 @@ You can also join our WeChat group for more real-time communication and support.
 <img src="https://foxel.cc/image/wechat.png" alt="WeChat Group QR Code" width="180">
 
 > If the QR code is invalid, please add WeChat ID **drizzle2001**, and we will invite you to the group.
+
+## 📄 License
+
+Foxel is open-sourced under the [MIT License](LICENSE).

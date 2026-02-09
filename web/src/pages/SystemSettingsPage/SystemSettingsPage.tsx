@@ -2,21 +2,20 @@ import { Alert, message, Tabs, Space } from 'antd';
 import { useEffect, useState } from 'react';
 import PageCard from '../../components/PageCard';
 import { getAllConfig, setConfig } from '../../api/config';
-import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined, UserOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined } from '@ant-design/icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import '../../styles/settings-tabs.css';
 import { useI18n } from '../../i18n';
 import AppearanceSettingsTab from './components/AppearanceSettingsTab';
 import AppSettingsTab from './components/AppSettingsTab';
-import AuthSettingsTab from './components/AuthSettingsTab';
 import AiSettingsTab from './components/AiSettingsTab';
 import VectorDbSettingsTab from './components/VectorDbSettingsTab';
 import EmailSettingsTab from './components/EmailSettingsTab';
 import ProtocolMappingsTab from './components/ProtocolMappingsTab';
 
-type TabKey = 'appearance' | 'app' | 'auth' | 'email' | 'ai' | 'vector-db' | 'mappings';
+type TabKey = 'appearance' | 'app' | 'email' | 'ai' | 'vector-db' | 'mappings';
 
-const TAB_KEYS: TabKey[] = ['appearance', 'app', 'auth', 'email', 'ai', 'vector-db', 'mappings'];
+const TAB_KEYS: TabKey[] = ['appearance', 'app', 'email', 'ai', 'vector-db', 'mappings'];
 const DEFAULT_TAB: TabKey = 'appearance';
 
 const isValidTab = (key?: string): key is TabKey => !!key && (TAB_KEYS as string[]).includes(key);
@@ -166,22 +165,6 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
                   loading={loading}
                   onSave={handleSave}
                   configKeys={APP_CONFIG_KEYS}
-                />
-              ),
-            },
-            {
-              key: 'auth',
-              label: (
-                <span>
-                  <UserOutlined style={{ marginRight: 8 }} />
-                  {t('Registration Settings')}
-                </span>
-              ),
-              children: (
-                <AuthSettingsTab
-                  config={config}
-                  loading={loading}
-                  onSave={handleSave}
                 />
               ),
             },

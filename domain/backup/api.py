@@ -28,7 +28,7 @@ async def export_backup(
     data = await BackupService.export_data(sections=sections)
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     headers = {"Content-Disposition": f"attachment; filename=foxel_backup_{timestamp}.json"}
-    return JSONResponse(content=data.model_dump(), headers=headers)
+    return JSONResponse(content=data.model_dump(mode="json"), headers=headers)
 
 
 @router.post("/import", summary="导入数据")

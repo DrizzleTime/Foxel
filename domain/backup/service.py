@@ -82,6 +82,9 @@ class BackupService:
         share_links = cls._serialize_datetime_fields(
             shares, ["created_at", "expires_at"]
         )
+        user_accounts = cls._serialize_datetime_fields(
+            users, ["created_at", "last_login"]
+        )
         ai_providers = cls._serialize_datetime_fields(
             providers, ["created_at", "updated_at"]
         )
@@ -99,7 +102,7 @@ class BackupService:
             version=VERSION,
             sections=sections,
             storage_adapters=list(adapters),
-            user_accounts=list(users),
+            user_accounts=user_accounts,
             automation_tasks=list(tasks),
             share_links=share_links,
             configurations=list(configs),
@@ -130,6 +133,11 @@ class BackupService:
         share_links = (
             cls._parse_datetime_fields(payload.share_links, ["created_at", "expires_at"])
             if payload.share_links
+            else []
+        )
+        user_accounts = (
+            cls._parse_datetime_fields(payload.user_accounts, ["created_at", "last_login"])
+            if payload.user_accounts
             else []
         )
         ai_providers = (
@@ -189,10 +197,10 @@ class BackupService:
 
             if "user_accounts" in sections and payload.user_accounts:
                 if mode == "merge":
-                    await cls._merge_records(UserAccount, payload.user_accounts, conn)
+                    await cls._merge_records(UserAccount, user_accounts, conn)
                 else:
                     await UserAccount.bulk_create(
-                        [UserAccount(**user) for user in payload.user_accounts],
+                        [UserAccount(**user) for user in user_accounts],
                         using_db=conn,
                     )
 

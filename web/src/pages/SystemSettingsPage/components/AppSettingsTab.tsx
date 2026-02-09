@@ -82,7 +82,7 @@ export default function AppSettingsTab({
         </Form.Item>
       ))}
 
-      <Divider orientation="left">{t('Registration Settings')}</Divider>
+      <Divider titlePlacement="left">{t('Registration Settings')}</Divider>
 
       <Alert
         type="info"

@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Request
 from api.response import success
 from domain.audit import AuditAction, audit
 from domain.auth import User, get_current_active_user
+from domain.permission import require_system_permission
+from domain.permission.types import AdapterPermission
 from .service import AdapterService
 from .types import AdapterCreate
 
@@ -17,6 +19,7 @@ router = APIRouter(prefix="/api/adapters", tags=["adapters"])
     description="创建存储适配器",
     body_fields=["name", "type", "path", "sub_path", "enabled"],
 )
+@require_system_permission(AdapterPermission.CREATE)
 async def create_adapter(
     request: Request,
     data: AdapterCreate,
@@ -28,6 +31,7 @@ async def create_adapter(
 
 @router.get("")
 @audit(action=AuditAction.READ, description="获取适配器列表")
+@require_system_permission(AdapterPermission.LIST)
 async def list_adapters(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
@@ -38,6 +42,7 @@ async def list_adapters(
 
 @router.get("/available")
 @audit(action=AuditAction.READ, description="获取可用适配器类型")
+@require_system_permission(AdapterPermission.LIST)
 async def available_adapter_types(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
@@ -48,6 +53,7 @@ async def available_adapter_types(
 
 @router.get("/{adapter_id}")
 @audit(action=AuditAction.READ, description="获取适配器详情")
+@require_system_permission(AdapterPermission.LIST)
 async def get_adapter(
     request: Request,
     adapter_id: int,
@@ -63,6 +69,7 @@ async def get_adapter(
     description="更新存储适配器",
     body_fields=["name", "type", "path", "sub_path", "enabled"],
 )
+@require_system_permission(AdapterPermission.EDIT)
 async def update_adapter(
     request: Request,
     adapter_id: int,
@@ -75,6 +82,7 @@ async def update_adapter(
 
 @router.delete("/{adapter_id}")
 @audit(action=AuditAction.DELETE, description="删除存储适配器")
+@require_system_permission(AdapterPermission.DELETE)
 async def delete_adapter(
     request: Request,
     adapter_id: int,

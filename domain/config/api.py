@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from api.response import success
 from domain.audit import AuditAction, audit
 from domain.auth import User, get_current_active_user
-from domain.permission.service import PermissionService
+from domain.permission import require_system_permission
 from domain.permission.types import SystemPermission
 from .service import ConfigService
 from .types import ConfigItem
@@ -23,42 +23,36 @@ PUBLIC_CONFIG_KEYS = [
 
 @router.get("/")
 @audit(action=AuditAction.READ, description="获取配置")
+@require_system_permission(SystemPermission.CONFIG_EDIT)
 async def get_config(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     key: str,
 ):
-    await PermissionService.require_system_permission(
-        current_user.id, SystemPermission.CONFIG_EDIT
-    )
     value = await ConfigService.get(key)
     return success(ConfigItem(key=key, value=value).model_dump())
 
 
 @router.post("/")
 @audit(action=AuditAction.UPDATE, description="设置配置", body_fields=["key", "value"])
+@require_system_permission(SystemPermission.CONFIG_EDIT)
 async def set_config(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     key: str = Form(...),
     value: str = Form(""),
 ):
-    await PermissionService.require_system_permission(
-        current_user.id, SystemPermission.CONFIG_EDIT
-    )
     await ConfigService.set(key, value)
     return success(ConfigItem(key=key, value=value).model_dump())
 
 
 @router.get("/all")
 @audit(action=AuditAction.READ, description="获取全部配置")
+@require_system_permission(SystemPermission.CONFIG_EDIT)
 async def get_all_config(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    await PermissionService.require_system_permission(
-        current_user.id, SystemPermission.CONFIG_EDIT
-    )
     configs = await ConfigService.get_all()
     return success(configs)
 
@@ -66,7 +60,6 @@ async def get_all_config(
 @audit(action=AuditAction.READ, description="获取公开配置")
 async def get_public_config(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     data = {}
     for key in PUBLIC_CONFIG_KEYS:

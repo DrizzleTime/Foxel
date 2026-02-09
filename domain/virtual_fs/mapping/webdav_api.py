@@ -11,6 +11,8 @@ import xml.etree.ElementTree as ET
 from domain.audit import AuditAction, audit
 from domain.auth import AuthService, User, UserInDB
 from domain.config import ConfigService
+from domain.permission.service import PermissionService
+from domain.permission.types import PathAction
 from domain.virtual_fs import VirtualFSService
 
 
@@ -65,11 +67,26 @@ async def _get_basic_user(request: Request) -> User:
         if not user_or_false:
             raise HTTPException(401, detail="Invalid credentials", headers={"WWW-Authenticate": "Basic realm=webdav"})
         u: UserInDB = user_or_false
-        return User(id=u.id, username=u.username, email=u.email, full_name=u.full_name, disabled=u.disabled)
+        return User(
+            id=u.id,
+            username=u.username,
+            email=u.email,
+            full_name=u.full_name,
+            disabled=u.disabled,
+            is_admin=u.is_admin,
+        )
     elif scheme_lower == "bearer":
         if not param:
             raise HTTPException(401, detail="Invalid Bearer token")
-        return User(id=0, username="bearer", email=None, full_name=None, disabled=False)
+        u = await AuthService.get_current_user(param)
+        return User(
+            id=u.id,
+            username=u.username,
+            email=u.email,
+            full_name=u.full_name,
+            disabled=u.disabled,
+            is_admin=u.is_admin,
+        )
     else:
         raise HTTPException(401, detail="Unsupported auth", headers={"WWW-Authenticate": "Basic realm=webdav"})
 
@@ -155,6 +172,8 @@ async def propfind(
     user: User = Depends(_get_basic_user),
 ):
     full_path = _normalize_fs_path(path)
+    if full_path != "/":
+        await PermissionService.require_path_permission(user.id, full_path, PathAction.READ)
     depth = request.headers.get("Depth", "1").lower()
     if depth not in ("0", "1", "infinity"):
         depth = "1"
@@ -195,7 +214,9 @@ async def propfind(
 
     if depth in ("1", "infinity"):
         try:
-            listing = await VirtualFSService.list_virtual_dir(full_path, page_num=1, page_size=1000)
+            listing = await VirtualFSService.list_virtual_dir_with_permission(
+                full_path, user.id, page_num=1, page_size=1000
+            )
             for ent in (listing.get("items") or []):
                 is_dir = bool(ent.get("is_dir"))
                 name = ent.get("name")
@@ -223,6 +244,8 @@ async def dav_get(
     user: User = Depends(_get_basic_user),
 ):
     full_path = _normalize_fs_path(path)
+    if full_path != "/":
+        await PermissionService.require_path_permission(user.id, full_path, PathAction.READ)
     range_header = request.headers.get("Range")
     return await VirtualFSService.stream_file(full_path, range_header)
 
@@ -236,6 +259,8 @@ async def dav_head(
     user: User = Depends(_get_basic_user),
 ):
     full_path = _normalize_fs_path(path)
+    if full_path != "/":
+        await PermissionService.require_path_permission(user.id, full_path, PathAction.READ)
     try:
         st = await VirtualFSService.stat_file(full_path)
     except FileNotFoundError:
@@ -264,6 +289,7 @@ async def dav_put(
     user: User = Depends(_get_basic_user),
 ):
     full_path = _normalize_fs_path(path)
+    await PermissionService.require_path_permission(user.id, full_path, PathAction.WRITE)
     async def body_iter():
         async for chunk in request.stream():
             if chunk:
@@ -281,6 +307,7 @@ async def dav_delete(
     user: User = Depends(_get_basic_user),
 ):
     full_path = _normalize_fs_path(path)
+    await PermissionService.require_path_permission(user.id, full_path, PathAction.DELETE)
     await VirtualFSService.delete_path(full_path)
     return Response(status_code=204, headers=_dav_headers())
 
@@ -294,6 +321,7 @@ async def dav_mkcol(
     user: User = Depends(_get_basic_user),
 ):
     full_path = _normalize_fs_path(path)
+    await PermissionService.require_path_permission(user.id, full_path, PathAction.WRITE)
     await VirtualFSService.make_dir(full_path)
     return Response(status_code=201, headers=_dav_headers())
 
@@ -322,6 +350,8 @@ async def dav_move(
     dest_header = request.headers.get("Destination")
     dst = _parse_destination(dest_header or "")
     overwrite = request.headers.get("Overwrite", "T").upper() != "F" 
+    await PermissionService.require_path_permission(user.id, full_src, PathAction.DELETE)
+    await PermissionService.require_path_permission(user.id, dst, PathAction.WRITE)
     await VirtualFSService.move_path(full_src, dst, overwrite=overwrite)
     return Response(status_code=204, headers=_dav_headers())
 
@@ -338,5 +368,7 @@ async def dav_copy(
     dest_header = request.headers.get("Destination")
     dst = _parse_destination(dest_header or "")
     overwrite = request.headers.get("Overwrite", "T").upper() != "F"  
+    await PermissionService.require_path_permission(user.id, full_src, PathAction.READ)
+    await PermissionService.require_path_permission(user.id, dst, PathAction.WRITE)
     await VirtualFSService.copy_path(full_src, dst, overwrite=overwrite)
     return Response(status_code=201 if not overwrite else 204, headers=_dav_headers())

@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Request
 from api.response import success
 from domain.audit import AuditAction, audit
 from domain.auth import User, get_current_active_user
+from domain.permission import require_path_permission
+from domain.permission.types import PathAction
 from .service import ShareService
 from .types import (
     ShareCreate,
@@ -24,6 +26,7 @@ router = APIRouter(prefix="/api/shares", tags=["Share - Management"])
     description="创建分享链接",
     body_fields=["name", "paths", "expires_in_days", "access_type"],
 )
+@require_path_permission(PathAction.SHARE, "payload.paths")
 async def create_share(
     request: Request,
     payload: ShareCreate,

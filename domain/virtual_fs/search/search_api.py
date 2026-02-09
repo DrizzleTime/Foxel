@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Query
 
 from api.response import success
 from domain.auth import User, get_current_active_user
+from domain.permission.service import PermissionService
+from domain.permission.types import PathAction
 from .search_service import VirtualFSSearchService
 
 router = APIRouter(prefix="/api/fs/search", tags=["search"])
@@ -24,4 +26,14 @@ async def search_files(
     page_size = max(min(page_size, 100), 1)
 
     data = await VirtualFSSearchService.search(q, top_k, mode, page, page_size)
+    items = data.get("items") if isinstance(data, dict) else None
+    if isinstance(items, list) and items:
+        filtered = []
+        for item in items:
+            path = getattr(item, "path", None)
+            if not path:
+                continue
+            if await PermissionService.check_path_permission(user.id, str(path), PathAction.READ):
+                filtered.append(item)
+        data["items"] = filtered
     return success(data)

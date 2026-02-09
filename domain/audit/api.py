@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api import response
 from domain.auth import User, get_current_active_user
+from domain.permission import require_system_permission
+from domain.permission.types import SystemPermission
 from .service import AuditService
 from .types import AuditAction
 
@@ -27,6 +29,7 @@ def _parse_iso(value: Optional[str], field: str):
 
 
 @router.get("/logs")
+@require_system_permission(SystemPermission.AUDIT_VIEW)
 async def list_audit_logs(
     current_user: CurrentUser,
     page_num: int = Query(1, ge=1, alias="page", description="页码"),
@@ -54,6 +57,7 @@ async def list_audit_logs(
 
 
 @router.delete("/logs")
+@require_system_permission(SystemPermission.AUDIT_VIEW)
 async def clear_audit_logs(
     current_user: CurrentUser,
     start_time: str | None = Query(None, description="开始时间 (ISO 8601)"),

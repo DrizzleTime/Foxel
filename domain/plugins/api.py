@@ -2,12 +2,15 @@
 插件管理 API 路由
 """
 
-from typing import List
+from typing import Annotated, List
 
-from fastapi import APIRouter, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from domain.audit import AuditAction, audit
+from domain.auth import User, get_current_active_user
+from domain.permission import require_system_permission
+from domain.permission.types import SystemPermission
 from .service import PluginService
 from .types import (
     PluginInstallResult,
@@ -22,7 +25,12 @@ router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 
 @router.post("/install", response_model=PluginInstallResult)
 @audit(action=AuditAction.CREATE, description="安装插件包")
-async def install_plugin(request: Request, file: UploadFile = File(...)):
+@require_system_permission(SystemPermission.ROLE_MANAGE)
+async def install_plugin(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    file: UploadFile = File(...),
+):
     """
     安装 .foxpkg 插件包
 
@@ -37,14 +45,21 @@ async def install_plugin(request: Request, file: UploadFile = File(...)):
 
 @router.get("", response_model=List[PluginOut])
 @audit(action=AuditAction.READ, description="获取插件列表")
-async def list_plugins(request: Request):
+async def list_plugins(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """获取已安装的插件列表"""
     return await PluginService.list_plugins()
 
 
 @router.get("/{key_or_id}", response_model=PluginOut)
 @audit(action=AuditAction.READ, description="获取插件详情")
-async def get_plugin(request: Request, key_or_id: str):
+async def get_plugin(
+    request: Request,
+    key_or_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """获取单个插件详情"""
     return await PluginService.get_plugin(key_or_id)
 
@@ -54,7 +69,12 @@ async def get_plugin(request: Request, key_or_id: str):
 
 @router.delete("/{key_or_id}")
 @audit(action=AuditAction.DELETE, description="卸载插件")
-async def delete_plugin(request: Request, key_or_id: str):
+@require_system_permission(SystemPermission.ROLE_MANAGE)
+async def delete_plugin(
+    request: Request,
+    key_or_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """卸载插件"""
     await PluginService.delete(key_or_id)
     return {"code": 0, "msg": "ok"}

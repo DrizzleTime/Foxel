@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Request
 from api.response import success
 from domain.audit import AuditAction, audit
 from domain.auth import User, get_current_active_user
+from domain.permission import require_path_permission
+from domain.permission.types import PathAction
 from .service import OfflineDownloadService
 from .types import OfflineDownloadCreate
 
@@ -22,6 +24,7 @@ router = APIRouter(
     description="创建离线下载任务",
     body_fields=["url", "dest_dir", "filename"],
 )
+@require_path_permission(PathAction.WRITE, "payload.dest_dir")
 async def create_offline_download(request: Request, payload: OfflineDownloadCreate, current_user: CurrentUser):
     data = await OfflineDownloadService.create_download(payload, current_user)
     return success(data)

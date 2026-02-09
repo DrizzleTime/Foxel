@@ -1,9 +1,9 @@
 from typing import List
 from fastapi import HTTPException
 
-from models.database import Role, RolePermission, Permission, PathRule, UserRole
+from models.database import Role, RolePermission, PathRule, UserRole
 from domain.permission.service import PermissionService
-from domain.permission.types import PathRuleCreate, PathRuleInfo
+from domain.permission.types import PathRuleCreate, PathRuleInfo, PERMISSION_DEFINITIONS
 from .types import RoleInfo, RoleDetail, RoleCreate, RoleUpdate, SystemRoles
 
 
@@ -33,10 +33,8 @@ class RoleService:
             raise HTTPException(404, detail="角色不存在")
 
         # 获取权限
-        role_permissions = await RolePermission.filter(role_id=role_id).prefetch_related(
-            "permission"
-        )
-        permissions = [rp.permission.code for rp in role_permissions]
+        role_permissions = await RolePermission.filter(role_id=role_id)
+        permissions = sorted(set(rp.permission_code for rp in role_permissions))
 
         # 获取路径规则数量
         path_rules_count = await PathRule.filter(role_id=role_id).count()
@@ -126,12 +124,8 @@ class RoleService:
         if not role:
             raise HTTPException(404, detail="角色不存在")
 
-        # 获取权限ID
-        permissions = await Permission.filter(code__in=permission_codes)
-        permission_map = {p.code: p.id for p in permissions}
-
-        # 验证所有权限代码
-        invalid_codes = set(permission_codes) - set(permission_map.keys())
+        all_permission_codes = {item["code"] for item in PERMISSION_DEFINITIONS}
+        invalid_codes = set(permission_codes) - all_permission_codes
         if invalid_codes:
             raise HTTPException(400, detail=f"无效的权限代码: {', '.join(invalid_codes)}")
 
@@ -142,13 +136,13 @@ class RoleService:
         for code in permission_codes:
             await RolePermission.create(
                 role_id=role_id,
-                permission_id=permission_map[code],
+                permission_code=code,
             )
 
         # 清除权限缓存
         PermissionService.clear_cache()
 
-        return permission_codes
+        return list(permission_codes)
 
     @classmethod
     async def get_role_path_rules(cls, role_id: int) -> List[PathRuleInfo]:
@@ -292,36 +286,3 @@ class RoleService:
             existing = await Role.get_or_none(name=role_data["name"])
             if not existing:
                 await Role.create(**role_data)
-
-    @classmethod
-    async def setup_admin_role_permissions(cls) -> None:
-        """为管理员角色设置所有权限"""
-        admin_role = await Role.get_or_none(name=SystemRoles.ADMIN)
-        if not admin_role:
-            return
-
-        # 获取所有权限
-        all_permissions = await Permission.all()
-        
-        # 清除现有权限
-        await RolePermission.filter(role_id=admin_role.id).delete()
-        
-        # 添加所有权限
-        for perm in all_permissions:
-            await RolePermission.create(role_id=admin_role.id, permission_id=perm.id)
-
-        # 添加全路径访问规则
-        existing_rule = await PathRule.filter(
-            role_id=admin_role.id, path_pattern="/**"
-        ).first()
-        if not existing_rule:
-            await PathRule.create(
-                role_id=admin_role.id,
-                path_pattern="/**",
-                is_regex=False,
-                can_read=True,
-                can_write=True,
-                can_delete=True,
-                can_share=True,
-                priority=100,
-            )

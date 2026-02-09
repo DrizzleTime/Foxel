@@ -49,7 +49,6 @@ PERMISSION_DEFINITIONS = [
 
 # Pydantic 模型
 class PermissionInfo(BaseModel):
-    id: int
     code: str
     name: str
     category: str

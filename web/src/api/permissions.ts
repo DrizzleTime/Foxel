@@ -2,7 +2,6 @@ import request from './client';
 import type { PathRuleInfo } from './roles';
 
 export interface PermissionInfo {
-  id: number;
   code: string;
   name: string;
   category: string;

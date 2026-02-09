@@ -53,7 +53,7 @@ async def get_temp_link(
     current_user: Annotated[User, Depends(get_current_active_user)],
     expires_in: int = Query(3600, description="有效时间(秒), 0或负数表示永久"),
 ):
-    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.SHARE)
+    await PermissionService.require_path_permission(current_user.id, full_path, PathAction.READ)
     data = await VirtualFSService.create_temp_link(full_path, expires_in)
     return success(data)
 

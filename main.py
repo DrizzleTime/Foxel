@@ -21,6 +21,7 @@ from middleware.exception_handler import (
 import httpx
 from dotenv import load_dotenv
 from domain.tasks import task_queue_service, task_scheduler
+from domain.role.service import RoleService
 
 load_dotenv()
 
@@ -66,6 +67,7 @@ async def lifespan(app: FastAPI):
     os.makedirs("data/db", exist_ok=True)
     os.makedirs("data/plugins", exist_ok=True)
     await init_db()
+    await RoleService.ensure_system_roles()
     await runtime_registry.refresh()
     await ConfigService.set("APP_VERSION", VERSION)
     await task_queue_service.start_worker()

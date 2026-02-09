@@ -3,7 +3,6 @@ from .database import (
     UserAccount,
     Role,
     UserRole,
-    Permission,
     RolePermission,
     PathRule,
 )
@@ -13,7 +12,6 @@ __all__ = [
     "UserAccount",
     "Role",
     "UserRole",
-    "Permission",
     "RolePermission",
     "PathRule",
 ]

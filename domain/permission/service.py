@@ -3,9 +3,7 @@ from fastapi import HTTPException
 
 from models.database import (
     UserAccount,
-    Role,
     UserRole,
-    Permission,
     RolePermission,
     PathRule,
 )
@@ -144,13 +142,8 @@ class PermissionService:
         if not role_ids:
             return False
 
-        # 检查角色是否有该权限
-        permission = await Permission.get_or_none(code=permission_code)
-        if not permission:
-            return False
-
         role_permission = await RolePermission.filter(
-            role_id__in=role_ids, permission_id=permission.id
+            role_id__in=role_ids, permission_code=permission_code
         ).first()
 
         return role_permission is not None
@@ -180,12 +173,12 @@ class PermissionService:
 
         # 超级管理员拥有所有权限
         if user.is_admin:
-            all_permissions = await Permission.all()
+            all_permission_codes = [item["code"] for item in PERMISSION_DEFINITIONS]
             all_path_rules = await PathRule.all()
             return UserPermissions(
                 user_id=user_id,
                 is_admin=True,
-                permissions=[p.code for p in all_permissions],
+                permissions=all_permission_codes,
                 path_rules=[
                     PathRuleInfo(
                         id=r.id,
@@ -210,10 +203,8 @@ class PermissionService:
         # 获取权限
         permissions = []
         if role_ids:
-            role_permissions = await RolePermission.filter(
-                role_id__in=role_ids
-            ).prefetch_related("permission")
-            permissions = list(set(rp.permission.code for rp in role_permissions))
+            role_permissions = await RolePermission.filter(role_id__in=role_ids)
+            permissions = sorted(set(rp.permission_code for rp in role_permissions))
 
         # 获取路径规则
         path_rules = []
@@ -245,16 +236,14 @@ class PermissionService:
     @classmethod
     async def get_all_permissions(cls) -> List[PermissionInfo]:
         """获取所有权限定义"""
-        permissions = await Permission.all()
         return [
             PermissionInfo(
-                id=p.id,
-                code=p.code,
-                name=p.name,
-                category=p.category,
-                description=p.description,
+                code=item["code"],
+                name=item["name"],
+                category=item["category"],
+                description=item.get("description"),
             )
-            for p in permissions
+            for item in PERMISSION_DEFINITIONS
         ]
 
     @classmethod

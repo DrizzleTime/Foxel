@@ -62,19 +62,6 @@ class UserRole(Model):
         unique_together = (("user", "role"),)
 
 
-class Permission(Model):
-    """权限定义表"""
-
-    id = fields.IntField(pk=True)
-    code = fields.CharField(max_length=50, unique=True)  # 权限代码
-    name = fields.CharField(max_length=100)  # 权限名称
-    category = fields.CharField(max_length=50)  # 分类：system/adapter/file
-    description = fields.CharField(max_length=255, null=True)
-
-    class Meta:
-        table = "permissions"
-
-
 class RolePermission(Model):
     """角色-权限关联表"""
 
@@ -82,13 +69,11 @@ class RolePermission(Model):
     role: fields.ForeignKeyRelation[Role] = fields.ForeignKeyField(
         "models.Role", related_name="role_permissions", on_delete=fields.CASCADE
     )
-    permission: fields.ForeignKeyRelation[Permission] = fields.ForeignKeyField(
-        "models.Permission", related_name="permission_roles", on_delete=fields.CASCADE
-    )
+    permission_code = fields.CharField(max_length=50)
 
     class Meta:
         table = "role_permissions"
-        unique_together = (("role", "permission"),)
+        unique_together = (("role", "permission_code"),)
 
 
 class PathRule(Model):

@@ -1,0 +1,34 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+.vscode/
+data/
+.env
+AGENTS.md
+
+# Logs
+/web/logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+/web/node_modules
+/web/dist
+/web/dist-ssr
+/web/*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

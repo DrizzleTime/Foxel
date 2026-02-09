@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Foxel 邮件配置测试</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px 0;
+        background: linear-gradient(135deg, #eef2ff, #e0f2fe);
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        color: #0f172a;
+      }
+      .wrapper {
+        max-width: 560px;
+        margin: 0 auto;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+        border: 1px solid rgba(99, 102, 241, 0.08);
+      }
+      .banner {
+        background: linear-gradient(120deg, #1d4ed8, #6366f1);
+        padding: 36px;
+        color: #ffffff;
+        letter-spacing: 0.2px;
+      }
+      .banner h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+      .content {
+        padding: 32px;
+        line-height: 1.7;
+      }
+      .badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.12);
+        color: #1d4ed8;
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 16px;
+      }
+      .cta-box {
+        margin-top: 32px;
+        padding: 20px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(14, 165, 233, 0.08));
+        border: 1px solid rgba(99, 102, 241, 0.12);
+      }
+      .cta-box strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 16px;
+      }
+      .footer {
+        padding: 24px 32px;
+        background: #f8fafc;
+        font-size: 12px;
+        color: #64748b;
+        border-top: 1px solid rgba(148, 163, 184, 0.18);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="card">
+        <div class="banner">
+          <h1>Foxel 邮件服务已连通</h1>
+        </div>
+        <div class="content">
+          <div class="badge">Mail Delivery Test</div>
+          <p>你好，${username}！</p>
+          <p>
+            这是一封来自 <strong>Foxel</strong> 的测试邮件。如果你能够正常阅读到这段内容，说明系统已经成功与配置的邮箱服务建立连接。
+          </p>
+          <div class="cta-box">
+            <strong>接下来可以做什么？</strong>
+            <ul style="margin: 0; padding-left: 18px; line-height: 1.7;">
+              <li>继续完善系统通知、密码重置等业务功能</li>
+              <li>在后台页面中自定义更精美的邮件模板</li>
+              <li>保持发送凭据安全，避免泄露</li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer">
+          本邮件由 Foxel 系统自动发送，请勿直接回复。如非本人操作，请忽略此邮件。
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

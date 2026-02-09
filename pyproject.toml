@@ -1,0 +1,24 @@
+[project]
+name = "foxel"
+version = "1"
+description = "foxel.cc"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "aioboto3>=15.5.0",
+    "bcrypt>=5.0.0",
+    "croniter>=6.0.0",
+    "fastapi>=0.127.0",
+    "paramiko>=4.0.0",
+    "pillow>=12.0.0",
+    "pydantic[email]>=2.12.5",
+    "pyjwt>=2.10.1",
+    "pymilvus[milvus-lite]>=2.6.5",
+    "pysocks>=1.7.1",
+    "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.21",
+    "qdrant-client>=1.16.2",
+    "telethon>=1.42.0",
+    "tortoise-orm>=0.25.3",
+    "uvicorn>=0.40.0",
+]

@@ -1,0 +1,39 @@
+.foxel-sider-menu .ant-menu-item {
+  font-weight: 500;
+  border-radius: 8px;
+  transition: background .18s, color .18s;
+  margin-block: 2px;
+}
+
+.foxel-sider-menu .ant-menu-item-selected { font-weight: 600; }
+
+/* 亮色主题：选中项使用主色，文字用浅色文本 */
+html[data-theme='light'] .foxel-sider-menu .ant-menu-item-selected {
+  background: var(--ant-color-primary) !important;
+  color: var(--ant-color-text-light-solid) !important;
+}
+html[data-theme='light'] .foxel-sider-menu .ant-menu-item-selected .ant-menu-item-icon {
+  color: var(--ant-color-text-light-solid) !important;
+}
+
+/* 暗色主题：选中项使用主色背景（浅），文字使用常规文本色以保持对比度 */
+html[data-theme='dark'] .foxel-sider-menu .ant-menu-item-selected {
+  background: var(--ant-color-primary-bg) !important;
+  color: var(--ant-color-text) !important;
+}
+html[data-theme='dark'] .foxel-sider-menu .ant-menu-item-selected .ant-menu-item-icon {
+  color: var(--ant-color-text) !important;
+}
+
+.foxel-sider-menu .ant-menu-item-selected::after {
+  display: none;
+}
+
+.foxel-sider-menu .ant-menu-item .ant-menu-item-icon {
+  transition: color .18s;
+}
+
+/* 悬停（未选中）背景 */
+.foxel-sider-menu .ant-menu-item:not(.ant-menu-item-selected):hover {
+  background: var(--ant-color-fill-tertiary) !important;
+}

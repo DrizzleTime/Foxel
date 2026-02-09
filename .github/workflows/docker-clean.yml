@@ -1,0 +1,51 @@
+name: Clean dangling Docker images
+
+on:
+  workflow_dispatch:
+
+jobs:
+  docker-clean:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Delete untagged GHCR versions
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          PACKAGE="$(echo "${GITHUB_REPOSITORY##*/}" | tr '[:upper:]' '[:lower:]')"
+
+          OWNER_TYPE="$(gh api "/users/${OWNER}" -q '.type')"
+          if [[ "${OWNER_TYPE}" == "Organization" ]]; then
+            SCOPE="orgs/${OWNER}"
+          else
+            SCOPE="users/${OWNER}"
+          fi
+
+          BASE_PATH="/${SCOPE}/packages/container/${PACKAGE}"
+
+          if ! gh api "${BASE_PATH}" >/dev/null 2>&1; then
+            echo "Package ghcr.io/${OWNER}/${PACKAGE} not found or accessible. Nothing to clean."
+            exit 0
+          fi
+
+          mapfile -t VERSION_IDS < <(gh api --paginate "${BASE_PATH}/versions?per_page=100" \
+            -q '.[] | select(.metadata.container.tags | length == 0) | .id')
+
+          if [[ ${#VERSION_IDS[@]} -eq 0 ]]; then
+            echo "No untagged versions to delete."
+            exit 0
+          fi
+
+          echo "Deleting ${#VERSION_IDS[@]} untagged versions from ghcr.io/${OWNER}/${PACKAGE}..."
+          for id in "${VERSION_IDS[@]}"; do
+            gh api -X DELETE "${BASE_PATH}/versions/${id}" >/dev/null
+            echo "Deleted version ${id}"
+          done
+
+          echo "Cleanup complete."

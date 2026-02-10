@@ -18,6 +18,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "python-multipart>=0.0.21",
     "qdrant-client>=1.16.2",
+    "setuptools<82",
     "telethon>=1.42.0",
     "tortoise-orm>=1.0.0",
     "uvicorn>=0.40.0",

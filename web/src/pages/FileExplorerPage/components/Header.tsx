@@ -146,6 +146,12 @@ export const Header: React.FC<HeaderProps> = ({
       onClick: onCreateFile,
     },
     {
+      key: 'upload-folder',
+      label: t('Upload Folder'),
+      icon: <UploadOutlined />,
+      onClick: onUploadDirectory,
+    },
+    {
       key: 'sort',
       label: t('Sort By') + `: ${t(sortBy === 'mtime' ? 'Modified Time' : sortBy === 'size' ? 'Size' : 'Name')}`,
       children: [
@@ -161,6 +167,20 @@ export const Header: React.FC<HeaderProps> = ({
       onClick: () => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc'),
     },
   ];
+
+  const uploadMenu = {
+    items: [
+      { key: 'file', label: t('Upload Files') },
+      { key: 'folder', label: t('Upload Folder') },
+    ],
+    onClick: ({ key }: { key: string }) => {
+      if (key === 'folder') {
+        onUploadDirectory();
+      } else {
+        onUploadFile();
+      }
+    },
+  };
 
   return (
     <Flex vertical={isMobile} gap={isMobile ? 10 : 12} style={{ padding: isMobile ? '10px 12px' : '10px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
@@ -179,26 +199,18 @@ export const Header: React.FC<HeaderProps> = ({
           <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir} aria-label={t('New Folder')}>
             {!isMobile && t('New Folder')}
           </Button>
-          <Dropdown.Button
-            size="small"
-            icon={<UploadOutlined />}
-            onClick={onUploadFile}
-            menu={{
-              items: [
-                { key: 'file', label: t('Upload Files') },
-                { key: 'folder', label: t('Upload Folder') },
-              ],
-              onClick: ({ key }) => {
-                if (key === 'folder') {
-                  onUploadDirectory();
-                } else {
-                  onUploadFile();
-                }
-              },
-            }}
-          >
-            {!isMobile && t('Upload')}
-          </Dropdown.Button>
+          {isMobile ? (
+            <Button size="small" icon={<UploadOutlined />} onClick={onUploadFile} aria-label={t('Upload Files')} />
+          ) : (
+            <Dropdown.Button
+              size="small"
+              icon={<UploadOutlined />}
+              onClick={onUploadFile}
+              menu={uploadMenu}
+            >
+              {t('Upload')}
+            </Dropdown.Button>
+          )}
           {isMobile && (
             <Dropdown menu={{ items: mobileMoreItems }}>
               <Button size="small" icon={<MoreOutlined />} aria-label={t('More')} />

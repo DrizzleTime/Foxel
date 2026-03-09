@@ -554,9 +554,9 @@ const ProcessorsPage = memo(function ProcessorsPage() {
   return (
     <>
       {contextHolder}
-      <Flex gap={16} style={{ height: 'calc(100vh - 88px)' }}>
+      <Flex gap={16} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Card
-          style={{ flex: '0 0 320px', minWidth: 280, display: 'flex', flexDirection: 'column' }}
+          style={{ flex: '0 0 320px', minWidth: 280, minHeight: 0, display: 'flex', flexDirection: 'column' }}
           title={t('Processor List')}
           extra={
             <Space size={8}>
@@ -564,13 +564,13 @@ const ProcessorsPage = memo(function ProcessorsPage() {
               <Button size="small" onClick={handleReloadProcessors} loading={reloading}>{t('Reload')}</Button>
             </Space>
           }
-          styles={{ body: { padding: 0, flex: 1, display: 'flex' } }}
+          styles={{ body: { padding: 0, flex: 1, minHeight: 0, display: 'flex' } }}
         >
           {renderProcessorList()}
         </Card>
 
         <Card
-          style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
+          style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
           title={selectedProcessorMeta ? `${selectedProcessorMeta.name} (${selectedProcessorMeta.type})` : t('Select a processor')}
           extra={
             <Space size={8}>
@@ -582,7 +582,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
               </Button>
             </Space>
           }
-          styles={{ body: { padding: 0, flex: 1, display: 'flex', flexDirection: 'column' } }}
+          styles={{ body: { padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
         >
           <Tabs
             activeKey={activeTab}

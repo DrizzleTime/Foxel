@@ -51,7 +51,7 @@ const ShellBody = memo(function ShellBody() {
   };
 
   return (
-    <Layout style={{ minHeight: '100dvh', background: 'var(--ant-color-bg-layout)' }}>
+    <Layout style={{ height: '100dvh', overflow: 'hidden', background: 'var(--ant-color-bg-layout)' }}>
       {!isMobile && (
         <SideNav
           collapsed={collapsed}
@@ -85,7 +85,7 @@ const ShellBody = memo(function ShellBody() {
         />
       )}
 
-      <Layout style={{ background: 'var(--ant-color-bg-layout)', minWidth: 0 }}>
+      <Layout style={{ background: 'var(--ant-color-bg-layout)', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
         <TopHeader
           collapsed={collapsed}
           onToggle={handleToggleNav}
@@ -94,15 +94,17 @@ const ShellBody = memo(function ShellBody() {
         />
         <Layout.Content
           style={{
+            flex: 1,
             padding: isMobile ? 12 : 16,
             background: 'var(--ant-color-bg-layout)',
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
+            overflow: 'hidden',
           }}
         >
-          <div style={{ flex: 1, minHeight: 0, background: 'var(--ant-color-bg-layout)' }}>
-            <Flex vertical gap={16} style={{ minHeight: '100%', height: '100%' }}>
+          <div style={{ flex: 1, minHeight: 0, background: 'var(--ant-color-bg-layout)', overflow: 'hidden' }}>
+            <Flex vertical style={{ minHeight: 0, height: '100%' }}>
               {navKey === 'adapters' && <AdaptersPage />}
               {navKey === 'files' && <FileExplorerPage />}
               {navKey === 'share' && <SharePage />}

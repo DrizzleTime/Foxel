@@ -46,3 +46,22 @@ html[data-theme='light'] .fx-settings-tabs .ant-tabs-tab-active .ant-tabs-tab-bt
 .fx-settings-tabs .ant-tabs-ink-bar {
   background: var(--ant-color-primary) !important;
 }
+
+@media (max-width: 767px) {
+  .fx-settings-tabs .ant-tabs-nav {
+    overflow-x: auto;
+  }
+
+  .fx-settings-tabs .ant-tabs-nav-list {
+    width: max-content;
+    min-width: 100%;
+    flex-wrap: nowrap;
+    padding: 2px 4px;
+  }
+
+  .fx-settings-tabs .ant-tabs-tab {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    white-space: nowrap;
+  }
+}

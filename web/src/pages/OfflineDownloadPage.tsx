@@ -161,6 +161,7 @@ const OfflineDownloadPage = memo(function OfflineDownloadPage() {
           dataSource={tasks}
           loading={loading}
           pagination={false}
+          scroll={{ x: 'max-content' }}
           locale={{ emptyText: t('No offline download tasks') }}
           rowKey="id"
           style={{ marginBottom: 0 }}

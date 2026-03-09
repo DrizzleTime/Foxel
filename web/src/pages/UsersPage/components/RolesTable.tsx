@@ -62,8 +62,8 @@ export const RolesTable = memo(function RolesTable({
       columns={columns}
       loading={loading}
       pagination={false}
+      scroll={{ x: 'max-content' }}
       style={{ marginBottom: 0 }}
     />
   );
 });
-

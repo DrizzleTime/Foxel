@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Flex, Typography, Divider, Button, Space, Tooltip, Segmented, Breadcrumb, Input, theme, Dropdown } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined, ReloadOutlined, PlusOutlined, UploadOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { ArrowUpOutlined, ArrowDownOutlined, ReloadOutlined, PlusOutlined, UploadOutlined, AppstoreOutlined, UnorderedListOutlined, MoreOutlined, FileAddOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import { useI18n } from '../../../i18n';
 import type { ViewMode } from '../types';
@@ -12,10 +12,12 @@ interface HeaderProps {
   viewMode: ViewMode;
   sortBy: string;
   sortOrder: string;
+  isMobile?: boolean;
   onGoUp: () => void;
   onNavigate: (path: string) => void;
   onRefresh: () => void;
   onCreateDir: () => void;
+  onCreateFile: () => void;
   onUploadFile: () => void;
   onUploadDirectory: () => void;
   onSetViewMode: (mode: ViewMode) => void;
@@ -28,10 +30,12 @@ export const Header: React.FC<HeaderProps> = ({
   viewMode,
   sortBy,
   sortOrder,
+  isMobile = false,
   onGoUp,
   onNavigate,
   onRefresh,
   onCreateDir,
+  onCreateFile,
   onUploadFile,
   onUploadDirectory,
   onSetViewMode,
@@ -60,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handlePathEdit = () => {
+    if (isMobile) return;
     clearClickTimer();
     setEditingPath(true);
     setPathInputValue(path);
@@ -76,10 +81,6 @@ export const Header: React.FC<HeaderProps> = ({
   const handlePathCancel = () => {
     setEditingPath(false);
     setPathInputValue('');
-  };
-
-  const handleBreadcrumbDoubleClick = () => {
-    handlePathEdit();
   };
 
   const renderBreadcrumb = () => {
@@ -104,15 +105,15 @@ export const Header: React.FC<HeaderProps> = ({
         const segmentPath = '/' + arr.slice(0, index + 1).join('/');
         return {
           key: segmentPath,
-          title: <span style={{ cursor: 'pointer' }} onClick={() => scheduleNavigate(segmentPath)}>{segment}</span>
+          title: <span style={{ cursor: 'pointer' }} onClick={() => scheduleNavigate(segmentPath)}>{segment}</span>,
         };
-      })
+      }),
     ];
 
     return (
       <div
         style={{
-          cursor: 'text',
+          cursor: isMobile ? 'default' : 'text',
           padding: `${token.paddingXXS}px ${token.paddingXS}px`,
           borderRadius: token.borderRadius,
           transition: 'background-color 0.2s',
@@ -121,74 +122,120 @@ export const Header: React.FC<HeaderProps> = ({
           height: pathEditorHeight,
           boxSizing: 'border-box',
           display: 'flex',
-          alignItems: 'center'
+          alignItems: 'center',
+          minWidth: 0,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = token.colorFillTertiary; }}
-        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-        onDoubleClick={handleBreadcrumbDoubleClick}
+        onMouseEnter={(e) => {
+          if (!isMobile) e.currentTarget.style.backgroundColor = token.colorFillTertiary;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }}
+        onDoubleClick={handlePathEdit}
       >
         <Breadcrumb items={breadcrumbItems} separator="/" style={{ fontSize: token.fontSizeSM }} />
       </div>
     );
   };
 
+  const mobileMoreItems = [
+    {
+      key: 'new-file',
+      label: t('New File'),
+      icon: <FileAddOutlined />,
+      onClick: onCreateFile,
+    },
+    {
+      key: 'sort',
+      label: t('Sort By') + `: ${t(sortBy === 'mtime' ? 'Modified Time' : sortBy === 'size' ? 'Size' : 'Name')}`,
+      children: [
+        { key: 'sort-name', label: t('Name'), onClick: () => onSortChange('name', sortOrder) },
+        { key: 'sort-size', label: t('Size'), onClick: () => onSortChange('size', sortOrder) },
+        { key: 'sort-mtime', label: t('Modified Time'), onClick: () => onSortChange('mtime', sortOrder) },
+      ],
+    },
+    {
+      key: 'sort-order',
+      label: sortOrder === 'asc' ? t('Ascending') : t('Descending'),
+      icon: sortOrder === 'asc' ? <ArrowUpOutlined /> : <ArrowDownOutlined />,
+      onClick: () => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc'),
+    },
+  ];
+
   return (
-    <Flex align="center" justify="space-between" style={{ padding: '10px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}`, gap: 12 }}>
-      <Flex align="center" gap={8} style={{ flexWrap: 'wrap', flex: 1, overflow: 'hidden' }}>
+    <Flex vertical={isMobile} gap={isMobile ? 10 : 12} style={{ padding: isMobile ? '10px 12px' : '10px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+      <Flex align="center" gap={8} style={{ minWidth: 0 }}>
         <Button size="small" icon={<ArrowUpOutlined />} onClick={onGoUp} disabled={path === '/'} />
-        <Typography.Text strong>{t('File Manager')}</Typography.Text>
-        <Divider type="vertical" />
+        {!isMobile && <Typography.Text strong>{t('File Manager')}</Typography.Text>}
+        {!isMobile && <Divider type="vertical" />}
         {renderBreadcrumb()}
       </Flex>
-      <Space size={8} wrap>
-        <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>{t('Refresh')}</Button>
-        <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir}>{t('New Folder')}</Button>
-        <Dropdown.Button
-          size="small"
-          icon={<UploadOutlined />}
-          onClick={onUploadFile}
-          menu={{
-            items: [
-              { key: 'file', label: t('Upload Files') },
-              { key: 'folder', label: t('Upload Folder') },
-            ],
-            onClick: ({ key }) => {
-              if (key === 'folder') {
-                onUploadDirectory();
-              } else {
-                onUploadFile();
-              }
-            },
-          }}
-        >
-          {t('Upload')}
-        </Dropdown.Button>
-        <Select
-          size="small"
-          value={sortBy}
-          onChange={(val) => onSortChange(val, sortOrder)}
-          style={{ width: 80 }}
-          options={[
-            { value: 'name', label: t('Name') },
-            { value: 'size', label: t('Size') },
-            { value: 'mtime', label: t('Modified Time') },
-          ]}
-        />
-        <Button
-          size="small"
-          icon={sortOrder === 'asc' ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-          onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
-        />
-        <Segmented
-          size="small"
-          value={viewMode}
-          onChange={value => onSetViewMode(value as ViewMode)}
-          options={[
-            { label: <Tooltip title={t('Grid')}><AppstoreOutlined /></Tooltip>, value: 'grid' },
-            { label: <Tooltip title={t('List')}><UnorderedListOutlined /></Tooltip>, value: 'list' }
-          ]}
-        />
-      </Space>
+
+      <Flex align="center" justify="space-between" gap={8} style={{ flexWrap: 'wrap' }}>
+        <Space size={8} wrap>
+          <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loading} aria-label={t('Refresh')}>
+            {!isMobile && t('Refresh')}
+          </Button>
+          <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir} aria-label={t('New Folder')}>
+            {!isMobile && t('New Folder')}
+          </Button>
+          <Dropdown.Button
+            size="small"
+            icon={<UploadOutlined />}
+            onClick={onUploadFile}
+            menu={{
+              items: [
+                { key: 'file', label: t('Upload Files') },
+                { key: 'folder', label: t('Upload Folder') },
+              ],
+              onClick: ({ key }) => {
+                if (key === 'folder') {
+                  onUploadDirectory();
+                } else {
+                  onUploadFile();
+                }
+              },
+            }}
+          >
+            {!isMobile && t('Upload')}
+          </Dropdown.Button>
+          {isMobile && (
+            <Dropdown menu={{ items: mobileMoreItems }}>
+              <Button size="small" icon={<MoreOutlined />} aria-label={t('More')} />
+            </Dropdown>
+          )}
+        </Space>
+
+        {!isMobile && (
+          <Space size={8} wrap>
+            <Select
+              size="small"
+              value={sortBy}
+              onChange={(val) => onSortChange(val, sortOrder)}
+              style={{ width: 112 }}
+              options={[
+                { value: 'name', label: t('Name') },
+                { value: 'size', label: t('Size') },
+                { value: 'mtime', label: t('Modified Time') },
+              ]}
+            />
+            <Button
+              size="small"
+              icon={sortOrder === 'asc' ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+              onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
+            />
+            <Segmented
+              size="small"
+              value={viewMode}
+              onChange={(value) => onSetViewMode(value as ViewMode)}
+              options={[
+                { label: <Tooltip title={t('Grid')}><AppstoreOutlined /></Tooltip>, value: 'grid' },
+                { label: <Tooltip title={t('List')}><UnorderedListOutlined /></Tooltip>, value: 'list' },
+              ]}
+            />
+          </Space>
+        )}
+      </Flex>
     </Flex>
   );
 };

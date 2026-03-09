@@ -11,6 +11,7 @@ import {
 } from '../../api/roles';
 import { permissionsApi, type PermissionInfo } from '../../api/permissions';
 import { useI18n } from '../../i18n';
+import useResponsive from '../../hooks/useResponsive';
 import { RolesTable } from './components/RolesTable';
 import { RoleEditorDrawer } from './components/RoleEditorDrawer';
 import { PathRuleEditorDrawer } from './components/PathRuleEditorDrawer';
@@ -23,6 +24,7 @@ type TabKey = 'users' | 'roles';
 
 const UsersPage = memo(function UsersPage() {
   const { t } = useI18n();
+  const { isMobile } = useResponsive();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('users');
   const [searchText, setSearchText] = useState('');
@@ -462,13 +464,13 @@ const UsersPage = memo(function UsersPage() {
     <PageCard
       title={t('User Management')}
       extra={
-        <Space>
+        <Space wrap>
           <Input.Search
             allowClear
             value={searchText}
             placeholder={t('Search users or roles')}
             onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 260 }}
+            style={{ width: isMobile ? '100%' : 260 }}
           />
           <Button onClick={fetchData} loading={loading}>{t('Refresh')}</Button>
           <Button type="primary" onClick={() => { setActiveTab('users'); openCreateUser(); }}>

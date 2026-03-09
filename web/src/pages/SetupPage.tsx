@@ -359,7 +359,7 @@ const SetupPage = () => {
     <div style={{
       display: 'flex',
       width: '100%',
-      minHeight: '100vh',
+      minHeight: '100dvh',
       alignItems: isMobile ? 'flex-start' : 'center',
       justifyContent: 'center',
       padding: isMobile ? '64px 12px 24px' : '32px 24px',

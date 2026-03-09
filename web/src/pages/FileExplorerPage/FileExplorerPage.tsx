@@ -29,10 +29,12 @@ import { SearchResultsView } from './components/SearchResultsView';
 import type { ViewMode } from './types';
 import { vfsApi, type VfsEntry } from '../../api/client';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
+import useResponsive from '../../hooks/useResponsive';
 
 const FileExplorerPage = memo(function FileExplorerPage() {
   const { navKey = 'files', '*': restPath = '' } = useParams();
   const { token } = theme.useToken();
+  const { isMobile } = useResponsive();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isDragging, setIsDragging] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(false);
@@ -43,7 +45,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange } = useFileExplorer(navKey);
   const { selectedEntries, handleSelect, handleSelectRange, clearSelection, setSelectedEntries } = useFileSelection();
   const { openFileWithDefaultApp, confirmOpenWithApp } = useAppWindows();
-  const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, closeContextMenus } = useContextMenu();
+  const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, openContextMenuAt, closeContextMenus } = useContextMenu();
   const uploader = useUploader(path, refresh);
   const { handleFileDrop, openFilePicker, openDirectoryPicker, handleFileInputChange, handleDirectoryInputChange } = uploader;
   const { thumbs } = useThumbnails(entries, path);
@@ -91,6 +93,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     openResult: openSearchResult,
     selectResult: selectSearchResult,
     openResultContextMenu: openSearchContextMenu,
+    openResultContextMenuAt: openSearchContextMenuAt,
     clearSelection: clearSearchSelection,
   } = fileSearch;
 
@@ -102,6 +105,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   useEffect(() => {
     load(routePath, 1, pagination.pageSize, sortBy, sortOrder);
   }, [routePath, navKey, load, pagination.pageSize, sortBy, sortOrder]);
+
+  useEffect(() => {
+    if (isMobile && viewMode !== 'grid') {
+      setViewMode('grid');
+    }
+  }, [isMobile, viewMode]);
 
   const effectiveRefresh = useCallback(() => {
     if (isSearching) {
@@ -230,13 +239,32 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     void handleFileDrop(e.dataTransfer);
   };
 
+  const getAnchorPoint = useCallback((anchor: HTMLElement) => {
+    const rect = anchor.getBoundingClientRect();
+    return {
+      x: Math.min(rect.right, window.innerWidth - 24),
+      y: Math.min(rect.bottom + 8, window.innerHeight - 24),
+    };
+  }, []);
+
+  const openEntryMenuFromAnchor = useCallback((entry: VfsEntry, anchor: HTMLElement) => {
+    const point = getAnchorPoint(anchor);
+    openContextMenuAt(entry, point.x, point.y);
+  }, [getAnchorPoint, openContextMenuAt]);
+
+  const openSearchMenuFromAnchor = useCallback((fullPath: string, anchor: HTMLElement) => {
+    const point = getAnchorPoint(anchor);
+    void openSearchContextMenuAt(point.x, point.y, fullPath);
+  }, [getAnchorPoint, openSearchContextMenuAt]);
+
   return (
     <div
       style={{
         background: token.colorBgContainer,
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: token.borderRadius,
-        height: 'calc(100vh - 88px)',
+        height: '100%',
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
         position: 'relative'
@@ -254,10 +282,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         viewMode={viewMode}
         sortBy={sortBy}
         sortOrder={sortOrder}
+        isMobile={isMobile}
         onGoUp={goUp}
         onNavigate={navigateTo}
         onRefresh={effectiveRefresh}
         onCreateDir={() => setCreatingDir(true)}
+        onCreateFile={() => setCreatingFile(true)}
         onUploadFile={openFilePicker}
         onUploadDirectory={openDirectoryPicker}
         onSetViewMode={setViewMode}
@@ -279,7 +309,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onChange={handleDirectoryInputChange}
       />
 
-      <div style={{ flex: 1, overflow: 'auto', paddingBottom: shouldReserveBottomBar ? '80px' : '0' }} onContextMenu={openBlankContextMenu}>
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: shouldReserveBottomBar ? '80px' : '0' }} onContextMenu={isMobile ? undefined : openBlankContextMenu}>
         {isSearching ? (
           <SearchResultsView
             viewMode={viewMode}
@@ -289,10 +319,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             items={searchItems}
             selectedPaths={searchSelectedPaths}
             entrySnapshot={searchEntrySnapshot}
+            mobile={isMobile}
             onClearSearch={clearSearchParams}
             onSelect={selectSearchResult}
             onOpen={(fullPath) => { void openSearchResult(fullPath); }}
             onContextMenu={(e, fullPath) => { void openSearchContextMenu(e, fullPath); }}
+            onOpenMenu={openSearchMenuFromAnchor}
           />
         ) : showSkeleton && loading && (entries.length === 0 || path !== routePath) ? (
           <LoadingSkeleton mode={viewMode} />
@@ -304,10 +336,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             thumbs={thumbs}
             selectedEntries={selectedEntries}
             path={path}
+            mobile={isMobile}
             onSelect={handleSelect}
             onSelectRange={handleSelectRange}
             onOpen={handleOpenEntry}
             onContextMenu={openContextMenu}
+            onOpenMenu={openEntryMenuFromAnchor}
           />
         ) : (
           <FileListView
@@ -408,6 +442,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         <ContextMenu
           x={ctxMenu?.x || blankCtxMenu!.x}
           y={ctxMenu?.y || blankCtxMenu!.y}
+          mobile={isMobile}
           entry={ctxMenu?.entry}
           entries={isSearching ? searchContextEntries : entries}
           selectedEntries={isSearching ? searchSelectedNames : selectedEntries}

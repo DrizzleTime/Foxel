@@ -18,40 +18,91 @@ import UsersPage from '../pages/UsersPage/UsersPage.tsx';
 import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext';
 import { AppWindowsLayer } from '../apps/AppWindowsLayer';
 import AiAgentWidget from '../components/AiAgentWidget';
+import useResponsive from '../hooks/useResponsive';
 
 const ShellBody = memo(function ShellBody() {
   const params = useParams<{ navKey?: string; '*': string }>();
   const navKey = params.navKey ?? 'files';
   const subPath = params['*'] ?? '';
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const COLLAPSED_KEY = 'layout.siderCollapsed';
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [isMobile, navKey, subPath]);
+
   const { windows, closeWindow, toggleMax, bringToFront, updateWindow } = useAppWindows();
   const settingsTab = navKey === 'settings' ? (subPath.split('/')[0] || undefined) : undefined;
   const agentCurrentPath = navKey === 'files' ? ('/' + subPath).replace(/\/+/g, '/').replace(/\/+$/, '') || '/' : null;
+  const handleToggleNav = () => {
+    if (isMobile) {
+      setMobileNavOpen(true);
+      return;
+    }
+    setCollapsed((value) => !value);
+  };
+
   return (
-    <Layout style={{ minHeight: '100vh', background: 'var(--ant-color-bg-layout)' }}>
-      <SideNav
-        collapsed={collapsed}
-        onToggle={() => setCollapsed(c => !c)}
-        activeKey={navKey}
-        onChange={(key) => {
-          if (key === 'settings') {
-            navigate('/settings/appearance', { replace: true });
-          } else {
-            navigate(`/${key}`);
-          }
-        }}
-      />
-      <Layout style={{ background: 'var(--ant-color-bg-layout)' }}>
-        <TopHeader collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} onOpenAiAgent={() => setAgentOpen(true)} />
-        <Layout.Content style={{ padding: 16, background: 'var(--ant-color-bg-layout)' }}>
-          <div style={{ minHeight: 'calc(100vh - 56px - 32px)', background: 'var(--ant-color-bg-layout)' }}>
-            <Flex vertical gap={16}>
+    <Layout style={{ minHeight: '100dvh', background: 'var(--ant-color-bg-layout)' }}>
+      {!isMobile && (
+        <SideNav
+          collapsed={collapsed}
+          onToggle={handleToggleNav}
+          activeKey={navKey}
+          onChange={(key) => {
+            if (key === 'settings') {
+              navigate('/settings/appearance', { replace: true });
+            } else {
+              navigate(`/${key}`);
+            }
+          }}
+        />
+      )}
+
+      {isMobile && (
+        <SideNav
+          mobile
+          open={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+          collapsed={false}
+          onToggle={handleToggleNav}
+          activeKey={navKey}
+          onChange={(key) => {
+            if (key === 'settings') {
+              navigate('/settings/appearance', { replace: true });
+            } else {
+              navigate(`/${key}`);
+            }
+          }}
+        />
+      )}
+
+      <Layout style={{ background: 'var(--ant-color-bg-layout)', minWidth: 0 }}>
+        <TopHeader
+          collapsed={collapsed}
+          onToggle={handleToggleNav}
+          onOpenAiAgent={() => setAgentOpen(true)}
+          showMenuButton={isMobile || collapsed}
+        />
+        <Layout.Content
+          style={{
+            padding: isMobile ? 12 : 16,
+            background: 'var(--ant-color-bg-layout)',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          <div style={{ flex: 1, minHeight: 0, background: 'var(--ant-color-bg-layout)' }}>
+            <Flex vertical gap={16} style={{ minHeight: '100%', height: '100%' }}>
               {navKey === 'adapters' && <AdaptersPage />}
               {navKey === 'files' && <FileExplorerPage />}
               {navKey === 'share' && <SharePage />}
@@ -61,10 +112,7 @@ const ShellBody = memo(function ShellBody() {
               {navKey === 'offline' && <OfflineDownloadPage />}
               {navKey === 'plugins' && <PluginsPage />}
               {navKey === 'settings' && (
-                <SystemSettingsPage
-                  tabKey={settingsTab}
-                  onTabNavigate={(key, options) => navigate(`/settings/${key}`, options)}
-                />
+                <SystemSettingsPage tabKey={settingsTab} onTabNavigate={(key, options) => navigate(`/settings/${key}`, options)} />
               )}
               {navKey === 'audit' && <AuditLogsPage />}
               {navKey === 'backup' && <BackupPage />}
@@ -73,7 +121,7 @@ const ShellBody = memo(function ShellBody() {
           </div>
         </Layout.Content>
       </Layout>
-      {/* 常驻渲染应用窗口（过滤最小化在内部处理） */}
+
       <AppWindowsLayer
         windows={windows}
         onClose={closeWindow}

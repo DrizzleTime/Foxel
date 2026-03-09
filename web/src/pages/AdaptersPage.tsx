@@ -202,7 +202,7 @@ const AdaptersPage = memo(function AdaptersPage() {
     <PageCard
       title={t('Storage Adapters')}
       extra={
-        <Space>
+        <Space wrap>
           <Button onClick={fetchList} loading={loading}>{t('Refresh')}</Button>
           <Button type="primary" onClick={openCreate}>{t('Create Adapter')}</Button>
         </Space>
@@ -214,6 +214,7 @@ const AdaptersPage = memo(function AdaptersPage() {
         columns={columns as any}
         loading={loading}
         pagination={false}
+        scroll={{ x: 'max-content' }}
         style={{ marginBottom: 0 }}
       />
       <Drawer

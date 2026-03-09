@@ -3,6 +3,7 @@ import { Space, Button } from 'antd';
 import { FullscreenExitOutlined, FullscreenOutlined, CloseOutlined, MinusOutlined } from '@ant-design/icons';
 import type { AppDescriptor, AppComponentProps, AppOpenComponentProps } from './types';
 import type { VfsEntry } from '../api/client';
+import useResponsive from '../hooks/useResponsive';
 
 export interface AppWindowItem {
   id: string;
@@ -29,6 +30,7 @@ interface AppWindowsLayerProps {
 }
 
 export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClose, onToggleMax, onBringToFront, onUpdateWindow }) => {
+  const { isMobile } = useResponsive();
   const dragRef = useRef<{
     id: string;
     startX: number;
@@ -124,6 +126,7 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
   }, [onMouseMove, onMouseUp]);
 
   const startDrag = (e: React.MouseEvent, w: AppWindowItem) => {
+    if (isMobile) return;
     if (e.detail === 2) return; 
     if (w.maximized) return;
     if ((e.target as HTMLElement).closest('button')) return;
@@ -141,6 +144,7 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
 
   const startResize = (e: React.MouseEvent, w: AppWindowItem, dir: string) => {
     e.stopPropagation();
+    if (isMobile) return;
     if (w.maximized) return;
     onBringToFront(w.id);
     resizeRef.current = {
@@ -202,6 +206,7 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
         const ContentComp = (isFileWindow ? FileComp : OpenComp) as React.FC<any> | undefined;
         const useSystemWindow = w.app.useSystemWindow !== false; // 默认为 true
         const titleText = isFileWindow ? `${w.app.name} - ${w.entry?.name || ''}` : w.app.name;
+        const effectiveMaximized = isMobile || w.maximized;
 
         if (!ContentComp) {
           return null;
@@ -215,10 +220,10 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
               onMouseDown={() => onBringToFront(w.id)}
               style={{
                 position: 'fixed',
-                top: w.maximized ? 0 : w.y,
-                left: w.maximized ? 0 : w.x,
-                width: w.maximized ? '100vw' : w.width,
-                height: w.maximized ? '100vh' : w.height,
+                top: effectiveMaximized ? 0 : w.y,
+                left: effectiveMaximized ? 0 : w.x,
+                width: effectiveMaximized ? '100vw' : w.width,
+                height: effectiveMaximized ? '100dvh' : w.height,
                 background: 'transparent',
                 border: 'none',
                 borderRadius: 0,
@@ -259,14 +264,14 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
             onMouseDown={() => onBringToFront(w.id)}
             style={{
               position: 'fixed',
-              top: w.maximized ? 0 : w.y,     
-              left: w.maximized ? 0 : w.x,    
-              width: w.maximized ? '100vw' : w.width,
-              height: w.maximized ? '100vh' : w.height,
+              top: effectiveMaximized ? 0 : w.y,
+              left: effectiveMaximized ? 0 : w.x,
+              width: effectiveMaximized ? '100vw' : w.width,
+              height: effectiveMaximized ? '100dvh' : w.height,
               background: 'var(--ant-color-bg-elevated, var(--ant-color-bg-container))',
               border: '1px solid var(--ant-color-border-secondary, rgba(255,255,255,0.18))',
-              borderRadius: w.maximized ? 0 : 12,
-              boxShadow: w.maximized
+              borderRadius: effectiveMaximized ? 0 : 12,
+              boxShadow: effectiveMaximized
                 ? 'none'
                 : interacting
                   ? '0 20px 50px -12px rgba(0,0,0,0.35)'
@@ -282,9 +287,11 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
           >
             <div
               onMouseDown={(e) => startDrag(e, w)}
-              onDoubleClick={() => onToggleMax(w.id)}
+              onDoubleClick={() => {
+                if (!isMobile) onToggleMax(w.id);
+              }}
               style={{
-                height: 40,
+                height: isMobile ? 48 : 40,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -296,7 +303,7 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
                 fontWeight: 600,
                 letterSpacing: .2,
                 userSelect: 'none',
-                cursor: w.maximized ? 'default' : 'grab'
+                cursor: effectiveMaximized ? 'default' : 'grab'
               }}
             >
               <span
@@ -311,36 +318,40 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
 	                {titleText}
 	              </span>
               <Space size={4}>
-                <Button
-                  type="text"
-                  size="small"
-                  aria-label="最小化"
-                  icon={<MinusOutlined />}
-                  onClick={() => onUpdateWindow(w.id, { minimized: true })}
-                  style={{
-                    color: 'var(--ant-color-text-secondary, #555)',
-                    width: 30,
-                    height: 30,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                />
-                <Button
-                  type="text"
-                  size="small"
-                  aria-label={w.maximized ? '还原' : '最大化'}
-                  icon={w.maximized ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-                  onClick={() => onToggleMax(w.id)}
-                  style={{
-                    color: 'var(--ant-color-text-secondary, #555)',
-                    width: 30,
-                    height: 30,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                />
+                {!isMobile && (
+                  <Button
+                    type="text"
+                    size="small"
+                    aria-label="最小化"
+                    icon={<MinusOutlined />}
+                    onClick={() => onUpdateWindow(w.id, { minimized: true })}
+                    style={{
+                      color: 'var(--ant-color-text-secondary, #555)',
+                      width: 30,
+                      height: 30,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  />
+                )}
+                {!isMobile && (
+                  <Button
+                    type="text"
+                    size="small"
+                    aria-label={w.maximized ? '还原' : '最大化'}
+                    icon={w.maximized ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+                    onClick={() => onToggleMax(w.id)}
+                    style={{
+                      color: 'var(--ant-color-text-secondary, #555)',
+                      width: 30,
+                      height: 30,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  />
+                )}
                 <Button
                   type="text"
                   size="small"
@@ -367,7 +378,7 @@ export const AppWindowsLayer: React.FC<AppWindowsLayerProps> = ({ windows, onClo
                 overflow: 'hidden'
               }}
             >
-              {!w.maximized && resizeHandles(w)}
+              {!effectiveMaximized && !isMobile && resizeHandles(w)}
               {isFileWindow ? (
                 <ContentComp
                   filePath={w.filePath || ''}

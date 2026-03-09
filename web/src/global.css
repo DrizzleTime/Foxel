@@ -1,5 +1,5 @@
-html,body,#root { height: 100%; }
-body { font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif; background: var(--ant-color-bg-layout, #f9f9f9); }
+html,body,#root { min-height: 100%; height: 100%; }
+body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif; background: var(--ant-color-bg-layout, #f9f9f9); }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -282,4 +282,55 @@ body { font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto
 }
 .plugins-tabs .ant-tabs-tabpane-active {
   display: flex;
+}
+
+@media (max-width: 767px) {
+  html, body, #root {
+    min-height: 100dvh;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .fx-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .fx-grid-item {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .fx-grid-item .thumb {
+    height: 104px;
+  }
+
+  .ant-table-wrapper .ant-table-content {
+    overflow-x: auto;
+  }
+
+  .ant-table-wrapper table {
+    min-width: max-content;
+  }
+
+  .ant-drawer .ant-drawer-content-wrapper {
+    max-width: 100vw !important;
+  }
+
+  .ant-drawer-left > .ant-drawer-content-wrapper,
+  .ant-drawer-right > .ant-drawer-content-wrapper {
+    width: 100vw !important;
+  }
+
+  .ant-modal-root .ant-modal {
+    max-width: calc(100vw - 16px) !important;
+    width: calc(100vw - 16px) !important;
+    margin: 8px auto;
+  }
+
+  .ant-modal-root .ant-modal .ant-modal-content {
+    padding: 16px;
+  }
 }

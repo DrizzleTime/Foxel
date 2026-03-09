@@ -15,6 +15,16 @@ export function useContextMenu() {
     setBlankCtxMenu({ x: e.clientX, y: e.clientY });
   }, []);
 
+  const openContextMenuAt = useCallback((entry: VfsEntry, x: number, y: number) => {
+    setBlankCtxMenu(null);
+    setCtxMenu({ entry, x, y });
+  }, []);
+
+  const openBlankContextMenuAt = useCallback((x: number, y: number) => {
+    setCtxMenu(null);
+    setBlankCtxMenu({ x, y });
+  }, []);
+
   const closeContextMenus = useCallback(() => {
     setCtxMenu(null);
     setBlankCtxMenu(null);
@@ -25,6 +35,8 @@ export function useContextMenu() {
     blankCtxMenu,
     openContextMenu,
     openBlankContextMenu,
+    openContextMenuAt,
+    openBlankContextMenuAt,
     closeContextMenus,
   };
 }

@@ -6,6 +6,7 @@ import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOu
 import { useTheme } from '../../contexts/ThemeContext';
 import '../../styles/settings-tabs.css';
 import { useI18n } from '../../i18n';
+import useResponsive from '../../hooks/useResponsive';
 import AppearanceSettingsTab from './components/AppearanceSettingsTab';
 import AppSettingsTab from './components/AppSettingsTab';
 import AiSettingsTab from './components/AiSettingsTab';
@@ -51,6 +52,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
   );
   const { refreshTheme } = useTheme();
   const { t } = useI18n();
+  const { isMobile } = useResponsive();
 
   useEffect(() => {
     getAllConfig()
@@ -132,7 +134,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
           className="fx-settings-tabs"
           activeKey={activeTab}
           onChange={handleTabChange}
-          centered
+          centered={!isMobile}
           items={[
             {
               key: 'appearance',

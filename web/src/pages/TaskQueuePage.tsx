@@ -287,6 +287,7 @@ const TaskQueuePage = memo(function TaskQueuePage() {
           columns={columns}
           loading={loading}
           pagination={{ pageSize: 10 }}
+          scroll={{ x: 'max-content' }}
           style={{ marginBottom: 0 }}
         />
       </PageCard>

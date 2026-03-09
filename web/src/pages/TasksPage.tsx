@@ -153,7 +153,7 @@ const TasksPage = memo(function TasksPage() {
     <PageCard
       title={t('Automation Tasks')}
       extra={
-        <Space>
+        <Space wrap>
           <Button onClick={fetchList} loading={loading}>{t('Refresh')}</Button>
           <Button type="primary" onClick={openCreate}>{t('Create Task')}</Button>
         </Space>
@@ -165,6 +165,7 @@ const TasksPage = memo(function TasksPage() {
         columns={columns as any}
         loading={loading}
         pagination={false}
+        scroll={{ x: 'max-content' }}
         style={{ marginBottom: 0 }}
       />
       <Drawer

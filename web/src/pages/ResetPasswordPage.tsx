@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { authApi } from '../api/auth';
 import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import useResponsive from '../hooks/useResponsive';
 
 const { Title, Text } = Typography;
 
@@ -19,6 +20,7 @@ export default function ResetPasswordPage() {
   const [userInfo, setUserInfo] = useState<{ username: string; email: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const { isMobile } = useResponsive();
 
   useEffect(() => {
     if (!token) {
@@ -58,7 +60,7 @@ export default function ResetPasswordPage() {
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
         <Result
           status="error"
           title={t('Reset failed')}
@@ -75,12 +77,12 @@ export default function ResetPasswordPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      minHeight: '100dvh',
       background: 'linear-gradient(to right, var(--ant-color-bg-layout, #f0f2f5), var(--ant-color-fill-secondary, #d7d7d7))',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '48px 16px',
+      padding: isMobile ? '72px 12px 20px' : '48px 16px',
       position: 'relative'
     }}>
       <div style={{ position: 'absolute', top: 16, right: 16 }}>
@@ -94,7 +96,7 @@ export default function ResetPasswordPage() {
           border: '1px solid rgba(99,102,241,0.14)',
           boxShadow: '0 24px 60px rgba(79,70,229,0.18)',
         }}
-        bodyStyle={{ padding: '40px 36px' }}
+        styles={{ body: { padding: isMobile ? '24px 18px' : '40px 36px' } }}
       >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{

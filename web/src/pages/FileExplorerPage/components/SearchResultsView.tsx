@@ -1,5 +1,6 @@
 import React from 'react';
-import { Empty, Flex, Spin, Tag, Typography, theme } from 'antd';
+import { Empty, Flex, Spin, Tag, Typography, theme, Button } from 'antd';
+import { MoreOutlined } from '@ant-design/icons';
 import { useI18n } from '../../../i18n';
 import type { VfsEntry } from '../../../api/client';
 import type { ViewMode } from '../types';
@@ -13,10 +14,12 @@ interface SearchResultsViewProps {
   items: SearchDisplayItem[];
   selectedPaths: string[];
   entrySnapshot: Record<string, VfsEntry>;
+  mobile?: boolean;
   onClearSearch: () => void;
   onSelect: (fullPath: string, additive: boolean) => void;
   onOpen: (fullPath: string) => void;
   onContextMenu: (e: React.MouseEvent, fullPath: string) => void;
+  onOpenMenu?: (fullPath: string, anchor: HTMLElement) => void;
 }
 
 export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
@@ -27,10 +30,12 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
   items,
   selectedPaths,
   entrySnapshot,
+  mobile = false,
   onClearSearch,
   onSelect,
   onOpen,
   onContextMenu,
+  onOpenMenu,
 }) => {
   const { token } = theme.useToken();
   const { t } = useI18n();
@@ -75,13 +80,11 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
   };
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: mobile ? 12 : 16 }}>
       <Flex align="center" justify="space-between" style={{ marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
         <Flex align="center" style={{ gap: 8, flexWrap: 'wrap' }}>
           <Typography.Text strong>{t('Search Results')}</Typography.Text>
-          <Tag color={mode === 'filename' ? 'green' : 'blue'}>
-            {mode === 'filename' ? t('Name Search') : t('Smart Search')}
-          </Tag>
+          <Tag color={mode === 'filename' ? 'green' : 'blue'}>{mode === 'filename' ? t('Name Search') : t('Smart Search')}</Tag>
           <Tag closable onClose={(ev) => { ev.preventDefault(); onClearSearch(); }}>
             {query}
           </Tag>
@@ -97,10 +100,7 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
           <Empty description={t('No files found')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
         </Flex>
       ) : viewMode === 'grid' ? (
-        <div
-          className="fx-grid"
-          style={{ padding: 0, gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
-        >
+        <div className="fx-grid" style={{ padding: 0, gridTemplateColumns: mobile ? 'repeat(auto-fill, minmax(160px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))' }}>
           {items.map(({ item, fullPath, dir, name }) => {
             const selected = selectedPaths.includes(fullPath);
             const scoreText = Number.isFinite(item.score) ? item.score.toFixed(2) : '-';
@@ -110,16 +110,37 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
               <div
                 key={fullPath}
                 className={['fx-grid-item', selected ? 'selected' : '', 'file'].join(' ')}
-                onClick={(ev) => onSelect(fullPath, ev.ctrlKey || ev.metaKey)}
-                onDoubleClick={() => onOpen(fullPath)}
-                onContextMenu={(ev) => onContextMenu(ev, fullPath)}
+                onClick={(ev) => {
+                  if (mobile) {
+                    onOpen(fullPath);
+                    return;
+                  }
+                  onSelect(fullPath, ev.ctrlKey || ev.metaKey);
+                }}
+                onDoubleClick={() => {
+                  if (!mobile) onOpen(fullPath);
+                }}
+                onContextMenu={(ev) => {
+                  if (!mobile) onContextMenu(ev, fullPath);
+                }}
                 style={{ userSelect: 'none' }}
               >
+                {mobile && onOpenMenu && (
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<MoreOutlined />}
+                    aria-label={t('More')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenMenu(fullPath, e.currentTarget);
+                    }}
+                    style={{ position: 'absolute', top: 4, right: 4, zIndex: 2 }}
+                  />
+                )}
                 <div className="thumb" style={{ background: 'var(--ant-color-bg-container, #fff)' }}>
                   <span className="badge score-badge">{scoreText}</span>
-                  {isDir
-                    ? <Typography.Text style={{ fontSize: 32, color: token.colorPrimary }}>📁</Typography.Text>
-                    : <Typography.Text style={{ fontSize: 32, color: token.colorTextTertiary }}>📄</Typography.Text>}
+                  {isDir ? <Typography.Text style={{ fontSize: 32, color: token.colorPrimary }}>📁</Typography.Text> : <Typography.Text style={{ fontSize: 32, color: token.colorTextTertiary }}>📄</Typography.Text>}
                 </div>
                 <div className="name ellipsis">{name}</div>
                 <Typography.Text type="secondary" className="ellipsis" style={{ fontSize: 12 }}>
@@ -141,45 +162,48 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
               <div
                 key={fullPath}
                 className={selected ? 'row-selected' : ''}
-                onClick={(ev) => onSelect(fullPath, ev.ctrlKey || ev.metaKey)}
-                onDoubleClick={() => onOpen(fullPath)}
-                onContextMenu={(ev) => onContextMenu(ev, fullPath)}
+                onClick={(ev) => {
+                  if (mobile) {
+                    onOpen(fullPath);
+                    return;
+                  }
+                  onSelect(fullPath, ev.ctrlKey || ev.metaKey);
+                }}
+                onDoubleClick={() => {
+                  if (!mobile) onOpen(fullPath);
+                }}
+                onContextMenu={(ev) => {
+                  if (!mobile) onContextMenu(ev, fullPath);
+                }}
                 style={{
                   padding: '10px 12px',
                   borderRadius: token.borderRadius,
                   background: token.colorFillTertiary,
                   cursor: 'pointer',
                   userSelect: 'none',
+                  position: 'relative',
                 }}
               >
-                <Flex vertical style={{ gap: 6 }}>
-                  <Typography.Text strong className="ellipsis">
-                    {name}
-                  </Typography.Text>
-                  <Typography.Text type="secondary" className="ellipsis" style={{ fontSize: 12 }}>
-                    {fullPath}
-                  </Typography.Text>
-                  {snippet ? (
-                    <Typography.Paragraph ellipsis={{ rows: 3 }} style={{ marginBottom: 0 }}>
-                      {snippet}
-                    </Typography.Paragraph>
-                  ) : null}
+                {mobile && onOpenMenu && (
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<MoreOutlined />}
+                    aria-label={t('More')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenMenu(fullPath, e.currentTarget);
+                    }}
+                    style={{ position: 'absolute', top: 6, right: 6 }}
+                  />
+                )}
+                <Flex vertical style={{ gap: 6, paddingRight: mobile ? 28 : 0 }}>
+                  <Typography.Text strong className="ellipsis">{name}</Typography.Text>
+                  <Typography.Text type="secondary" className="ellipsis" style={{ fontSize: 12 }}>{fullPath}</Typography.Text>
+                  {snippet ? <Typography.Paragraph ellipsis={{ rows: 3 }} style={{ marginBottom: 0 }}>{snippet}</Typography.Paragraph> : null}
                   <Flex align="center" style={{ gap: 8, flexWrap: 'wrap' }}>
-                    {retrieval ? (
-                      <Tag color={sourceColor(retrieval)} style={{ marginRight: 0 }}>
-                        {renderSourceLabel(retrieval)}
-                      </Tag>
-                    ) : null}
-                    <Tag
-                      style={{
-                        marginRight: 0,
-                        background: token.colorBgContainer,
-                        borderColor: token.colorBorderSecondary,
-                        color: token.colorText,
-                      }}
-                    >
-                      {scoreText}
-                    </Tag>
+                    {retrieval ? <Tag color={sourceColor(retrieval)} style={{ marginRight: 0 }}>{renderSourceLabel(retrieval)}</Tag> : null}
+                    <Tag style={{ marginRight: 0, background: token.colorBgContainer, borderColor: token.colorBorderSecondary, color: token.colorText }}>{scoreText}</Tag>
                   </Flex>
                 </Flex>
               </div>

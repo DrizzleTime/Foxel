@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { Menu, theme } from 'antd';
+import { Drawer, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type { VfsEntry } from '../../../api/client';
 import type { ProcessorTypeMeta } from '../../../api/processors';
@@ -14,6 +14,7 @@ import {
 interface ContextMenuProps {
   x: number;
   y: number;
+  mobile?: boolean;
   entry?: VfsEntry;
   entries: VfsEntry[];
   selectedEntries: string[];
@@ -51,7 +52,7 @@ interface ActionMenuItem {
 export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
   const { token } = theme.useToken();
   const { t } = useI18n();
-  const { x, y, entry, entries, selectedEntries, processorTypes, onClose, ...actions } = props;
+  const { x, y, mobile = false, entry, entries, selectedEntries, processorTypes, onClose, ...actions } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: x, top: y });
 
@@ -244,12 +245,36 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
     }
   }, [position.left, position.top, items.length]);
 
+  if (mobile) {
+    return (
+      <Drawer
+        open
+        placement="bottom"
+        onClose={onClose}
+        title={entry ? t('Actions') : t('Quick Actions')}
+        height="auto"
+        styles={{ body: { padding: 8 } }}
+      >
+        <Menu
+          items={items}
+          selectable={false}
+          onClick={({ key }) => {
+            const handler = handlerMap.get(String(key));
+            if (handler) handler();
+            onClose();
+          }}
+          style={{ borderRadius: token.borderRadius, background: 'transparent', border: 'none' }}
+        />
+      </Drawer>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
       style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 9999, boxShadow: '0 4px 16px rgba(0,0,0,.15)', borderRadius: token.borderRadius, background: token.colorBgElevated }}
       onContextMenu={(e) => e.preventDefault()}
-      onClick={onClose} // Close on any click inside the menu area
+      onClick={onClose}
     >
       <Menu
         items={items}

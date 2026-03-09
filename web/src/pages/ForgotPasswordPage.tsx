@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import { authApi } from '../api/auth';
 import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import useResponsive from '../hooks/useResponsive';
 
 const { Title, Text } = Typography;
 
@@ -13,6 +14,7 @@ export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const { isMobile } = useResponsive();
 
   const handleSubmit = async (values: { email: string }) => {
     setSubmitting(true);
@@ -29,12 +31,12 @@ export default function ForgotPasswordPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      minHeight: '100dvh',
       background: 'linear-gradient(to right, var(--ant-color-bg-layout, #f0f2f5), var(--ant-color-fill-secondary, #d7d7d7))',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '48px 16px',
+      padding: isMobile ? '72px 12px 20px' : '48px 16px',
       position: 'relative'
     }}>
       <div style={{ position: 'absolute', top: 16, right: 16 }}>
@@ -48,7 +50,7 @@ export default function ForgotPasswordPage() {
           boxShadow: '0 24px 60px rgba(15,23,42,0.12)',
           border: '1px solid rgba(99,102,241,0.12)',
         }}
-        styles={{ body: { padding: '40px 36px' } }}
+        styles={{ body: { padding: isMobile ? '24px 18px' : '40px 36px' } }}
       >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{

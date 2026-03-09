@@ -3,6 +3,7 @@ import { Table, message, Tag, Input, Select, Button, Space, Modal, DatePicker, D
 import PageCard from '../components/PageCard';
 import { auditApi, type AuditLogItem, type PaginatedAuditLogs } from '../api/audit';
 import { useI18n } from '../i18n';
+import useResponsive from '../hooks/useResponsive';
 import { format, formatISO } from 'date-fns';
 
 const { RangePicker } = DatePicker;
@@ -47,6 +48,7 @@ const renderHttpMethodTag = (method: string) => {
 };
 
 const AuditLogsPage = memo(function AuditLogsPage() {
+  const { isMobile } = useResponsive();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<PaginatedAuditLogs | null>(null);
   const [filters, setFilters] = useState<{
@@ -264,7 +266,7 @@ const AuditLogsPage = memo(function AuditLogsPage() {
         {selectedLog && (
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
             <Descriptions
-              column={2}
+              column={isMobile ? 1 : 2}
               bordered
               size="small"
               labelStyle={{ minWidth: 120, whiteSpace: 'nowrap', fontWeight: 500 }}

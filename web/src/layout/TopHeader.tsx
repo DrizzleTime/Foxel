@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ProfileModal from '../components/ProfileModal';
 import NoticesModal from '../components/NoticesModal';
 import { useSystemStatus } from '../contexts/SystemContext';
+import useResponsive from '../hooks/useResponsive';
 
 const { Header } = Layout;
 
@@ -17,9 +18,10 @@ export interface TopHeaderProps {
   collapsed: boolean;
   onToggle(): void;
   onOpenAiAgent(): void;
+  showMenuButton?: boolean;
 }
 
-const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }: TopHeaderProps) {
+const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, showMenuButton }: TopHeaderProps) {
   const { token } = theme.useToken();
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
@@ -28,6 +30,7 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }
   const [profileOpen, setProfileOpen] = useState(false);
   const [noticesOpen, setNoticesOpen] = useState(false);
   const status = useSystemStatus();
+  const { isMobile } = useResponsive();
 
   const handleLogout = () => {
     authApi.logout();
@@ -37,24 +40,39 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }
   const openProfile = () => setProfileOpen(true);
 
   return (
-    <Header style={{ background: token.colorBgContainer, borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', alignItems: 'center', gap: 16, backdropFilter: 'saturate(180%) blur(8px)' }}>
-      {collapsed && (
+    <Header
+      style={{
+        background: token.colorBgContainer,
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: isMobile ? 8 : 16,
+        paddingInline: isMobile ? 12 : 16,
+        minWidth: 0,
+        backdropFilter: 'saturate(180%) blur(8px)',
+      }}
+    >
+      {showMenuButton && (
         <Button
           type="text"
           icon={<MenuUnfoldOutlined />}
           onClick={onToggle}
-          style={{ fontSize: 18, marginRight: 8 }}
+          style={{ fontSize: 18, marginRight: isMobile ? 0 : 8 }}
+          aria-label={collapsed ? t('Open menu') : t('Collapse menu')}
         />
       )}
+
       <Button
         icon={<SearchOutlined />}
-        style={{ maxWidth: 420 }}
+        style={{ maxWidth: isMobile ? 40 : 420, minWidth: isMobile ? 40 : undefined, paddingInline: isMobile ? 0 : undefined }}
         onClick={() => setSearchOpen(true)}
+        aria-label={t('Search files / tags / types')}
       >
-        {t('Search files / tags / types')}
+        {!isMobile && t('Search files / tags / types')}
       </Button>
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <Flex style={{ marginLeft: 'auto' }} align="center" gap={12}>
+
+      <Flex style={{ marginLeft: 'auto', minWidth: 0 }} align="center" gap={isMobile ? 4 : 12}>
         <Tooltip title={t('Notices')}>
           <Button
             type="text"
@@ -78,8 +96,8 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }
           menu={{
             items: [
               { key: 'profile', label: t('Profile'), icon: <UserOutlined />, onClick: openProfile },
-              { key: 'logout', label: t('Log Out'), icon: <LogoutOutlined />, onClick: handleLogout }
-            ]
+              { key: 'logout', label: t('Log Out'), icon: <LogoutOutlined />, onClick: handleLogout },
+            ],
           }}
         >
           <Button type="text" style={{ paddingInline: 8, height: 40 }}>
@@ -87,9 +105,11 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent }
               <Avatar size={28} src={user?.gravatar_url}>
                 {(user?.full_name || user?.username || 'A').charAt(0).toUpperCase()}
               </Avatar>
-              <Typography.Text style={{ maxWidth: 160 }} ellipsis>
-                {user?.full_name || user?.username || t('Admin')}
-              </Typography.Text>
+              {!isMobile && (
+                <Typography.Text style={{ maxWidth: 160 }} ellipsis>
+                  {user?.full_name || user?.username || t('Admin')}
+                </Typography.Text>
+              )}
             </Flex>
           </Button>
         </Dropdown>

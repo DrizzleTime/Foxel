@@ -251,6 +251,20 @@ export function useFileSearch({
     openContextMenu(e, entry);
   }, [actionPath, ensureEntry, itemByPath, openContextMenu]);
 
+  const openResultContextMenuAt = useCallback(async (x: number, y: number, fullPath: string) => {
+    const info = itemByPath.get(fullPath);
+    if (!info) return;
+    setActionPath(info.dir);
+    setSelectedPaths((prev) => {
+      if (actionPath !== info.dir) {
+        return [fullPath];
+      }
+      return prev.includes(fullPath) ? prev : [fullPath];
+    });
+    const entry = await ensureEntry(info.fullPath, info.name);
+    openContextMenu({ preventDefault() {}, clientX: x, clientY: y } as React.MouseEvent, entry);
+  }, [actionPath, ensureEntry, itemByPath, openContextMenu]);
+
   const selectedNames = useMemo(() => {
     const names: string[] = [];
     for (const p of selectedPaths) {
@@ -308,7 +322,7 @@ export function useFileSearch({
     openResult,
     selectResult,
     openResultContextMenu,
+    openResultContextMenuAt,
     clearSelection,
   };
 }
-

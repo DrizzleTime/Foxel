@@ -111,7 +111,7 @@ const SharePage = memo(function SharePage() {
     <PageCard
       title={t('My Shares')}
       extra={
-        <Space>
+        <Space wrap>
           <Button onClick={fetchList} loading={loading}>{t('Refresh')}</Button>
           <Popconfirm title={t('Confirm clear expired shares?')} onConfirm={handleClearExpired}>
             <Button danger>{t('Clear expired shares')}</Button>
@@ -125,6 +125,7 @@ const SharePage = memo(function SharePage() {
         columns={columns as any}
         loading={loading}
         pagination={false}
+        scroll={{ x: 'max-content' }}
       />
     </PageCard>
   );

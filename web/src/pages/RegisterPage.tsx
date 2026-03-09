@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Navigate } from 'react-router';
 import { useI18n } from '../i18n';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import useResponsive from '../hooks/useResponsive';
 
 const { Title, Text } = Typography;
 
@@ -14,6 +15,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { t } = useI18n();
+  const { isMobile } = useResponsive();
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -39,19 +41,23 @@ export default function RegisterPage() {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      width: '100vw',
-      height: '100vh',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(to right, var(--ant-color-bg-layout, #f0f2f5), var(--ant-color-fill-secondary, #d7d7d7))'
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        width: '100vw',
+        minHeight: '100dvh',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: isMobile ? '72px 12px 20px' : '24px',
+        boxSizing: 'border-box',
+        background: 'linear-gradient(to right, var(--ant-color-bg-layout, #f0f2f5), var(--ant-color-fill-secondary, #d7d7d7))',
+      }}
+    >
       <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 1000 }}>
         <LanguageSwitcher />
       </div>
 
-      <Card style={{ width: 420 }}>
+      <Card style={{ width: '100%', maxWidth: 420 }} styles={{ body: { padding: isMobile ? '20px 16px' : '24px' } }}>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ textAlign: 'center' }}>
             <Title level={2} style={{ marginBottom: 8 }}>{t('Create Account')}</Title>
@@ -61,11 +67,7 @@ export default function RegisterPage() {
           {err && <Alert message={err} type="error" showIcon />}
 
           <Form layout="vertical" size="large" onFinish={onFinish}>
-            <Form.Item
-              label={t('Username')}
-              name="username"
-              rules={[{ required: true, message: t('Please input username!') }]}
-            >
+            <Form.Item label={t('Username')} name="username" rules={[{ required: true, message: t('Please input username!') }]}>
               <Input prefix={<UserOutlined />} />
             </Form.Item>
 
@@ -80,18 +82,11 @@ export default function RegisterPage() {
               <Input prefix={<MailOutlined />} />
             </Form.Item>
 
-            <Form.Item
-              label={t('Full Name')}
-              name="full_name"
-            >
+            <Form.Item label={t('Full Name')} name="full_name">
               <Input prefix={<UserOutlined />} />
             </Form.Item>
 
-            <Form.Item
-              label={t('Password')}
-              name="password"
-              rules={[{ required: true, message: t('Please enter password') }]}
-            >
+            <Form.Item label={t('Password')} name="password" rules={[{ required: true, message: t('Please enter password') }]}>
               <Input.Password prefix={<LockOutlined />} />
             </Form.Item>
 
@@ -133,4 +128,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

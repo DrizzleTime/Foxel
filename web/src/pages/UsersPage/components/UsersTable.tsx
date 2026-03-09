@@ -78,8 +78,8 @@ export const UsersTable = memo(function UsersTable({
       columns={columns}
       loading={loading}
       pagination={false}
+      scroll={{ x: 'max-content' }}
       style={{ marginBottom: 0 }}
     />
   );
 });
-

@@ -106,6 +106,7 @@ export const FileListView: React.FC<FileListViewProps> = ({
       dataSource={entries}
       columns={columns as any}
       pagination={false}
+      scroll={{ x: 'max-content' }}
       onRow={(r) => ({
         onClick: (e: any) => onRowClick(r, e),
         onDoubleClick: () => onOpen(r),

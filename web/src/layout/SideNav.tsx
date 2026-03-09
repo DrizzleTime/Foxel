@@ -59,10 +59,10 @@ const SideNav = memo(function SideNav({
     return navGroups
       .map((group) => ({
         ...group,
-        children: group.children.filter((item) => !item.adminOnly || isAdmin),
+        children: group.children.filter((item) => (!item.adminOnly || isAdmin) && !(mobile && item.hideOnMobile)),
       }))
       .filter((group) => group.children.length > 0);
-  }, [user]);
+  }, [mobile, user]);
 
   useEffect(() => {
     getLatestVersion().then((resp) => {

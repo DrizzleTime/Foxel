@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons';
 import type { ReactNode } from 'react';
 
-export interface NavItem { key: string; icon: ReactNode; label: string; adminOnly?: boolean; }
+export interface NavItem { key: string; icon: ReactNode; label: string; adminOnly?: boolean; hideOnMobile?: boolean; }
 export interface NavGroup { key: string; title?: string; children: NavItem[]; }
 
 export const navGroups: NavGroup[] = [
@@ -30,7 +30,7 @@ export const navGroups: NavGroup[] = [
     key: 'manage',
     title: 'Manage',
     children: [
-      { key: 'processors', icon: React.createElement(CodeOutlined), label: 'Processors' },
+      { key: 'processors', icon: React.createElement(CodeOutlined), label: 'Processors', hideOnMobile: true },
       { key: 'tasks', icon: React.createElement(RobotOutlined), label: 'Automation' },
       { key: 'task-queue', icon: React.createElement(ClockCircleOutlined), label: 'Task Queue' },
       { key: 'share', icon: React.createElement(ShareAltOutlined), label: 'My Shares' },
@@ -45,7 +45,7 @@ export const navGroups: NavGroup[] = [
     children: [
       { key: 'users', icon: React.createElement(UserOutlined), label: 'User Management', adminOnly: true },
       { key: 'settings', icon: React.createElement(SettingOutlined), label: 'System Settings', adminOnly: true },
-      { key: 'backup', icon: React.createElement(DatabaseOutlined), label: 'Backup & Restore' },
+      { key: 'backup', icon: React.createElement(DatabaseOutlined), label: 'Backup & Restore', hideOnMobile: true },
       { key: 'audit', icon: React.createElement(BugOutlined), label: 'Audit Logs' }
     ]
   }

@@ -182,71 +182,77 @@ export const Header: React.FC<HeaderProps> = ({
     },
   };
 
+  if (isMobile) {
+    return (
+      <Flex align="center" gap={6} style={{ padding: '10px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}`, minWidth: 0 }}>
+        <Button size="small" icon={<ArrowUpOutlined />} onClick={onGoUp} disabled={path === '/'} />
+        {renderBreadcrumb()}
+        <Space size={4} style={{ flexShrink: 0 }}>
+          <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loading} aria-label={t('Refresh')} />
+          <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir} aria-label={t('New Folder')} />
+          <Button size="small" icon={<UploadOutlined />} onClick={onUploadFile} aria-label={t('Upload Files')} />
+          <Dropdown menu={{ items: mobileMoreItems }}>
+            <Button size="small" icon={<MoreOutlined />} aria-label={t('More')} />
+          </Dropdown>
+        </Space>
+      </Flex>
+    );
+  }
+
   return (
-    <Flex vertical={isMobile} gap={isMobile ? 10 : 12} style={{ padding: isMobile ? '10px 12px' : '10px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+    <Flex vertical gap={12} style={{ padding: '10px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
       <Flex align="center" gap={8} style={{ minWidth: 0 }}>
         <Button size="small" icon={<ArrowUpOutlined />} onClick={onGoUp} disabled={path === '/'} />
-        {!isMobile && <Typography.Text strong>{t('File Manager')}</Typography.Text>}
-        {!isMobile && <Divider type="vertical" />}
+        <Typography.Text strong>{t('File Manager')}</Typography.Text>
+        <Divider type="vertical" />
         {renderBreadcrumb()}
       </Flex>
 
       <Flex align="center" justify="space-between" gap={8} style={{ flexWrap: 'wrap' }}>
         <Space size={8} wrap>
           <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loading} aria-label={t('Refresh')}>
-            {!isMobile && t('Refresh')}
+            {t('Refresh')}
           </Button>
           <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir} aria-label={t('New Folder')}>
-            {!isMobile && t('New Folder')}
+            {t('New Folder')}
           </Button>
-          {isMobile ? (
-            <Button size="small" icon={<UploadOutlined />} onClick={onUploadFile} aria-label={t('Upload Files')} />
-          ) : (
-            <Dropdown.Button
-              size="small"
-              icon={<UploadOutlined />}
-              onClick={onUploadFile}
-              menu={uploadMenu}
-            >
-              {t('Upload')}
-            </Dropdown.Button>
-          )}
-          {isMobile && (
-            <Dropdown menu={{ items: mobileMoreItems }}>
-              <Button size="small" icon={<MoreOutlined />} aria-label={t('More')} />
-            </Dropdown>
-          )}
+          <Dropdown.Button
+            size="small"
+            icon={<UploadOutlined />}
+            onClick={onUploadFile}
+            menu={uploadMenu}
+          >
+            {t('Upload')}
+          </Dropdown.Button>
         </Space>
 
-        {!isMobile && (
-          <Space size={8} wrap>
-            <Select
-              size="small"
-              value={sortBy}
-              onChange={(val) => onSortChange(val, sortOrder)}
-              style={{ width: 112 }}
-              options={[
-                { value: 'name', label: t('Name') },
-                { value: 'size', label: t('Size') },
-                { value: 'mtime', label: t('Modified Time') },
-              ]}
-            />
-            <Button
-              size="small"
-              icon={sortOrder === 'asc' ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-              onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
-            />
-            <Segmented
-              size="small"
-              value={viewMode}
-              onChange={(value) => onSetViewMode(value as ViewMode)}
-              options={[
-                { label: <Tooltip title={t('Grid')}><AppstoreOutlined /></Tooltip>, value: 'grid' },
-                { label: <Tooltip title={t('List')}><UnorderedListOutlined /></Tooltip>, value: 'list' },
-              ]}
-            />
-          </Space>
-        )}
+        <Space size={8} wrap>
+          <Select
+            size="small"
+            value={sortBy}
+            onChange={(val) => onSortChange(val, sortOrder)}
+            style={{ width: 112 }}
+            options={[
+              { value: 'name', label: t('Name') },
+              { value: 'size', label: t('Size') },
+              { value: 'mtime', label: t('Modified Time') },
+            ]}
+          />
+          <Button
+            size="small"
+            icon={sortOrder === 'asc' ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+            onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
+          />
+          <Segmented
+            size="small"
+            value={viewMode}
+            onChange={(value) => onSetViewMode(value as ViewMode)}
+            options={[
+              { label: <Tooltip title={t('Grid')}><AppstoreOutlined /></Tooltip>, value: 'grid' },
+              { label: <Tooltip title={t('List')}><UnorderedListOutlined /></Tooltip>, value: 'list' },
+            ]}
+          />
+        </Space>
       </Flex>
     </Flex>
   );

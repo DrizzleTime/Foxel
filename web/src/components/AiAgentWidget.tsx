@@ -3,7 +3,7 @@ import { Avatar, Button, Divider, Flex, Input, List, Modal, Space, Switch, Tag, 
 import { RobotOutlined, SendOutlined, DeleteOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import type { TextAreaRef } from 'antd/es/input/TextArea';
-import { agentApi, type AgentChatMessage, type PendingToolCall } from '../api/agent';
+import { agentApi, type AgentChatMessage, type PendingMcpCall } from '../api/agent';
 import { useI18n } from '../i18n';
 import '../styles/ai-agent.css';
 
@@ -108,7 +108,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
-  const [pending, setPending] = useState<PendingToolCall[]>([]);
+  const [pending, setPending] = useState<PendingMcpCall[]>([]);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [expandedRaw, setExpandedRaw] = useState<Record<string, boolean>>({});
   const [runningTools, setRunningTools] = useState<Record<string, string>>({});
@@ -153,16 +153,14 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
     for (const msg of messages) {
       if (!msg || typeof msg !== 'object') continue;
       if (msg.role !== 'assistant') continue;
-      const toolCalls = (msg as any).tool_calls;
+      const toolCalls = (msg as any).mcp_calls;
       if (!Array.isArray(toolCalls)) continue;
       for (const call of toolCalls) {
         const id = typeof call?.id === 'string' ? call.id : '';
-        const fn = call?.function;
-        const name = typeof fn?.name === 'string' ? fn.name : '';
-        const rawArgs = typeof fn?.arguments === 'string' ? fn.arguments : '';
+        const name = typeof call?.name === 'string' ? call.name : '';
+        const args = isPlainObject(call?.arguments) ? call.arguments : {};
         if (!id || !name) continue;
-        const parsedArgs = tryParseJson<Record<string, any>>(rawArgs) || {};
-        map.set(id, { name, args: parsedArgs });
+        map.set(id, { name, args });
       }
     }
     return map;
@@ -179,7 +177,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
     assistantIndexRef.current = {};
 
     setLoading(true);
-    const approvedIds = payload.approved_tool_call_ids || [];
+    const approvedIds = payload.approved_mcp_call_ids || [];
     if (Array.isArray(approvedIds) && approvedIds.length > 0) {
       const preRunning: Record<string, string> = {};
       approvedIds.forEach((id) => {
@@ -196,8 +194,8 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
           messages: payload.messages,
           auto_execute: autoExecute,
           context: effectivePath ? { current_path: effectivePath } : undefined,
-          approved_tool_call_ids: payload.approved_tool_call_ids,
-          rejected_tool_call_ids: payload.rejected_tool_call_ids,
+          approved_mcp_call_ids: payload.approved_mcp_call_ids,
+          rejected_mcp_call_ids: payload.rejected_mcp_call_ids,
         },
         (evt) => {
           if (seq !== streamSeqRef.current) return;
@@ -241,16 +239,16 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
               delete assistantIndexRef.current[id];
               return;
             }
-            case 'tool_start': {
-              const toolCallId = String((evt.data as any)?.tool_call_id || '');
+            case 'mcp_call_start': {
+              const toolCallId = String((evt.data as any)?.mcp_call_id || '');
               const name = String((evt.data as any)?.name || '');
               if (!toolCallId) return;
               if (name) toolNameByIdRef.current[toolCallId] = name;
               setRunningTools((prev) => ({ ...prev, [toolCallId]: name || prev[toolCallId] || '' }));
               return;
             }
-            case 'tool_end': {
-              const toolCallId = String((evt.data as any)?.tool_call_id || '');
+            case 'mcp_call_end': {
+              const toolCallId = String((evt.data as any)?.mcp_call_id || '');
               const name = String((evt.data as any)?.name || '');
               const msg = (evt.data as any)?.message;
               if (toolCallId && name) toolNameByIdRef.current[toolCallId] = name;
@@ -267,14 +265,14 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
               return;
             }
             case 'pending': {
-              const items = Array.isArray((evt.data as any)?.pending_tool_calls) ? (evt.data as any).pending_tool_calls : [];
+              const items = Array.isArray((evt.data as any)?.pending_mcp_calls) ? (evt.data as any).pending_mcp_calls : [];
               setPending(items);
               return;
             }
             case 'done': {
               const base = baseMessagesRef.current || [];
               const newMessages = Array.isArray((evt.data as any)?.messages) ? (evt.data as any).messages : [];
-              const nextPending = Array.isArray((evt.data as any)?.pending_tool_calls) ? (evt.data as any).pending_tool_calls : [];
+              const nextPending = Array.isArray((evt.data as any)?.pending_mcp_calls) ? (evt.data as any).pending_mcp_calls : [];
               setMessages([...base, ...newMessages]);
               setPending(nextPending);
               setRunningTools({});
@@ -326,23 +324,23 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
   }, []);
 
   const approveOne = useCallback(async (id: string) => {
-    await runStream({ messages, approved_tool_call_ids: [id] });
+    await runStream({ messages, approved_mcp_call_ids: [id] });
   }, [messages, runStream]);
 
   const rejectOne = useCallback(async (id: string) => {
-    await runStream({ messages, rejected_tool_call_ids: [id] });
+    await runStream({ messages, rejected_mcp_call_ids: [id] });
   }, [messages, runStream]);
 
   const approveAll = useCallback(async () => {
     const ids = pending.map((p) => p.id).filter(Boolean);
     if (ids.length === 0) return;
-    await runStream({ messages, approved_tool_call_ids: ids });
+    await runStream({ messages, approved_mcp_call_ids: ids });
   }, [messages, pending, runStream]);
 
   const rejectAll = useCallback(async () => {
     const ids = pending.map((p) => p.id).filter(Boolean);
     if (ids.length === 0) return;
-    await runStream({ messages, rejected_tool_call_ids: ids });
+    await runStream({ messages, rejected_mcp_call_ids: ids });
   }, [messages, pending, runStream]);
 
   const messageItems = useMemo(() => {
@@ -665,7 +663,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                   const role = String((m as any).role);
                   const isUser = role === 'user';
                   const isTool = role === 'tool';
-                  const toolCallId = typeof (m as any).tool_call_id === 'string' ? String((m as any).tool_call_id) : '';
+                  const toolCallId = typeof (m as any).mcp_call_id === 'string' ? String((m as any).mcp_call_id) : '';
                   const toolInfo = toolCallId ? toolCallsById.get(toolCallId) : null;
                   const toolName = toolInfo?.name || (toolCallId ? toolNameByIdRef.current[toolCallId] : '') || '';
                   const msgKey = toolCallId ? `tool:${toolCallId}` : `${role}:${idx}`;

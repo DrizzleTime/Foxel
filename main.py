@@ -3,6 +3,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from domain.adapters import runtime_registry
+from domain.agent.mcp import MCP_HTTP_APP
 from domain.config import ConfigService, VERSION
 from db.session import close_db, init_db
 from api.routers import include_routers
@@ -80,12 +81,13 @@ async def lifespan(app: FastAPI):
     # 在所有路由加载完成后，挂载静态文件服务（放在最后以避免覆盖 API 路由）
     app.mount("/", SPAStaticFiles(directory="web/dist", html=True, check_dir=False), name="static")
 
-    try:
-        yield
-    finally:
-        await task_scheduler.stop()
-        await task_queue_service.stop_worker()
-        await close_db()
+    async with MCP_HTTP_APP.router.lifespan_context(MCP_HTTP_APP):
+        try:
+            yield
+        finally:
+            await task_scheduler.stop()
+            await task_queue_service.stop_worker()
+            await close_db()
 
 
 def create_app() -> FastAPI:
@@ -95,6 +97,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     include_routers(app)
+    app.mount("/api/mcp", MCP_HTTP_APP, name="mcp")
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(httpx.HTTPStatusError, httpx_exception_handler)

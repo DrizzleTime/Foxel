@@ -15,6 +15,102 @@ class MissingModelError(RuntimeError):
     pass
 
 
+def _mcp_tools_to_openai_wire(tools: List[Dict[str, Any]] | None) -> List[Dict[str, Any]] | None:
+    if not tools:
+        return None
+    out: List[Dict[str, Any]] = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        name = tool.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        out.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": str(tool.get("description") or ""),
+                    "parameters": tool.get("input_schema") if isinstance(tool.get("input_schema"), dict) else {},
+                },
+            }
+        )
+    return out
+
+
+def _mcp_messages_to_openai_wire(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        item = dict(message)
+        mcp_call_id = item.pop("mcp_call_id", None)
+        if isinstance(mcp_call_id, str) and mcp_call_id.strip():
+            item["tool_call_id"] = mcp_call_id
+
+        mcp_calls = item.pop("mcp_calls", None)
+        if isinstance(mcp_calls, list):
+            tool_calls: List[Dict[str, Any]] = []
+            for idx, call in enumerate(mcp_calls):
+                if not isinstance(call, dict):
+                    continue
+                name = call.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    continue
+                arguments = call.get("arguments") if isinstance(call.get("arguments"), dict) else {}
+                tool_calls.append(
+                    {
+                        "id": str(call.get("id") or f"call_{idx}"),
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": json.dumps(arguments, ensure_ascii=False),
+                        },
+                    }
+                )
+            if tool_calls:
+                item["tool_calls"] = tool_calls
+        out.append(item)
+    return out
+
+
+def _openai_wire_message_to_mcp(message: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(message)
+    tool_call_id = out.pop("tool_call_id", None)
+    if isinstance(tool_call_id, str) and tool_call_id.strip():
+        out["mcp_call_id"] = tool_call_id
+
+    tool_calls = out.pop("tool_calls", None)
+    if isinstance(tool_calls, list):
+        mcp_calls: List[Dict[str, Any]] = []
+        for idx, call in enumerate(tool_calls):
+            if not isinstance(call, dict):
+                continue
+            fn = call.get("function") if isinstance(call.get("function"), dict) else {}
+            name = fn.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            arguments: Dict[str, Any] = {}
+            raw_args = fn.get("arguments")
+            if isinstance(raw_args, str) and raw_args.strip():
+                try:
+                    parsed = json.loads(raw_args)
+                    if isinstance(parsed, dict):
+                        arguments = parsed
+                except json.JSONDecodeError:
+                    arguments = {}
+            mcp_calls.append(
+                {
+                    "id": str(call.get("id") or f"call_{idx}"),
+                    "name": name,
+                    "arguments": arguments,
+                }
+            )
+        if mcp_calls:
+            out["mcp_calls"] = mcp_calls
+    return out
+
+
 async def describe_image_base64(base64_image: str, detail: str = "high") -> str:
     """
     传入 base64 图片并返回描述文本。缺省时返回错误提示。
@@ -939,34 +1035,39 @@ async def chat_completion(
 ) -> Dict[str, Any]:
     model, provider = await _require_model(ability)
     fmt = str(provider.api_format or "").lower()
+    wire_messages = _mcp_messages_to_openai_wire(messages)
+    wire_tools = _mcp_tools_to_openai_wire(tools)
     if fmt == "openai":
-        return await _chat_with_openai(
+        result = await _chat_with_openai(
             provider,
             model,
-            messages,
-            tools=tools,
+            wire_messages,
+            tools=wire_tools,
             tool_choice=tool_choice,
             temperature=temperature,
             timeout=timeout,
         )
+        return _openai_wire_message_to_mcp(result)
     if fmt == "anthropic":
-        return await _chat_with_anthropic(
+        result = await _chat_with_anthropic(
             provider,
             model,
-            messages,
-            tools=tools,
+            wire_messages,
+            tools=wire_tools,
             temperature=temperature,
             timeout=timeout,
         )
+        return _openai_wire_message_to_mcp(result)
     if fmt == "ollama":
-        return await _chat_with_ollama(
+        result = await _chat_with_ollama(
             provider,
             model,
-            messages,
-            tools=tools,
+            wire_messages,
+            tools=wire_tools,
             temperature=temperature,
             timeout=timeout,
         )
+        return _openai_wire_message_to_mcp(result)
     raise MissingModelError(f"当前不支持该对话模型接口类型: {provider.api_format}")
 
 
@@ -1016,38 +1117,49 @@ async def chat_completion_stream(
 ) -> AsyncIterator[Dict[str, Any]]:
     model, provider = await _require_model(ability)
     fmt = str(provider.api_format or "").lower()
+    wire_messages = _mcp_messages_to_openai_wire(messages)
+    wire_tools = _mcp_tools_to_openai_wire(tools)
     if fmt == "openai":
         async for event in _chat_stream_with_openai(
             provider,
             model,
-            messages,
-            tools=tools,
+            wire_messages,
+            tools=wire_tools,
             tool_choice=tool_choice,
             temperature=temperature,
             timeout=timeout,
         ):
+            if event.get("type") == "message" and isinstance(event.get("message"), dict):
+                yield {**event, "message": _openai_wire_message_to_mcp(event["message"])}
+                continue
             yield event
         return
     if fmt == "anthropic":
         async for event in _chat_stream_with_anthropic(
             provider,
             model,
-            messages,
-            tools=tools,
+            wire_messages,
+            tools=wire_tools,
             temperature=temperature,
             timeout=timeout,
         ):
+            if event.get("type") == "message" and isinstance(event.get("message"), dict):
+                yield {**event, "message": _openai_wire_message_to_mcp(event["message"])}
+                continue
             yield event
         return
     if fmt == "ollama":
         async for event in _chat_stream_with_ollama(
             provider,
             model,
-            messages,
-            tools=tools,
+            wire_messages,
+            tools=wire_tools,
             temperature=temperature,
             timeout=timeout,
         ):
+            if event.get("type") == "message" and isinstance(event.get("message"), dict):
+                yield {**event, "message": _openai_wire_message_to_mcp(event["message"])}
+                continue
             yield event
         return
     raise MissingModelError(f"当前不支持该对话模型接口类型: {provider.api_format}")

@@ -10,14 +10,19 @@ class AgentChatContext(BaseModel):
 class AgentChatRequest(BaseModel):
     messages: List[Dict[str, Any]] = Field(default_factory=list)
     auto_execute: bool = False
-    approved_tool_call_ids: List[str] = Field(default_factory=list)
-    rejected_tool_call_ids: List[str] = Field(default_factory=list)
+    approved_mcp_call_ids: List[str] = Field(default_factory=list)
+    rejected_mcp_call_ids: List[str] = Field(default_factory=list)
     context: Optional[AgentChatContext] = None
 
 
-class PendingToolCall(BaseModel):
+class McpCall(BaseModel):
+    id: str
+    name: str
+    arguments: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PendingMcpCall(BaseModel):
     id: str
     name: str
     arguments: Dict[str, Any] = Field(default_factory=dict)
     requires_confirmation: bool = True
-

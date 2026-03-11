@@ -1,9 +1,10 @@
 from .service import AgentService
-from .types import AgentChatContext, AgentChatRequest, PendingToolCall
+from .types import AgentChatContext, AgentChatRequest, McpCall, PendingMcpCall
 
 __all__ = [
     "AgentService",
     "AgentChatContext",
     "AgentChatRequest",
-    "PendingToolCall",
+    "McpCall",
+    "PendingMcpCall",
 ]

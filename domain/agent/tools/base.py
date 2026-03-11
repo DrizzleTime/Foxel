@@ -4,6 +4,16 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 
 @dataclass(frozen=True)
+class McpToolDescriptor:
+    name: str
+    description: str
+    input_schema: Dict[str, Any]
+    annotations: Dict[str, Any]
+    meta: Dict[str, Any]
+    requires_confirmation: bool
+
+
+@dataclass(frozen=True)
 class ToolSpec:
     name: str
     description: str
@@ -141,9 +151,31 @@ def _normalize_tool_result(result: Any) -> Dict[str, Any]:
     return {"ok": True, "summary": summary, "view": view, "data": result}
 
 
+def normalize_tool_result(result: Any) -> Dict[str, Any]:
+    return _normalize_tool_result(result)
+
+
 def tool_result_to_content(result: Any) -> str:
-    payload = _normalize_tool_result(result)
+    payload = normalize_tool_result(result)
     try:
         return json.dumps(payload, ensure_ascii=False, default=str)
     except TypeError:
         return json.dumps({"ok": False, "summary": "error", "view": {"type": "error", "message": "error"}}, ensure_ascii=False)
+
+
+def tool_spec_to_mcp_descriptor(spec: ToolSpec) -> McpToolDescriptor:
+    read_only = not spec.requires_confirmation
+    annotations: Dict[str, Any] = {
+        "readOnlyHint": read_only,
+        "destructiveHint": bool(spec.requires_confirmation),
+    }
+    if spec.name == "web_fetch":
+        annotations["openWorldHint"] = True
+    return McpToolDescriptor(
+        name=spec.name,
+        description=spec.description,
+        input_schema=spec.parameters,
+        annotations=annotations,
+        meta={"requires_confirmation": spec.requires_confirmation},
+        requires_confirmation=spec.requires_confirmation,
+    )

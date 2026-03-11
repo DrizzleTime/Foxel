@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/agent", tags=["agent"])
 
 
 @router.post("/chat")
-@audit(action=AuditAction.CREATE, description="Agent 对话", body_fields=["auto_execute"])
+@audit(action=AuditAction.CREATE, description="Agent 对话", body_fields=["auto_execute", "approved_mcp_call_ids", "rejected_mcp_call_ids"])
 async def chat(
     request: Request,
     payload: AgentChatRequest,
@@ -25,7 +25,7 @@ async def chat(
 
 
 @router.post("/chat/stream")
-@audit(action=AuditAction.CREATE, description="Agent 对话（SSE）", body_fields=["auto_execute"])
+@audit(action=AuditAction.CREATE, description="Agent 对话（SSE）", body_fields=["auto_execute", "approved_mcp_call_ids", "rejected_mcp_call_ids"])
 async def chat_stream(
     request: Request,
     payload: AgentChatRequest,

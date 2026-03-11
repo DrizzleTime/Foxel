@@ -9,12 +9,18 @@ export interface AgentChatContext {
 export interface AgentChatRequest {
   messages: AgentChatMessage[];
   auto_execute?: boolean;
-  approved_tool_call_ids?: string[];
-  rejected_tool_call_ids?: string[];
+  approved_mcp_call_ids?: string[];
+  rejected_mcp_call_ids?: string[];
   context?: AgentChatContext;
 }
 
-export interface PendingToolCall {
+export interface McpCall {
+  id: string;
+  name: string;
+  arguments: Record<string, any>;
+}
+
+export interface PendingMcpCall {
   id: string;
   name: string;
   arguments: Record<string, any>;
@@ -23,16 +29,16 @@ export interface PendingToolCall {
 
 export interface AgentChatResponse {
   messages: AgentChatMessage[];
-  pending_tool_calls?: PendingToolCall[];
+  pending_mcp_calls?: PendingMcpCall[];
 }
 
 export type AgentSseEvent =
   | { event: 'assistant_start'; data: { id: string } }
   | { event: 'assistant_delta'; data: { id: string; delta: string } }
   | { event: 'assistant_end'; data: { id: string; message: AgentChatMessage } }
-  | { event: 'tool_start'; data: { tool_call_id: string; name: string } }
-  | { event: 'tool_end'; data: { tool_call_id: string; name: string; message: AgentChatMessage } }
-  | { event: 'pending'; data: { pending_tool_calls: PendingToolCall[] } }
+  | { event: 'mcp_call_start'; data: { mcp_call_id: string; name: string } }
+  | { event: 'mcp_call_end'; data: { mcp_call_id: string; name: string; message: AgentChatMessage } }
+  | { event: 'pending'; data: { pending_mcp_calls: PendingMcpCall[] } }
   | { event: 'done'; data: AgentChatResponse };
 
 export const agentApi = {

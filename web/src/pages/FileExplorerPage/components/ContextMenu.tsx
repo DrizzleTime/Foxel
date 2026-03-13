@@ -260,7 +260,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
           selectable={false}
           onClick={({ key }) => {
             const handler = handlerMap.get(String(key));
-            if (handler) handler();
+            if (!handler) return;
+            handler();
             onClose();
           }}
           style={{ borderRadius: token.borderRadius, background: 'transparent', border: 'none' }}

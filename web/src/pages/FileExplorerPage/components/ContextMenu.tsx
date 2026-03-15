@@ -255,17 +255,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         height="auto"
         styles={{ body: { padding: 8 } }}
       >
-        <Menu
-          items={items}
-          selectable={false}
-          onClick={({ key }) => {
-            const handler = handlerMap.get(String(key));
-            if (!handler) return;
-            handler();
-            onClose();
-          }}
-          style={{ borderRadius: token.borderRadius, background: 'transparent', border: 'none' }}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <Menu
+            items={items}
+            mode="inline"
+            selectable={false}
+            onClick={({ key }) => {
+              const handler = handlerMap.get(String(key));
+              if (!handler) return;
+              handler();
+              onClose();
+            }}
+            style={{ borderRadius: token.borderRadius, background: 'transparent', border: 'none' }}
+          />
+        </div>
       </Drawer>
     );
   }

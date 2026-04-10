@@ -299,23 +299,23 @@ class LocalAdapter:
 
         return StreamingResponse(iterator(), status_code=status, headers=headers, media_type=content_type)
 
-    async def stat_file(self, root: str, rel: str):
+    async def stat_file(self, root: str, rel: str, include_metadata: bool = False):
         fp = _safe_join(root, rel)
         if not fp.exists():
             raise FileNotFoundError(rel)
         st = await asyncio.to_thread(fp.stat)
+        is_dir = fp.is_dir()
         info = {
             "name": fp.name,
-            "is_dir": fp.is_dir(),
+            "is_dir": is_dir,
             "size": st.st_size,
             "mtime": int(st.st_mtime),
             "mode": stat.S_IMODE(st.st_mode),
-            "type": "dir" if fp.is_dir() else "file",
+            "type": "dir" if is_dir else "file",
             "path": str(fp),
         }
-        # exif信息
-        exif = None
-        if not fp.is_dir():
+        if include_metadata and not is_dir:
+            exif = None
             mime, _ = mimetypes.guess_type(fp.name)
             if mime and mime.startswith("image/"):
                 try:
@@ -326,7 +326,7 @@ class LocalAdapter:
                         exif = {str(k): str(v) for k, v in exif_data.items()}
                 except Exception:
                     exif = None
-        info["exif"] = exif
+            info["exif"] = exif
         return info
 
 

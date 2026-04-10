@@ -144,9 +144,9 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
         return response
 
     @classmethod
-    async def stat(cls, full_path: str):
+    async def stat(cls, full_path: str, verbose: bool = False):
         full_path = cls._normalize_path(full_path)
-        return await cls.stat_file(full_path)
+        return await cls.stat_file(full_path, verbose=verbose)
 
     @classmethod
     async def write_uploaded_file(cls, full_path: str, data: bytes):

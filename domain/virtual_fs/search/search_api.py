@@ -28,12 +28,12 @@ async def search_files(
     data = await VirtualFSSearchService.search(q, top_k, mode, page, page_size)
     items = data.get("items") if isinstance(data, dict) else None
     if isinstance(items, list) and items:
-        filtered = []
-        for item in items:
-            path = getattr(item, "path", None)
-            if not path:
-                continue
-            if await PermissionService.check_path_permission(user.id, str(path), PathAction.READ):
-                filtered.append(item)
-        data["items"] = filtered
+        path_pairs = [(str(item.path), item) for item in items if getattr(item, "path", None)]
+        allowed_paths = await PermissionService.filter_paths_by_permission(
+            user.id,
+            [path for path, _ in path_pairs],
+            PathAction.READ,
+        )
+        allowed_set = set(allowed_paths)
+        data["items"] = [item for path, item in path_pairs if path in allowed_set]
     return success(data)

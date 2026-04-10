@@ -1,3 +1,4 @@
+import inspect
 from typing import Any, Dict, List, Tuple
 
 from fastapi import HTTPException
@@ -14,6 +15,23 @@ from .resolver import VirtualFSResolverMixin
 
 
 class VirtualFSListingMixin(VirtualFSResolverMixin):
+    @staticmethod
+    async def _call_stat_file(
+        stat_func,
+        root: str,
+        rel: str,
+        *,
+        include_metadata: bool = False,
+    ):
+        try:
+            parameters = inspect.signature(stat_func).parameters
+        except (TypeError, ValueError):
+            parameters = {}
+
+        if "include_metadata" in parameters:
+            return await stat_func(root, rel, include_metadata=include_metadata)
+        return await stat_func(root, rel)
+
     @classmethod
     async def path_is_directory(cls, path: str) -> bool:
         adapter_instance, _, root, rel = await cls.resolve_adapter_and_rel(path)
@@ -24,7 +42,7 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
         if not callable(stat_func):
             raise HTTPException(501, detail="Adapter does not implement stat_file")
         try:
-            info = await stat_func(root, rel)
+            info = await cls._call_stat_file(stat_func, root, rel, include_metadata=False)
         except FileNotFoundError:
             raise HTTPException(404, detail="Path not found")
         if isinstance(info, dict):
@@ -110,7 +128,12 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
                     stat_file = getattr(adapter_instance, "stat_file", None)
                     if callable(stat_file):
                         try:
-                            parent_info = await stat_file(effective_root, rel)
+                            parent_info = await cls._call_stat_file(
+                                stat_file,
+                                effective_root,
+                                rel,
+                                include_metadata=False,
+                            )
                             if isinstance(parent_info, dict):
                                 parent_info.setdefault("name", rel.split("/")[-1])
                                 parent_info["is_dir"] = bool(parent_info.get("is_dir", True))
@@ -121,7 +144,12 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
                     stat_file = getattr(adapter_instance, "stat_file", None)
                     if callable(stat_file):
                         try:
-                            parent_info = await stat_file(effective_root, parent_rel)
+                            parent_info = await cls._call_stat_file(
+                                stat_file,
+                                effective_root,
+                                parent_rel,
+                                include_metadata=False,
+                            )
                             if isinstance(parent_info, dict):
                                 parent_info.setdefault("name", parent_rel.split("/")[-1])
                                 parent_info["is_dir"] = bool(parent_info.get("is_dir", True))
@@ -222,13 +250,18 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
         }
 
     @classmethod
-    async def stat_file(cls, path: str):
+    async def stat_file(cls, path: str, verbose: bool = False):
         adapter_instance, _, root, rel = await cls.resolve_adapter_and_rel(path)
         stat_func = getattr(adapter_instance, "stat_file", None)
         if not callable(stat_func):
             raise HTTPException(501, detail="Adapter does not implement stat_file")
         try:
-            info = await stat_func(root, rel)
+            info = await cls._call_stat_file(
+                stat_func,
+                root,
+                rel,
+                include_metadata=verbose,
+            )
         except FileNotFoundError as exc:
             raise HTTPException(404, detail=str(exc))
 
@@ -241,7 +274,7 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
             rel_name = rel.rstrip("/").split("/")[-1] if rel else path.rstrip("/").split("/")[-1]
             name_hint = str(info.get("name") or rel_name or "")
             info["has_thumbnail"] = bool(not is_dir and (is_image_filename(name_hint) or is_video_filename(name_hint)))
-            if not is_dir:
+            if verbose and not is_dir:
                 vector_index = await cls._gather_vector_index(path)
                 if vector_index is not None:
                     info["vector_index"] = vector_index
@@ -263,38 +296,26 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
         
         过滤掉用户没有读取权限的条目
         """
-        # 首先获取完整的目录列表
         result = await cls.list_virtual_dir(path, page_num, page_size, sort_by, sort_order)
-        
-        # 检查用户是否是管理员（管理员可以看到所有内容）
-        from models.database import UserAccount
-        user = await UserAccount.get_or_none(id=user_id)
-        if user and user.is_admin:
-            return result
-        
-        # 过滤无权限的条目
         items = result.get("items", [])
         if not items:
             return result
-        
+
         norm = cls._normalize_path(path).rstrip("/") or "/"
-        filtered_items = []
-        
+        path_pairs: List[Tuple[str, Dict]] = []
         for item in items:
             item_name = item.get("name", "")
             if norm == "/":
                 item_path = f"/{item_name}"
             else:
                 item_path = f"{norm}/{item_name}"
-            
-            # 检查用户是否有读取权限
-            has_permission = await PermissionService.check_path_permission(
-                user_id, item_path, PathAction.READ
-            )
-            if has_permission:
-                filtered_items.append(item)
-        
-        # 更新结果
-        result["items"] = filtered_items
-        
+            path_pairs.append((item_path, item))
+
+        allowed_paths = await PermissionService.filter_paths_by_permission(
+            user_id,
+            [item_path for item_path, _ in path_pairs],
+            PathAction.READ,
+        )
+        allowed_set = set(allowed_paths)
+        result["items"] = [item for item_path, item in path_pairs if item_path in allowed_set]
         return result

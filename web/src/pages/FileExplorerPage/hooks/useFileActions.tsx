@@ -168,22 +168,19 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     refresh();
   }, [normalizeDestination, normalizeFullPath, t, buildEntryDestination, refresh]);
 
-  const doDownload = useCallback(async (entry: VfsEntry) => {
+  const doDownload = useCallback((entry: VfsEntry) => {
     if (entry.is_dir) {
       message.warning(t('Downloading folders is not supported'));
       return;
     }
     try {
-      const buf = await vfsApi.readFile((path === '/' ? '' : path) + '/' + entry.name);
-      const blob = new Blob([buf]);
-      const url = URL.createObjectURL(blob);
+      const url = vfsApi.streamUrl((path === '/' ? '' : path) + '/' + entry.name);
       const a = document.createElement('a');
       a.href = url;
       a.download = entry.name;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     } catch (e: any) {
       message.error(e.message || t('Download failed'));
     }

@@ -376,7 +376,7 @@ class WebDAVAdapter:
 
         return StreamingResponse(segmented_body(), status_code=status_code, headers=resp_headers, media_type=content_type)
 
-    async def stat_file(self, root: str, rel: str):
+    async def stat_file(self, root: str, rel: str, include_metadata: bool = False):
         url = self._build_url(rel)
         async with self._client() as client:
             # PROPFIND 获取属性
@@ -426,9 +426,8 @@ class WebDAVAdapter:
                         info["mtime"] = 0
                 elif info["mtime"] is None:
                     info["mtime"] = 0
-            # exif信息
-            exif = None
-            if not info["is_dir"]:
+            if include_metadata and not info["is_dir"]:
+                exif = None
                 mime, _ = mimetypes.guess_type(info["name"])
                 if mime and mime.startswith("image/"):
                     try:
@@ -442,7 +441,7 @@ class WebDAVAdapter:
                                 exif = {str(k): str(v) for k, v in exif_data.items()}
                     except Exception:
                         exif = None
-            info["exif"] = exif
+                info["exif"] = exif
             return info
 
     async def exists(self, root: str, rel: str) -> bool:

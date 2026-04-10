@@ -181,7 +181,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     setDetailLoading(true);
     try {
       const fullPath = (entryBasePath === '/' ? '' : entryBasePath) + '/' + entry.name;
-      const stat = await vfsApi.stat(fullPath);
+      const stat = await vfsApi.stat(fullPath, { verbose: true });
       setDetailData(stat as Record<string, unknown>);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);

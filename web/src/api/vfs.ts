@@ -86,7 +86,12 @@ export const vfsApi = {
   thumb: (path: string, w=256, h=256, fit='cover') =>
     request<ArrayBuffer>(`/fs/thumb/${encodeURI(path.replace(/^\/+/, ''))}?w=${w}&h=${h}&fit=${fit}`),
   streamUrl: (path: string) => `${API_BASE_URL}/fs/stream/${encodeURI(path.replace(/^\/+/, ''))}`,
-  stat: (path: string) => request(`/fs/stat/${encodeURI(path.replace(/^\/+/, ''))}`),
+  stat: (path: string, options?: { verbose?: boolean }) => {
+    const params = new URLSearchParams();
+    if (options?.verbose) params.set('verbose', 'true');
+    const query = params.toString();
+    return request(`/fs/stat/${encodeURI(path.replace(/^\/+/, ''))}${query ? `?${query}` : ''}`);
+  },
   getTempLinkToken: (path: string, expiresIn: number = 3600) =>
     request<{token: string, path: string, url: string}>(`/fs/temp-link/${encodeURI(path.replace(/^\/+/, ''))}?expires_in=${expiresIn}`),
   getTempPublicUrl: (token: string) => `${API_BASE_URL}/fs/public/${token}`,

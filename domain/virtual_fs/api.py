@@ -84,8 +84,9 @@ async def get_file_stat(
     full_path: str,
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
+    verbose: bool = Query(False, description="是否返回扩展元数据"),
 ):
-    stat = await VirtualFSService.stat(full_path)
+    stat = await VirtualFSService.stat(full_path, verbose=verbose)
     return success(stat)
 
 

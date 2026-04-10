@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Dict, List, Optional, Sequence
 from uuid import NAMESPACE_URL, uuid5
 
@@ -40,7 +41,7 @@ class QdrantProvider(BaseVectorProvider):
         api_key = (self.config.get("api_key") or None) or None
         try:
             client = QdrantClient(url=url, api_key=api_key)
-            client.get_collections()
+            await asyncio.to_thread(client.get_collections)
             self.client = client
         except Exception as exc:  # pragma: no cover - 依赖外部服务
             raise RuntimeError(f"Failed to connect to Qdrant at {url}: {exc}") from exc

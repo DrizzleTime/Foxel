@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Dict, List, Optional
 
 from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
@@ -32,11 +33,14 @@ class MilvusServerProvider(BaseVectorProvider):
         self.client: MilvusClient | None = None
 
     async def initialize(self) -> None:
-        uri = self.config.get("uri")
+        uri = str(self.config.get("uri") or "").strip()
         if not uri:
             raise RuntimeError("Milvus Server URI is required")
+        token = self.config.get("token")
+        if isinstance(token, str):
+            token = token.strip() or None
         try:
-            self.client = MilvusClient(uri=uri, token=self.config.get("token"))
+            self.client = await asyncio.to_thread(MilvusClient, uri=uri, token=token)
         except Exception as exc:  # pragma: no cover - depends on remote availability
             raise RuntimeError(f"Failed to connect to Milvus Server {uri}: {exc}") from exc
 

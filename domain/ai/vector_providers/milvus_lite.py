@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -23,12 +24,14 @@ class MilvusLiteProvider(BaseVectorProvider):
 
     def __init__(self, config: Dict[str, Any] | None = None):
         super().__init__(config)
-        self.db_path = Path(self.config.get("db_path") or "data/db/milvus.db")
+        raw_db_path = self.config.get("db_path")
+        db_path = str(raw_db_path).strip() if raw_db_path is not None else ""
+        self.db_path = Path(db_path or "data/db/milvus.db")
         self.client: MilvusClient | None = None
 
     async def initialize(self) -> None:
         try:
-            self.client = MilvusClient(str(self.db_path))
+            self.client = await asyncio.to_thread(MilvusClient, str(self.db_path))
         except Exception as exc:  # pragma: no cover - depends on local environment
             raise RuntimeError(f"Failed to open Milvus Lite at {self.db_path}: {exc}") from exc
 

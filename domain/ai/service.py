@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import Iterable
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TypeVar
 
 import httpx
 from tortoise.exceptions import DoesNotExist
@@ -28,6 +28,8 @@ OPENAI_EMBEDDING_DIMS = {
     "text-embedding-ada-002": 1536,
 }
 
+T = TypeVar("T")
+
 
 class VectorDBConfigManager:
     TYPE_KEY = "VECTOR_DB_TYPE"
@@ -35,9 +37,28 @@ class VectorDBConfigManager:
     DEFAULT_TYPE = "milvus_lite"
 
     @classmethod
+    def normalize_type(cls, provider_type: Any) -> str:
+        normalized = str(provider_type or cls.DEFAULT_TYPE).strip()
+        return normalized or cls.DEFAULT_TYPE
+
+    @classmethod
+    def normalize_config(cls, config: Dict[str, Any] | None) -> Dict[str, Any]:
+        normalized: Dict[str, Any] = {}
+        for key, value in (config or {}).items():
+            normalized_key = str(key).strip()
+            if not normalized_key:
+                continue
+            if isinstance(value, str):
+                value = value.strip()
+                if not value:
+                    continue
+            normalized[normalized_key] = value
+        return normalized
+
+    @classmethod
     async def load_config(cls) -> Tuple[str, Dict[str, Any]]:
         raw_type = await ConfigService.get(cls.TYPE_KEY, cls.DEFAULT_TYPE)
-        provider_type = str(raw_type or cls.DEFAULT_TYPE)
+        provider_type = cls.normalize_type(raw_type)
 
         raw_config = await ConfigService.get(cls.CONFIG_KEY)
         config_dict: Dict[str, Any] = {}
@@ -48,12 +69,14 @@ class VectorDBConfigManager:
                 config_dict = {}
         elif isinstance(raw_config, dict):
             config_dict = raw_config
-        return provider_type, config_dict
+        return provider_type, cls.normalize_config(config_dict)
 
     @classmethod
     async def save_config(cls, provider_type: str, config: Dict[str, Any]) -> None:
-        await ConfigService.set(cls.TYPE_KEY, provider_type)
-        await ConfigService.set(cls.CONFIG_KEY, json.dumps(config or {}))
+        normalized_type = cls.normalize_type(provider_type)
+        normalized_config = cls.normalize_config(config)
+        await ConfigService.set(cls.TYPE_KEY, normalized_type)
+        await ConfigService.set(cls.CONFIG_KEY, json.dumps(normalized_config))
 
     @classmethod
     async def get_type(cls) -> str:
@@ -413,6 +436,7 @@ class VectorDBService:
             self._provider_type: Optional[str] = None
             self._provider_config: Dict[str, Any] | None = None
             self._lock = asyncio.Lock()
+            self._operation_lock = asyncio.Lock()
 
     async def _ensure_provider(self) -> BaseVectorProvider:
         if self._provider is None:
@@ -449,33 +473,38 @@ class VectorDBService:
             self._provider_config = normalized_config
             return provider
 
+    async def _run_provider_call(self, provider: BaseVectorProvider, method_name: str, *args, **kwargs) -> T:
+        method = getattr(provider, method_name)
+        async with self._operation_lock:
+            return await asyncio.to_thread(method, *args, **kwargs)
+
     async def ensure_collection(self, collection_name: str, vector: bool = True, dim: int = DEFAULT_VECTOR_DIMENSION) -> None:
         provider = await self._ensure_provider()
-        provider.ensure_collection(collection_name, vector, dim)
+        await self._run_provider_call(provider, "ensure_collection", collection_name, vector, dim)
 
     async def upsert_vector(self, collection_name: str, data: Dict[str, Any]) -> None:
         provider = await self._ensure_provider()
-        provider.upsert_vector(collection_name, data)
+        await self._run_provider_call(provider, "upsert_vector", collection_name, data)
 
     async def delete_vector(self, collection_name: str, path: str) -> None:
         provider = await self._ensure_provider()
-        provider.delete_vector(collection_name, path)
+        await self._run_provider_call(provider, "delete_vector", collection_name, path)
 
     async def search_vectors(self, collection_name: str, query_embedding, top_k: int = 5):
         provider = await self._ensure_provider()
-        return provider.search_vectors(collection_name, query_embedding, top_k)
+        return await self._run_provider_call(provider, "search_vectors", collection_name, query_embedding, top_k)
 
     async def search_by_path(self, collection_name: str, query_path: str, top_k: int = 20):
         provider = await self._ensure_provider()
-        return provider.search_by_path(collection_name, query_path, top_k)
+        return await self._run_provider_call(provider, "search_by_path", collection_name, query_path, top_k)
 
     async def get_all_stats(self) -> Dict[str, Any]:
         provider = await self._ensure_provider()
-        return provider.get_all_stats()
+        return await self._run_provider_call(provider, "get_all_stats")
 
     async def clear_all_data(self) -> None:
         provider = await self._ensure_provider()
-        provider.clear_all_data()
+        await self._run_provider_call(provider, "clear_all_data")
 
     async def current_provider(self) -> Dict[str, Any]:
         provider_type, provider_config = await VectorDBConfigManager.load_config()

@@ -267,19 +267,24 @@ async def get_vector_db_config(request: Request, user: User = Depends(get_curren
 async def update_vector_db_config(
     request: Request, payload: VectorDBConfigPayload, user: User = Depends(get_current_active_user)
 ):
-    entry = get_provider_entry(payload.type)
+    provider_type = str(payload.type or "").strip()
+    if not provider_type:
+        raise HTTPException(status_code=400, detail="向量数据库类型不能为空")
+    normalized_config = VectorDBConfigManager.normalize_config(payload.config)
+
+    entry = get_provider_entry(provider_type)
     if not entry:
         raise HTTPException(
-            status_code=400, detail=f"未知的向量数据库类型: {payload.type}")
+            status_code=400, detail=f"未知的向量数据库类型: {provider_type}")
     if not entry.get("enabled", True):
         raise HTTPException(status_code=400, detail="该向量数据库类型暂不可用")
 
-    provider_cls = get_provider_class(payload.type)
+    provider_cls = get_provider_class(provider_type)
     if not provider_cls:
         raise HTTPException(
-            status_code=400, detail=f"未找到类型 {payload.type} 对应的实现")
+            status_code=400, detail=f"未找到类型 {provider_type} 对应的实现")
 
-    test_provider = provider_cls(payload.config)
+    test_provider = provider_cls(normalized_config)
     try:
         await test_provider.initialize()
     except Exception as exc:
@@ -293,7 +298,7 @@ async def update_vector_db_config(
             except Exception:
                 pass
 
-    await VectorDBConfigManager.save_config(payload.type, payload.config)
+    await VectorDBConfigManager.save_config(provider_type, normalized_config)
     service = VectorDBService()
     await service.reload()
     config_data = await service.current_provider()

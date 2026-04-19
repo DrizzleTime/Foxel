@@ -2,6 +2,7 @@ import { Alert, Button, Divider, Form, Input, Select, Switch, message } from 'an
 import { useEffect, useMemo, useState } from 'react';
 import { rolesApi, type RoleInfo } from '../../../api/roles';
 import { useI18n } from '../../../i18n';
+import { normalizeLang, readStoredLang } from '../../../i18n/lang';
 
 interface AppConfigKey {
   key: string;
@@ -12,7 +13,7 @@ interface AppConfigKey {
 interface AppSettingsTabProps {
   config: Record<string, string>;
   loading: boolean;
-  onSave: (values: Record<string, unknown>) => Promise<void>;
+  onSave: (values: Record<string, unknown>) => Promise<boolean>;
   configKeys: AppConfigKey[];
 }
 
@@ -22,7 +23,7 @@ export default function AppSettingsTab({
   onSave,
   configKeys,
 }: AppSettingsTabProps) {
-  const { t } = useI18n();
+  const { t, setLang } = useI18n();
   const [rolesLoading, setRolesLoading] = useState(false);
   const [roles, setRoles] = useState<RoleInfo[]>([]);
 
@@ -52,6 +53,7 @@ export default function AppSettingsTab({
     const roleId = roleIdRaw ? Number(roleIdRaw) : undefined;
     return {
       ...Object.fromEntries(configKeys.map(({ key, default: def }) => [key, config[key] ?? def ?? ''])),
+      APP_DEFAULT_LANGUAGE: normalizeLang(config.APP_DEFAULT_LANGUAGE, 'zh'),
       AUTH_ALLOW_REGISTER: allowRegister,
       AUTH_DEFAULT_REGISTER_ROLE_ID: Number.isFinite(roleId) ? roleId : undefined,
     };
@@ -66,12 +68,17 @@ export default function AppSettingsTab({
         for (const { key } of configKeys) {
           payload[key] = vals[key];
         }
+        const defaultLanguage = normalizeLang(vals.APP_DEFAULT_LANGUAGE, 'zh');
+        payload.APP_DEFAULT_LANGUAGE = defaultLanguage;
         const allow = !!vals.AUTH_ALLOW_REGISTER;
         payload.AUTH_ALLOW_REGISTER = allow ? 'true' : 'false';
         if (allow) {
           payload.AUTH_DEFAULT_REGISTER_ROLE_ID = String(vals.AUTH_DEFAULT_REGISTER_ROLE_ID);
         }
-        await onSave(payload);
+        const saved = await onSave(payload);
+        if (saved && !readStoredLang()) {
+          setLang(defaultLanguage, { persist: false });
+        }
       }}
       style={{ marginTop: 24 }}
       key={JSON.stringify(config)}
@@ -81,6 +88,20 @@ export default function AppSettingsTab({
           <Input size="large" />
         </Form.Item>
       ))}
+
+      <Form.Item
+        name="APP_DEFAULT_LANGUAGE"
+        label={t('Default Language')}
+        extra={t('Used when the user has not selected a language')}
+      >
+        <Select
+          size="large"
+          options={[
+            { value: 'zh', label: t('Chinese') },
+            { value: 'en', label: t('English') },
+          ]}
+        />
+      </Form.Item>
 
       <Divider titlePlacement="left">{t('Registration Settings')}</Divider>
 

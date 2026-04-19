@@ -1,4 +1,5 @@
 import request from './client';
+import type { Lang } from '../i18n/lang';
 
 export async function getConfig(key: string) {
   return request<{ key: string; value: string }>('/config/?key=' + encodeURIComponent(key));
@@ -25,6 +26,7 @@ export interface SystemStatus {
   logo: string;
   favicon: string;
   is_initialized: boolean;
+  default_language?: Lang;
   app_domain?: string;
   file_domain?: string;
 }

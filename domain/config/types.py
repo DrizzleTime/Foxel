@@ -14,6 +14,7 @@ class SystemStatus(BaseModel):
     logo: str
     favicon: str
     is_initialized: bool
+    default_language: str = "zh"
     app_domain: Optional[str] = None
     file_domain: Optional[str] = None
 

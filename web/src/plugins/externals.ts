@@ -21,8 +21,7 @@ import { pluginsApi } from '../api/plugins';
 // 类型定义
 import type { VfsEntry, DirListing } from '../api/client';
 import type { PluginItem } from '../api/plugins';
-
-type Lang = 'zh' | 'en';
+import { getActiveLang, normalizeLang, type Lang } from '../i18n/lang';
 type Dict = Record<string, string>;
 type Dicts = Partial<Record<Lang, Dict>>;
 
@@ -197,10 +196,8 @@ declare global {
  * 初始化并暴露外部依赖
  */
 export function initExternals(): void {
-  const normalizeLang = (raw: unknown): Lang => (raw === 'en' ? 'en' : 'zh');
-
   const i18nApi = {
-    getLang: () => normalizeLang(localStorage.getItem('lang')),
+    getLang: () => getActiveLang(),
     subscribe: (cb: (lang: Lang) => void) => {
       const handler = (e: Event) => {
         const lang = (e as CustomEvent)?.detail?.lang as Lang;

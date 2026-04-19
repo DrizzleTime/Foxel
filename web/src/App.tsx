@@ -10,38 +10,7 @@ import { Routes, Route, Navigate } from 'react-router';
 import SetupPage from './pages/SetupPage.tsx';
 import { I18nProvider } from './i18n';
 
-function AppInner() {
-  const [status, setStatus] = useState<SystemStatus | null>(null);
-  useEffect(() => {
-    async function checkInitialization() {
-      try {
-        const status = await getStatus();
-        setStatus(status);
-        document.title = status.title;
-        let favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
-        if (!favicon) {
-          favicon = document.createElement('link');
-          favicon.rel = 'icon';
-          document.head.appendChild(favicon);
-        }
-        if (favicon) {
-          favicon.href = status.favicon || status.logo;
-        }
-      } catch (error) {
-        console.error("Failed to check initialization status:", error);
-      }
-    }
-    checkInitialization();
-  }, []);
-
-  if (status === null) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
+function AppInner({ status }: { status: SystemStatus }) {
   return (
     <SystemContext.Provider value={status}>
       <AuthProvider>
@@ -61,9 +30,41 @@ function AppInner() {
 }
 
 export default function App() {
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+
+  useEffect(() => {
+    async function checkInitialization() {
+      try {
+        const nextStatus = await getStatus();
+        setStatus(nextStatus);
+        document.title = nextStatus.title;
+        let favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+        if (!favicon) {
+          favicon = document.createElement('link');
+          favicon.rel = 'icon';
+          document.head.appendChild(favicon);
+        }
+        if (favicon) {
+          favicon.href = nextStatus.favicon || nextStatus.logo;
+        }
+      } catch (error) {
+        console.error("Failed to check initialization status:", error);
+      }
+    }
+    checkInitialization();
+  }, []);
+
+  if (status === null) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
   return (
-    <I18nProvider>
-      <AppInner />
+    <I18nProvider defaultLanguage={status.default_language}>
+      <AppInner status={status} />
     </I18nProvider>
   );
 }

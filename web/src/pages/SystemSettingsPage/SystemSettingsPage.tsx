@@ -66,7 +66,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
       });
   }, [t]);
 
-  const handleSave = async (values: Record<string, unknown>) => {
+  const handleSave = async (values: Record<string, unknown>): Promise<boolean> => {
     setLoading(true);
     try {
       for (const [key, value] of Object.entries(values)) {
@@ -81,10 +81,13 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
       if (Object.keys(values).some(k => Object.values(THEME_KEYS).includes(k))) {
         await refreshTheme();
       }
+      return true;
     } catch (e: any) {
       message.error(e.message || t('Save failed'));
+      return false;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // 离开“外观设置”时，恢复后端持久化配置（取消未保存的预览）

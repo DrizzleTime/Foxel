@@ -7,12 +7,14 @@ import type { PluginItem } from './api/plugins';
 import { pluginsApi } from './api/plugins';
 import request from './api/client';
 import { vfsApi, type VfsEntry } from './api/vfs';
+import { parseLang } from './i18n/lang';
 
 type FrameMode = 'file' | 'app';
 
 type FrameQuery = {
   pluginKey: string;
   mode: FrameMode;
+  lang: string;
   filePath: string;
   pluginVersion: string;
   pluginStyles: string[] | null;
@@ -65,6 +67,7 @@ function getQuery(): FrameQuery {
   const params = new URLSearchParams(window.location.search);
   const pluginKey = (params.get('pluginKey') || '').trim();
   const mode = (params.get('mode') || 'file') as FrameMode;
+  const lang = (params.get('lang') || '').trim();
   const filePath = (params.get('filePath') || '').trim();
   const pluginVersion = (params.get('pluginVersion') || '').trim();
 
@@ -88,7 +91,7 @@ function getQuery(): FrameQuery {
       }
       : null;
 
-  return { pluginKey, mode, filePath, pluginVersion, pluginStyles, entry };
+  return { pluginKey, mode, lang, filePath, pluginVersion, pluginStyles, entry };
 }
 
 function postToParent(data: any) {
@@ -279,9 +282,14 @@ async function buildFileContext(filePath: string, entryOverride: VfsEntry | null
 }
 
 async function main() {
+  const query = getQuery();
+  const frameLang = parseLang(query.lang);
+  if (frameLang) {
+    document.documentElement.lang = frameLang;
+  }
   initExternals();
 
-  const { pluginKey, mode, filePath, pluginVersion, pluginStyles, entry } = getQuery();
+  const { pluginKey, mode, filePath, pluginVersion, pluginStyles, entry } = query;
   if (!pluginKey) {
     renderStatus('Missing pluginKey in query string', true);
     return;

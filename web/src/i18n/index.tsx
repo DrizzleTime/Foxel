@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useMemo, useState, useEffect } 
 import type { PropsWithChildren } from 'react';
 import en from './locales/en.json';
 import zhOverrides from './locales/zh.json';
+import { normalizeLang, persistLang, readStoredLang, type Lang } from './lang';
 
-type Lang = 'zh' | 'en';
 type Dict = Record<string, string>;
 
 const dicts: Record<Lang, Dict> = {
@@ -11,9 +11,13 @@ const dicts: Record<Lang, Dict> = {
   zh: { ...en, ...zhOverrides },
 };
 
+interface SetLangOptions {
+  persist?: boolean;
+}
+
 export interface I18nContextValue {
   lang: Lang;
-  setLang: (lang: Lang) => void;
+  setLang: (lang: Lang, options?: SetLangOptions) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
@@ -24,13 +28,26 @@ function interpolate(template: string, params?: Record<string, string | number>)
   return template.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? `{${k}}`));
 }
 
-export function I18nProvider({ children }: PropsWithChildren) {
-  const [lang, setLangState] = useState<Lang>(() => (localStorage.getItem('lang') as Lang) || 'zh');
+interface I18nProviderProps {
+  defaultLanguage?: Lang;
+}
 
-  const setLang = useCallback((l: Lang) => {
-    setLangState(l);
-    localStorage.setItem('lang', l);
-  }, []);
+export function I18nProvider({ children, defaultLanguage }: PropsWithChildren<I18nProviderProps>) {
+  const fallbackLang = normalizeLang(defaultLanguage, 'zh');
+  const [lang, setLangState] = useState<Lang>(() => readStoredLang() ?? fallbackLang);
+
+  const setLang = useCallback((nextLang: Lang, options?: SetLangOptions) => {
+    const normalized = normalizeLang(nextLang, fallbackLang);
+    setLangState(normalized);
+    if (options?.persist === false) return;
+    persistLang(normalized);
+  }, [fallbackLang]);
+
+  useEffect(() => {
+    if (!readStoredLang()) {
+      setLangState(fallbackLang);
+    }
+  }, [fallbackLang]);
 
   useEffect(() => {
     document.documentElement.lang = lang;

@@ -5,7 +5,7 @@ import { useI18n } from '../../../i18n';
 interface ProtocolMappingsTabProps {
   config: Record<string, string>;
   loading: boolean;
-  onSave: (values: Record<string, unknown>) => Promise<void>;
+  onSave: (values: Record<string, unknown>) => Promise<boolean>;
 }
 
 const WEBDAV_KEY = 'WEBDAV_MAPPING_ENABLED';

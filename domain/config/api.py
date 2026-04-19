@@ -13,6 +13,7 @@ from .types import ConfigItem
 router = APIRouter(prefix="/api/config", tags=["config"])
 
 PUBLIC_CONFIG_KEYS = [
+    "APP_DEFAULT_LANGUAGE",
     "THEME_MODE",
     "THEME_PRIMARY_COLOR",
     "THEME_BORDER_RADIUS",
@@ -55,6 +56,7 @@ async def get_all_config(
 ):
     configs = await ConfigService.get_all()
     return success(configs)
+
 
 @router.get("/public")
 @audit(action=AuditAction.READ, description="获取公开配置")

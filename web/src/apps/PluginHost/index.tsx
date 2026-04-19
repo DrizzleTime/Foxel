@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import type { AppComponentProps, AppOpenComponentProps } from '../types';
 import type { PluginItem } from '../../api/plugins';
+import { useI18n } from '../../i18n';
 
 export interface PluginAppHostProps extends AppComponentProps {
   plugin: PluginItem;
@@ -34,6 +35,7 @@ export const PluginAppHost: React.FC<PluginAppHostProps> = ({
   entry,
   onRequestClose,
 }) => {
+  const { lang } = useI18n();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const onCloseRef = useRef(onRequestClose);
   onCloseRef.current = onRequestClose;
@@ -45,10 +47,11 @@ export const PluginAppHost: React.FC<PluginAppHostProps> = ({
         pluginVersion: plugin.version || '',
         pluginStyles: JSON.stringify(getPluginStylePaths(plugin)),
         mode: 'file',
+        lang,
         filePath,
         entry: JSON.stringify(entry),
       }),
-    [plugin, filePath, entry]
+    [plugin, filePath, entry, lang]
   );
 
   useEffect(() => {
@@ -86,6 +89,7 @@ export interface PluginAppOpenHostProps extends AppOpenComponentProps {
  * 注意：同源且不加 sandbox 时，不是安全沙箱（插件仍可通过 window.parent 访问宿主）。
  */
 export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, onRequestClose }) => {
+  const { lang } = useI18n();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const onCloseRef = useRef(onRequestClose);
   onCloseRef.current = onRequestClose;
@@ -97,8 +101,9 @@ export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, on
         pluginVersion: plugin.version || '',
         pluginStyles: JSON.stringify(getPluginStylePaths(plugin)),
         mode: 'app',
+        lang,
       }),
-    [plugin]
+    [plugin, lang]
   );
 
   useEffect(() => {

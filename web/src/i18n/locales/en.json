@@ -31,6 +31,8 @@
   "Language": "Language",
   "Chinese": "中文",
   "English": "English",
+  "Default Language": "Default Language",
+  "Used when the user has not selected a language": "Used when the user has not selected a language",
   "Full Name": "Full Name",
   "Email": "Email",
   "Change Password": "Change Password",

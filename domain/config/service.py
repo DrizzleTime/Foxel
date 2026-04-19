@@ -80,6 +80,7 @@ class ConfigService:
             logo=logo,
             favicon=favicon,
             is_initialized=user_count > 0,
+            default_language=await cls.get("APP_DEFAULT_LANGUAGE", "zh"),
             app_domain=await cls.get("APP_DOMAIN"),
             file_domain=await cls.get("FILE_DOMAIN"),
         )

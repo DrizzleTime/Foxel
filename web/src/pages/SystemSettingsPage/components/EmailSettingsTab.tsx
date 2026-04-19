@@ -28,7 +28,7 @@ import {
 interface EmailSettingsTabProps {
   config: Record<string, string>;
   loading: boolean;
-  onSave: (values: Record<string, unknown>) => Promise<void>;
+  onSave: (values: Record<string, unknown>) => Promise<boolean>;
 }
 
 interface EmailFormValues {

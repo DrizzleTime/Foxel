@@ -180,6 +180,14 @@ const AdaptersPage = memo(function AdaptersPage() {
       let valuePropName: string | undefined;
       if (field.type === 'password') inputNode = <Input.Password placeholder={field.placeholder} />;
       if (field.type === 'number') inputNode = <Input type="number" placeholder={field.placeholder} />;
+      if (field.type === 'select') {
+        inputNode = (
+          <Select
+            placeholder={field.placeholder}
+            options={(field.options || []).map(option => ({ value: option, label: t(option) }))}
+          />
+        );
+      }
       if (field.type === 'boolean') {
         inputNode = <Switch />;
         valuePropName = 'checked';

@@ -13,10 +13,11 @@ export interface AdapterItem {
 export interface AdapterTypeField {
   key: string;
   label: string;
-  type: 'string' | 'password' | 'number' | 'boolean';
+  type: 'string' | 'password' | 'number' | 'boolean' | 'select';
   required?: boolean;
   placeholder?: string;
   default?: any;
+  options?: string[];
 }
 
 export interface AdapterTypeMeta {

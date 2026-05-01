@@ -1,6 +1,6 @@
-import { Layout, Button, Dropdown, theme, Flex, Avatar, Typography, Tooltip } from 'antd';
-import { SearchOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined, RobotOutlined, BellOutlined } from '@ant-design/icons';
-import { memo, useState } from 'react';
+import { Layout, Button, Dropdown, theme, Flex, Avatar, Typography, Tooltip, Modal, QRCode } from 'antd';
+import { SearchOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined, RobotOutlined, BellOutlined, QrcodeOutlined } from '@ant-design/icons';
+import { memo, useMemo, useState } from 'react';
 import SearchDialog from './SearchDialog.tsx';
 import { authApi } from '../api/auth.ts';
 import { useNavigate } from 'react-router';
@@ -26,11 +26,16 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { user } = useAuth();
+  const { user, token: authToken } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [clientAuthOpen, setClientAuthOpen] = useState(false);
   const [noticesOpen, setNoticesOpen] = useState(false);
   const status = useSystemStatus();
   const { isMobile } = useResponsive();
+  const clientAuthPayload = useMemo(() => JSON.stringify({
+    base_url: window.location.origin,
+    token: authToken || '',
+  }), [authToken]);
 
   const handleLogout = () => {
     authApi.logout();
@@ -38,6 +43,7 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
   };
 
   const openProfile = () => setProfileOpen(true);
+  const openClientAuth = () => setClientAuthOpen(true);
 
   return (
     <Header
@@ -96,6 +102,7 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
           menu={{
             items: [
               { key: 'profile', label: t('Profile'), icon: <UserOutlined />, onClick: openProfile },
+              { key: 'client-auth', label: t('Client Authorization'), icon: <QrcodeOutlined />, onClick: openClientAuth },
               { key: 'logout', label: t('Log Out'), icon: <LogoutOutlined />, onClick: handleLogout },
             ],
           }}
@@ -114,6 +121,18 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
           </Button>
         </Dropdown>
         <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+        <Modal
+          title={t('Client Authorization')}
+          open={clientAuthOpen}
+          onCancel={() => setClientAuthOpen(false)}
+          footer={null}
+          width={320}
+          centered
+        >
+          <Flex justify="center" style={{ padding: '8px 0' }}>
+            <QRCode value={clientAuthPayload} size={220} />
+          </Flex>
+        </Modal>
         <NoticesModal open={noticesOpen} onClose={() => setNoticesOpen(false)} version={status?.version || ''} />
       </Flex>
     </Header>

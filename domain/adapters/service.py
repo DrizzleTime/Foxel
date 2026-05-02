@@ -8,7 +8,8 @@ from .registry import (
     normalize_adapter_type,
     runtime_registry,
 )
-from .types import AdapterCreate, AdapterOut
+from .types import AdapterCreate, AdapterOut, AdapterUsage
+from .providers.base import UsageCapableAdapter
 from models import StorageAdapter
 
 
@@ -84,6 +85,68 @@ class AdapterService:
         if not rec:
             raise HTTPException(404, detail="Not found")
         return AdapterOut.model_validate(rec)
+
+    @classmethod
+    def _unsupported_usage(cls, rec: StorageAdapter, reason: str) -> AdapterUsage:
+        return AdapterUsage(
+            id=rec.id,
+            name=rec.name,
+            type=rec.type,
+            path=rec.path,
+            supported=False,
+            reason=reason,
+        )
+
+    @classmethod
+    async def get_adapter_usage(cls, adapter_id: int) -> AdapterUsage:
+        rec = await StorageAdapter.get_or_none(id=adapter_id)
+        if not rec:
+            raise HTTPException(404, detail="Not found")
+        return await cls._get_adapter_usage_for_record(rec)
+
+    @classmethod
+    async def _get_adapter_usage_for_record(cls, rec: StorageAdapter) -> AdapterUsage:
+        if not rec.enabled:
+            return cls._unsupported_usage(rec, "adapter_disabled")
+
+        adapter = runtime_registry.get(rec.id)
+        if not adapter:
+            await runtime_registry.refresh()
+            adapter = runtime_registry.get(rec.id)
+        if not adapter:
+            return cls._unsupported_usage(rec, "adapter_unavailable")
+        if not isinstance(adapter, UsageCapableAdapter):
+            return cls._unsupported_usage(rec, "adapter_not_implemented")
+
+        root = adapter.get_effective_root(rec.sub_path)
+        try:
+            raw_usage = await adapter.get_usage(root)
+        except Exception as e:
+            return cls._unsupported_usage(rec, f"usage_failed: {e}")
+
+        if not isinstance(raw_usage, dict):
+            return cls._unsupported_usage(rec, "invalid_usage_response")
+
+        return AdapterUsage(
+            id=rec.id,
+            name=rec.name,
+            type=rec.type,
+            path=rec.path,
+            supported=True,
+            used_bytes=raw_usage.get("used_bytes"),
+            total_bytes=raw_usage.get("total_bytes"),
+            free_bytes=raw_usage.get("free_bytes"),
+            source=raw_usage.get("source") or rec.type,
+            scope=raw_usage.get("scope"),
+        )
+
+    @classmethod
+    async def list_adapter_usages(cls):
+        adapters = await StorageAdapter.all()
+        result = []
+        for rec in adapters:
+            result.append(await cls._get_adapter_usage_for_record(rec))
+        return result
 
     @classmethod
     async def update_adapter(cls, adapter_id: int, data: AdapterCreate, current_user: Optional[User]):

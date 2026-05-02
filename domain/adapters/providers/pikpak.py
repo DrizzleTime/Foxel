@@ -776,6 +776,21 @@ class PikPakAdapter:
                 return None
             return resp.content
 
+    async def get_usage(self, root: str):
+        data = await self._request("GET", "/about")
+        quota = data.get("quota") or {}
+        limit = quota.get("limit")
+        usage = quota.get("usage")
+        total = int(limit) if limit is not None else None
+        used = int(usage) if usage is not None else None
+        return {
+            "used_bytes": used,
+            "total_bytes": total,
+            "free_bytes": total - used if total is not None and used is not None else None,
+            "source": "pikpak",
+            "scope": "drive",
+        }
+
     async def mkdir(self, root: str, rel: str):
         rel = (rel or "").strip("/")
         if not rel:

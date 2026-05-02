@@ -329,6 +329,29 @@ class LocalAdapter:
             info["exif"] = exif
         return info
 
+    async def get_usage(self, root: str):
+        root_path = Path(root).resolve()
+
+        def _usage():
+            used = 0
+            for dirpath, dirnames, filenames in os.walk(root_path):
+                for filename in filenames:
+                    fp = Path(dirpath) / filename
+                    try:
+                        used += fp.stat().st_size
+                    except OSError:
+                        continue
+            disk = shutil.disk_usage(root_path)
+            return {
+                "used_bytes": used,
+                "total_bytes": disk.total,
+                "free_bytes": disk.free,
+                "source": "local",
+                "scope": "mount",
+            }
+
+        return await asyncio.to_thread(_usage)
+
 
 ADAPTER_TYPE = "local"
 CONFIG_SCHEMA = [

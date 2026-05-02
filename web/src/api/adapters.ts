@@ -25,10 +25,26 @@ export interface AdapterTypeMeta {
   config_schema: AdapterTypeField[];
 }
 
+export interface AdapterUsage {
+  id: number;
+  name: string;
+  type: string;
+  path: string;
+  supported: boolean;
+  used_bytes?: number | null;
+  total_bytes?: number | null;
+  free_bytes?: number | null;
+  source?: string | null;
+  scope?: string | null;
+  reason?: string | null;
+}
+
 export const adaptersApi = {
   list: () => request<AdapterItem[]>('/adapters'),
   create: (payload: Omit<AdapterItem, 'id'>) => request<AdapterItem>('/adapters', { method: 'POST', json: payload }),
   update: (id: number, payload: Omit<AdapterItem, 'id'>) => request<AdapterItem>(`/adapters/${id}`, { method: 'PUT', json: payload }),
   remove: (id: number) => request<void>(`/adapters/${id}`, { method: 'DELETE' }),
   available: () => request<AdapterTypeMeta[]>('/adapters/available'),
+  usage: () => request<AdapterUsage[]>('/adapters/usage'),
+  usageById: (id: number) => request<AdapterUsage>(`/adapters/${id}/usage`),
 };

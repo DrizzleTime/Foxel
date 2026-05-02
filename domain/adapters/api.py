@@ -51,6 +51,29 @@ async def available_adapter_types(
     return success(data)
 
 
+@router.get("/usage")
+@audit(action=AuditAction.READ, description="获取适配器容量使用情况")
+@require_system_permission(AdapterPermission.LIST)
+async def list_adapter_usages(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+):
+    usages = await AdapterService.list_adapter_usages()
+    return success(usages)
+
+
+@router.get("/{adapter_id}/usage")
+@audit(action=AuditAction.READ, description="获取单个适配器容量使用情况")
+@require_system_permission(AdapterPermission.LIST)
+async def get_adapter_usage(
+    request: Request,
+    adapter_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)]
+):
+    usage = await AdapterService.get_adapter_usage(adapter_id)
+    return success(usage)
+
+
 @router.get("/{adapter_id}")
 @audit(action=AuditAction.READ, description="获取适配器详情")
 @require_system_permission(AdapterPermission.LIST)

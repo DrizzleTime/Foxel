@@ -541,6 +541,22 @@ class GoogleDriveAdapter:
         except Exception:
             return None
 
+    async def get_usage(self, root: str):
+        resp = await self._request("GET", "/about", params={"fields": "storageQuota"})
+        resp.raise_for_status()
+        quota = (resp.json() or {}).get("storageQuota") or {}
+        limit = quota.get("limit")
+        usage = quota.get("usage")
+        total = int(limit) if limit is not None else None
+        used = int(usage) if usage is not None else None
+        return {
+            "used_bytes": used,
+            "total_bytes": total,
+            "free_bytes": total - used if total is not None and used is not None else None,
+            "source": "googledrive",
+            "scope": "drive",
+        }
+
 
 ADAPTER_TYPE = "googledrive"
 

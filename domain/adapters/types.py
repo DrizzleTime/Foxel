@@ -48,3 +48,17 @@ class AdapterOut(AdapterBase):
 
     class Config:
         from_attributes = True
+
+
+class AdapterUsage(BaseModel):
+    id: int
+    name: str
+    type: str
+    path: str
+    supported: bool
+    used_bytes: Optional[int] = None
+    total_bytes: Optional[int] = None
+    free_bytes: Optional[int] = None
+    source: Optional[str] = None
+    scope: Optional[str] = None
+    reason: Optional[str] = None

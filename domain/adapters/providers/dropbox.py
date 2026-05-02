@@ -455,6 +455,23 @@ class DropboxAdapter:
 
         return StreamingResponse(iterator(), status_code=resp.status_code, headers=out_headers, media_type=content_type)
 
+    async def get_usage(self, root: str):
+        resp = await self._api_json("/users/get_space_usage", {})
+        resp.raise_for_status()
+        payload = resp.json() or {}
+        allocation = payload.get("allocation") or {}
+        allocated = allocation.get("allocated")
+        used = payload.get("used")
+        total = int(allocated) if allocated is not None else None
+        used_bytes = int(used) if used is not None else None
+        return {
+            "used_bytes": used_bytes,
+            "total_bytes": total,
+            "free_bytes": total - used_bytes if total is not None and used_bytes is not None else None,
+            "source": "dropbox",
+            "scope": "account",
+        }
+
 
 ADAPTER_TYPE = "dropbox"
 CONFIG_SCHEMA = [
@@ -468,4 +485,3 @@ CONFIG_SCHEMA = [
 
 
 def ADAPTER_FACTORY(rec): return DropboxAdapter(rec)
-

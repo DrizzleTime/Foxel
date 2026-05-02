@@ -443,6 +443,21 @@ class OneDriveAdapter:
         resp.raise_for_status()
         return self._format_item(resp.json())
 
+    async def get_usage(self, root: str):
+        resp = await self._request("GET", full_url=f"{MS_GRAPH_URL}/me/drive?$select=quota")
+        resp.raise_for_status()
+        quota = (resp.json() or {}).get("quota") or {}
+        used = quota.get("used")
+        total = quota.get("total")
+        remaining = quota.get("remaining")
+        return {
+            "used_bytes": int(used) if used is not None else None,
+            "total_bytes": int(total) if total is not None else None,
+            "free_bytes": int(remaining) if remaining is not None else None,
+            "source": "onedrive",
+            "scope": "drive",
+        }
+
 
 ADAPTER_TYPE = "onedrive"
 

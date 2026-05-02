@@ -840,6 +840,23 @@ class QuarkAdapter:
     async def copy(self, root: str, src_rel: str, dst_rel: str, overwrite: bool = False):
         raise NotImplementedError("QuarkOpen does not support copy via open API")
 
+    async def get_usage(self, root: str):
+        data = await self._request("GET", "/capacity/growth/info")
+        payload = (data or {}).get("data") or {}
+        if isinstance(payload.get("member"), dict):
+            payload = payload["member"]
+        used = payload.get("use_capacity") or payload.get("used_capacity")
+        total = payload.get("total_capacity")
+        used_bytes = int(used) if used is not None else None
+        total_bytes = int(total) if total is not None else None
+        return {
+            "used_bytes": used_bytes,
+            "total_bytes": total_bytes,
+            "free_bytes": total_bytes - used_bytes if total_bytes is not None and used_bytes is not None else None,
+            "source": "quark",
+            "scope": "account",
+        }
+
     # -----------------
     # STAT / EXISTS / 辅助
     # -----------------

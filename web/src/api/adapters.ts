@@ -10,6 +10,20 @@ export interface AdapterItem {
   sub_path?: string | null;
 }
 
+export interface AdapterUsage {
+  id: number;
+  name: string;
+  type: string;
+  path: string;
+  supported: boolean;
+  used_bytes?: number | null;
+  total_bytes?: number | null;
+  free_bytes?: number | null;
+  source?: string | null;
+  scope?: string | null;
+  reason?: string | null;
+}
+
 export interface AdapterTypeField {
   key: string;
   label: string;
@@ -23,20 +37,6 @@ export interface AdapterTypeField {
 export interface AdapterTypeMeta {
   type: string;
   config_schema: AdapterTypeField[];
-}
-
-export interface AdapterUsage {
-  id: number;
-  name: string;
-  type: string;
-  path: string;
-  supported: boolean;
-  used_bytes?: number | null;
-  total_bytes?: number | null;
-  free_bytes?: number | null;
-  source?: string | null;
-  scope?: string | null;
-  reason?: string | null;
 }
 
 export const adaptersApi = {

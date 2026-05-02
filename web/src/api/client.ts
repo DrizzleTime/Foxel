@@ -71,7 +71,7 @@ async function request<T = any>(url: string, options: RequestOptions = {}): Prom
 }
 
 export { vfsApi, type VfsEntry, type DirListing } from './vfs';
-export { adaptersApi, type AdapterItem, type AdapterTypeField, type AdapterTypeMeta } from './adapters';
+export { adaptersApi, type AdapterItem, type AdapterTypeField, type AdapterTypeMeta, type AdapterUsage } from './adapters';
 export { shareApi, type ShareInfo, type ShareInfoWithPassword } from './share';
 export { offlineDownloadsApi, type OfflineDownloadTask, type OfflineDownloadCreate, type TaskProgress } from './offlineDownloads';
 export default request;

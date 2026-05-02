@@ -514,6 +514,8 @@
   "Unique name": "Unique name",
   "Select adapter type": "Select adapter type",
   "/ or /drive": "/ or /drive",
+  "Used Capacity": "Used Capacity",
+  "Capacity Usage": "Capacity Usage",
   "Adapter Config": "Adapter Config",
   "adapter.type.local": "Local Filesystem",
   "adapter.type.foxel": "Foxel Node",

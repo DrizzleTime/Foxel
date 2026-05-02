@@ -1,12 +1,29 @@
 import { memo, useState, useEffect, useCallback } from 'react';
 import { Table, Button, Space, Drawer, Form, Input, Switch, message, Typography, Popconfirm, Select } from 'antd';
 import PageCard from '../components/PageCard';
-import { adaptersApi, type AdapterItem, type AdapterTypeMeta } from '../api/client';
+import { adaptersApi, type AdapterItem, type AdapterTypeMeta, type AdapterUsage } from '../api/client';
 import { useI18n } from '../i18n';
+
+const formatBytes = (bytes?: number | null) => {
+  if (bytes === null || bytes === undefined) return '-';
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / (1024 ** index);
+  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+};
+
+const formatUsage = (usage?: AdapterUsage) => {
+  if (!usage?.supported || usage.used_bytes === null || usage.used_bytes === undefined) return '-';
+  const used = formatBytes(usage.used_bytes);
+  if (usage.total_bytes === null || usage.total_bytes === undefined) return used;
+  return `${used} / ${formatBytes(usage.total_bytes)}`;
+};
 
 const AdaptersPage = memo(function AdaptersPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AdapterItem[]>([]);
+  const [usageMap, setUsageMap] = useState<Record<number, AdapterUsage>>({});
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AdapterItem | null>(null);
   const [form] = Form.useForm();
@@ -16,12 +33,14 @@ const AdaptersPage = memo(function AdaptersPage() {
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, types] = await Promise.all([
+      const [list, types, usages] = await Promise.all([
         adaptersApi.list(),
-        adaptersApi.available()
+        adaptersApi.available(),
+        adaptersApi.usage()
       ]);
       setData(list);
       setAvailableTypes(types);
+      setUsageMap(Object.fromEntries(usages.map(item => [item.id, item])));
     } catch (e: any) {
       message.error(e.message || t('Load failed'));
     } finally {
@@ -142,6 +161,13 @@ const AdaptersPage = memo(function AdaptersPage() {
     { title: t('Type'), dataIndex: 'type', width: 140, render: (value: string) => renderTypeLabel(value) },
     { title: t('Mount Path'), dataIndex: 'path', width: 140, render: (v: string) => v || '-' },
     { title: t('Sub Path'), dataIndex: 'sub_path', width: 140, render: (v: string) => v || '-' },
+    {
+      title: t('Capacity Usage'),
+      width: 180,
+      render: (_: any, rec: AdapterItem) => {
+        return formatUsage(usageMap[rec.id]);
+      }
+    },
     {
       title: t('Enabled'),
       dataIndex: 'enabled',

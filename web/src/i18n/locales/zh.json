@@ -513,6 +513,8 @@
   "Unique name": "唯一名称",
   "Select adapter type": "选择适配器类型",
   "/ or /drive": "/或/drive",
+  "Used Capacity": "已使用容量",
+  "Capacity Usage": "容量使用",
   "Adapter Config": "适配器配置",
   "adapter.type.local": "本地文件系统",
   "adapter.type.foxel": "Foxel 节点",

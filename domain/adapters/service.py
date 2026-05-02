@@ -1,3 +1,4 @@
+import time
 from typing import Optional
 
 from fastapi import HTTPException
@@ -14,6 +15,28 @@ from models import StorageAdapter
 
 
 class AdapterService:
+    _usage_cache_ttl = 3600
+    _usage_cache: dict[int, tuple[float, AdapterUsage]] = {}
+
+    @classmethod
+    def _get_cached_usage(cls, adapter_id: int) -> AdapterUsage | None:
+        cached = cls._usage_cache.get(adapter_id)
+        if not cached:
+            return None
+        expires_at, usage = cached
+        if expires_at <= time.time():
+            cls._usage_cache.pop(adapter_id, None)
+            return None
+        return usage
+
+    @classmethod
+    def _set_cached_usage(cls, usage: AdapterUsage):
+        cls._usage_cache[usage.id] = (time.time() + cls._usage_cache_ttl, usage)
+
+    @classmethod
+    def _clear_cached_usage(cls, adapter_id: int):
+        cls._usage_cache.pop(adapter_id, None)
+
     @classmethod
     def _validate_and_normalize_config(cls, adapter_type: str, cfg):
         schemas = get_config_schemas()
@@ -106,6 +129,10 @@ class AdapterService:
 
     @classmethod
     async def _get_adapter_usage_for_record(cls, rec: StorageAdapter) -> AdapterUsage:
+        cached = cls._get_cached_usage(rec.id)
+        if cached:
+            return cached
+
         if not rec.enabled:
             return cls._unsupported_usage(rec, "adapter_disabled")
 
@@ -127,7 +154,7 @@ class AdapterService:
         if not isinstance(raw_usage, dict):
             return cls._unsupported_usage(rec, "invalid_usage_response")
 
-        return AdapterUsage(
+        usage = AdapterUsage(
             id=rec.id,
             name=rec.name,
             type=rec.type,
@@ -139,6 +166,8 @@ class AdapterService:
             source=raw_usage.get("source") or rec.type,
             scope=raw_usage.get("scope"),
         )
+        cls._set_cached_usage(usage)
+        return usage
 
     @classmethod
     async def list_adapter_usages(cls):
@@ -168,6 +197,7 @@ class AdapterService:
         await rec.save()
 
         await runtime_registry.upsert(rec)
+        cls._clear_cached_usage(adapter_id)
         return AdapterOut.model_validate(rec)
 
     @classmethod
@@ -176,4 +206,5 @@ class AdapterService:
         if not deleted:
             raise HTTPException(404, detail="Not found")
         runtime_registry.remove(adapter_id)
+        cls._clear_cached_usage(adapter_id)
         return {"deleted": True}

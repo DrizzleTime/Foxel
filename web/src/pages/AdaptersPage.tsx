@@ -156,6 +156,35 @@ const AdaptersPage = memo(function AdaptersPage() {
     return label === key ? type : label;
   }, [t]);
 
+  const usageSummary = Object.values(usageMap).reduce(
+    (acc, usage) => {
+      if (!usage.supported) return acc;
+      if (usage.used_bytes !== null && usage.used_bytes !== undefined) {
+        acc.used += usage.used_bytes;
+        acc.hasUsed = true;
+      }
+      if (usage.total_bytes !== null && usage.total_bytes !== undefined) {
+        acc.total += usage.total_bytes;
+        acc.hasTotal = true;
+      }
+      return acc;
+    },
+    { used: 0, total: 0, hasUsed: false, hasTotal: false }
+  );
+
+  const pageTitle = (
+    <Space size={12} wrap>
+      <span>{t('Storage Adapters')}</span>
+      {(usageSummary.hasUsed || usageSummary.hasTotal) && (
+        <Typography.Text type="secondary" style={{ fontSize: 13, fontWeight: 400 }}>
+          {usageSummary.hasUsed ? formatBytes(usageSummary.used) : '-'}
+          {' / '}
+          {usageSummary.hasTotal ? formatBytes(usageSummary.total) : '-'}
+        </Typography.Text>
+      )}
+    </Space>
+  );
+
   const columns = [
     { title: t('Name'), dataIndex: 'name' },
     { title: t('Type'), dataIndex: 'type', width: 140, render: (value: string) => renderTypeLabel(value) },
@@ -234,7 +263,7 @@ const AdaptersPage = memo(function AdaptersPage() {
 
   return (
     <PageCard
-      title={t('Storage Adapters')}
+      title={pageTitle}
       extra={
         <Space wrap>
           <Button onClick={fetchList} loading={loading}>{t('Refresh')}</Button>

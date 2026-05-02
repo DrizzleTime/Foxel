@@ -249,6 +249,7 @@ class PikPakAdapter:
             ("refresh_token", self.refresh_token),
             ("captcha_token", self.captcha_token),
             ("device_id", self.device_id),
+            ("user_id", self.user_id),
         ):
             if value and cfg.get(key) != value:
                 cfg[key] = value
@@ -269,10 +270,12 @@ class PikPakAdapter:
                 try:
                     await self._refresh_access_token()
                     return
-                except Exception:
+                except Exception as e:
                     self.access_token = ""
-                    if not self.username or not self.password:
-                        raise
+                    raise HTTPException(
+                        502,
+                        detail=f"PikPak refresh token failed, please update refresh_token or login manually: {e}",
+                    )
             await self._login()
 
     async def _login(self):

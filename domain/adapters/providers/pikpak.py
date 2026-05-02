@@ -905,7 +905,7 @@ class PikPakAdapter:
         raise HTTPException(501, detail="PikPak upload not implemented")
 
 
-ADAPTER_TYPE = "pikpak"
+ADAPTER_TYPE = "PikPak"
 
 CONFIG_SCHEMA = [
     {"key": "username", "label": "PikPak 账号", "type": "string", "required": True},

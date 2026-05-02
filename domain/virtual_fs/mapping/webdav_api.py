@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import mimetypes
+import uuid
 from email.utils import formatdate
 from urllib.parse import urlparse, unquote
 from typing import Optional
@@ -43,6 +44,8 @@ def _dav_headers(extra: Optional[dict] = None) -> dict:
             "MKCOL",
             "MOVE",
             "COPY",
+            "LOCK",
+            "UNLOCK",
         ]),
     }
     if extra:
@@ -157,17 +160,19 @@ def _normalize_fs_path(path: str) -> str:
     return unquote(full)
 
 
+@router.options("")
 @router.options("/{path:path}")
 @audit(action=AuditAction.READ, description="WebDAV: OPTIONS", user_kw="user")
 async def options_root(_request: Request, path: str = "", _enabled: None = Depends(_ensure_webdav_enabled)):
     return Response(status_code=200, headers=_dav_headers())
 
 
+@router.api_route("", methods=["PROPFIND"])
 @router.api_route("/{path:path}", methods=["PROPFIND"])
 @audit(action=AuditAction.READ, description="WebDAV: PROPFIND", user_kw="user")
 async def propfind(
     request: Request,
-    path: str,
+    path: str = "",
     _enabled: None = Depends(_ensure_webdav_enabled),
     user: User = Depends(_get_basic_user),
 ):
@@ -280,35 +285,101 @@ async def dav_head(
     return Response(status_code=200, headers=headers)
 
 
+@router.api_route("", methods=["PUT"])
 @router.api_route("/{path:path}", methods=["PUT"])
 @audit(action=AuditAction.UPLOAD, description="WebDAV: PUT", user_kw="user")
 async def dav_put(
-    path: str,
     request: Request,
+    path: str = "",
     _enabled: None = Depends(_ensure_webdav_enabled),
     user: User = Depends(_get_basic_user),
 ):
     full_path = _normalize_fs_path(path)
     await PermissionService.require_path_permission(user.id, full_path, PathAction.WRITE)
+    existed = True
+    try:
+        await VirtualFSService.stat_file(full_path)
+    except FileNotFoundError:
+        existed = False
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            existed = False
+        else:
+            raise
+
     async def body_iter():
         async for chunk in request.stream():
             if chunk:
                 yield chunk
-    size = await VirtualFSService.write_file_stream(full_path, body_iter(), overwrite=True)
-    return Response(status_code=201, headers=_dav_headers({"Content-Length": "0"}))
+
+    await VirtualFSService.write_file_stream(full_path, body_iter(), overwrite=True)
+    return Response(status_code=204 if existed else 201, headers=_dav_headers({"Content-Length": "0"}))
 
 
+@router.api_route("", methods=["DELETE"])
 @router.api_route("/{path:path}", methods=["DELETE"])
 @audit(action=AuditAction.DELETE, description="WebDAV: DELETE", user_kw="user")
 async def dav_delete(
-    path: str,
     _request: Request,
+    path: str = "",
     _enabled: None = Depends(_ensure_webdav_enabled),
     user: User = Depends(_get_basic_user),
 ):
     full_path = _normalize_fs_path(path)
     await PermissionService.require_path_permission(user.id, full_path, PathAction.DELETE)
     await VirtualFSService.delete_path(full_path)
+    return Response(status_code=204, headers=_dav_headers())
+
+
+@router.api_route("", methods=["LOCK"])
+@router.api_route("/{path:path}", methods=["LOCK"])
+@audit(action=AuditAction.UPDATE, description="WebDAV: LOCK", user_kw="user")
+async def dav_lock(
+    path: str = "",
+    _request: Request = None,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
+    full_path = _normalize_fs_path(path)
+    if full_path != "/":
+        await PermissionService.require_path_permission(user.id, full_path, PathAction.WRITE)
+
+    token = f"opaquelocktoken:{uuid.uuid4()}"
+    ns = "{DAV:}"
+    prop = ET.Element(ns + "prop")
+    lockdiscovery = ET.SubElement(prop, ns + "lockdiscovery")
+    activelock = ET.SubElement(lockdiscovery, ns + "activelock")
+    locktype = ET.SubElement(activelock, ns + "locktype")
+    ET.SubElement(locktype, ns + "write")
+    lockscope = ET.SubElement(activelock, ns + "lockscope")
+    ET.SubElement(lockscope, ns + "exclusive")
+    depth = ET.SubElement(activelock, ns + "depth")
+    depth.text = "Infinity"
+    locktoken = ET.SubElement(activelock, ns + "locktoken")
+    href = ET.SubElement(locktoken, ns + "href")
+    href.text = token
+
+    xml = ET.tostring(prop, encoding="utf-8", xml_declaration=True)
+    return Response(
+        content=xml,
+        status_code=200,
+        media_type='application/xml; charset="utf-8"',
+        headers=_dav_headers({"Lock-Token": f"<{token}>"}),
+    )
+
+
+@router.api_route("", methods=["UNLOCK"])
+@router.api_route("/{path:path}", methods=["UNLOCK"])
+@audit(action=AuditAction.UPDATE, description="WebDAV: UNLOCK", user_kw="user")
+async def dav_unlock(
+    path: str = "",
+    _request: Request = None,
+    _enabled: None = Depends(_ensure_webdav_enabled),
+    user: User = Depends(_get_basic_user),
+):
+    full_path = _normalize_fs_path(path)
+    if full_path != "/":
+        await PermissionService.require_path_permission(user.id, full_path, PathAction.WRITE)
     return Response(status_code=204, headers=_dav_headers())
 
 

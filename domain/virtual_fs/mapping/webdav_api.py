@@ -252,7 +252,10 @@ async def dav_get(
     if full_path != "/":
         await PermissionService.require_path_permission(user.id, full_path, PathAction.READ)
     range_header = request.headers.get("Range")
-    return await VirtualFSService.stream_file(full_path, range_header)
+    try:
+        return await VirtualFSService.stream_file(full_path, range_header)
+    except FileNotFoundError:
+        raise HTTPException(404, detail="Not found")
 
 
 @router.head("/{path:path}")

@@ -89,8 +89,17 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
         adapter, mount, root, rel = await cls.resolve_adapter_and_rel(full_path)
         if not rel or rel.endswith("/"):
             raise HTTPException(400, detail="Not a file")
-        if not (is_image_filename(rel) or is_video_filename(rel)):
-            raise HTTPException(404, detail="Not an image or video")
+        has_native_thumb = False
+        if callable(getattr(adapter, "get_thumbnail", None)):
+            stat_file = getattr(adapter, "stat_file", None)
+            if callable(stat_file):
+                try:
+                    stat = await stat_file(root, rel)
+                    has_native_thumb = bool(isinstance(stat, dict) and stat.get("has_thumbnail"))
+                except Exception:
+                    has_native_thumb = False
+        if not (is_image_filename(rel) or is_video_filename(rel) or has_native_thumb):
+            raise HTTPException(404, detail="Not an image, video, or native thumbnail file")
         data, mime, key = await get_or_create_thumb(adapter, mount.id, root, rel, w, h, fit)  # type: ignore
         headers = {
             "Cache-Control": "public, max-age=3600",

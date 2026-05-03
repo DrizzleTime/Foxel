@@ -23,6 +23,7 @@ VIDEO_HEAD_FALLBACK_LIMIT = 4 * 1024 * 1024  # 4MB
 VIDEO_THUMB_SEEK_SECONDS = (15, 10, 5, 3, 1, 0)
 VIDEO_BLACK_FRAME_MEAN_THRESHOLD = 12.0
 CACHE_ROOT = Path('data/.thumb_cache')
+THUMB_CACHE_VERSION = "v2"
 
 
 def is_image_filename(name: str) -> bool:
@@ -47,7 +48,7 @@ def is_video_filename(name: str) -> bool:
 
 
 def _cache_key(adapter_id: int, rel: str, size: int, mtime: int, w: int, h: int, fit: str) -> str:
-    raw = f"{adapter_id}|{rel}|{size}|{mtime}|{w}x{h}|{fit}".encode()
+    raw = f"{THUMB_CACHE_VERSION}|{adapter_id}|{rel}|{size}|{mtime}|{w}x{h}|{fit}".encode()
     return hashlib.sha1(raw).hexdigest()
 
 
@@ -385,8 +386,11 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
     stat = await adapter.stat_file(root, rel)
     size = int(stat.get('size') or 0)
     is_video = is_video_filename(rel)
-    if not is_video and size > MAX_IMAGE_SOURCE_SIZE:
-        raise HTTPException(400, detail="Image too large for thumbnail")
+    is_image = is_image_filename(rel)
+    get_thumb_impl = getattr(adapter, "get_thumbnail", None)
+    should_try_native_thumb = callable(get_thumb_impl) and (
+        is_image or is_video or bool(stat.get("has_thumbnail"))
+    )
 
     key = _cache_key(adapter_id, rel, size, int(
         stat.get('mtime', 0)), w, h, fit)
@@ -397,8 +401,7 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
     _ensure_cache_dir(path)
     thumb_bytes, mime = None, None
 
-    get_thumb_impl = getattr(adapter, "get_thumbnail", None)
-    if callable(get_thumb_impl):
+    if should_try_native_thumb:
         size_str = "large" if w > 400 else "medium" if w > 100 else "small"
         native_thumb_bytes = await get_thumb_impl(root, rel, size_str)
 
@@ -406,10 +409,7 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
             try:
                 from PIL import Image
                 im = Image.open(io.BytesIO(native_thumb_bytes))
-                buf = io.BytesIO()
-                im.save(buf, 'WEBP', quality=85)
-                thumb_bytes = buf.getvalue()
-                mime = 'image/webp'
+                thumb_bytes, mime = _image_to_webp(im, w, h, fit)
             except Exception as e:
                 print(
                     f"Failed to convert native thumbnail to WebP: {e}, falling back.")
@@ -493,7 +493,9 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
                         thumb_bytes, mime = retry_thumb, retry_mime
                 except Exception:
                     pass
-        else:
+        elif is_image:
+            if size > MAX_IMAGE_SOURCE_SIZE:
+                raise HTTPException(400, detail="Image too large for thumbnail")
             read_data = await adapter.read_file(root, rel)
             try:
                 thumb_bytes, mime = generate_thumb(
@@ -502,6 +504,8 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
                 print(e)
                 raise HTTPException(
                     500, detail=f"Thumbnail generation failed: {e}")
+        else:
+            raise HTTPException(500, detail="Native thumbnail unavailable")
 
     if thumb_bytes:
         path.write_bytes(thumb_bytes)

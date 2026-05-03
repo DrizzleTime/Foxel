@@ -5,7 +5,7 @@ import io
 import os
 import struct
 from models import StorageAdapter
-from telethon import TelegramClient
+from telethon import TelegramClient, utils
 from telethon.crypto import AuthKey
 from telethon.sessions import StringSession
 from telethon.tl import types
@@ -132,28 +132,41 @@ class TelegramAdapter:
             return None
 
         cached = []
-        others = []
+        downloadable = []
         for t in thumbs:
             if isinstance(t, (types.PhotoCachedSize, types.PhotoStrippedSize)):
                 cached.append(t)
             elif isinstance(t, (types.PhotoSize, types.PhotoSizeProgressive)):
                 if not isinstance(t, types.PhotoSizeEmpty):
-                    others.append(t)
+                    downloadable.append(t)
 
-        if cached:
-            cached.sort(key=lambda x: len(getattr(x, "bytes", b"") or b""))
-            return cached[-1]
-
-        if others:
+        if downloadable:
             def _sz(x):
                 if isinstance(x, types.PhotoSizeProgressive):
                     return max(x.sizes or [0])
                 return int(getattr(x, "size", 0) or 0)
 
-            others.sort(key=_sz)
-            return others[-1]
+            downloadable.sort(key=_sz)
+            return downloadable[-1]
+
+        if cached:
+            cached.sort(key=lambda x: len(getattr(x, "bytes", b"") or b""))
+            return cached[-1]
 
         return None
+
+    @staticmethod
+    def _get_message_thumbs(message) -> list:
+        doc = message.document or message.video
+        if doc and getattr(doc, "thumbs", None):
+            return list(doc.thumbs or [])
+        if message.photo and getattr(message.photo, "sizes", None):
+            return list(message.photo.sizes or [])
+        return []
+
+    @classmethod
+    def _message_has_thumbnail(cls, message) -> bool:
+        return cls._pick_photo_thumb(cls._get_message_thumbs(message)) is not None
 
     def _build_session(self) -> StringSession:
         s = (self.session_string or "").strip()
@@ -229,6 +242,7 @@ class TelegramAdapter:
                     "size": size,
                     "mtime": int(message.date.timestamp()),
                     "type": "file",
+                    "has_thumbnail": self._message_has_thumbnail(message),
                 })
         finally:
             if client.is_connected():
@@ -386,16 +400,15 @@ class TelegramAdapter:
             if not message:
                 return None
 
-            doc = message.document or message.video
-            thumbs = None
-            if doc and getattr(doc, "thumbs", None):
-                thumbs = list(doc.thumbs or [])
-            elif message.photo and getattr(message.photo, "sizes", None):
-                thumbs = list(message.photo.sizes or [])
-
-            thumb = self._pick_photo_thumb(thumbs)
+            thumb = self._pick_photo_thumb(self._get_message_thumbs(message))
             if not thumb:
                 return None
+
+            embedded = getattr(thumb, "bytes", None)
+            if embedded and isinstance(thumb, types.PhotoCachedSize):
+                return bytes(embedded)
+            if embedded and isinstance(thumb, types.PhotoStrippedSize):
+                return utils.stripped_photo_to_jpg(bytes(embedded))
 
             result = await client.download_media(message, bytes, thumb=thumb)
             if isinstance(result, (bytes, bytearray)):
@@ -569,6 +582,7 @@ class TelegramAdapter:
                 "size": size,
                 "mtime": int(message.date.timestamp()),
                 "type": "file",
+                "has_thumbnail": self._message_has_thumbnail(message),
             }
         finally:
             if client.is_connected():

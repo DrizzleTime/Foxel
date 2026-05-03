@@ -89,6 +89,9 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
 
         def annotate_entry(entry: Dict) -> None:
             if not entry.get("is_dir"):
+                if entry.get("has_thumbnail") is not None:
+                    entry["has_thumbnail"] = bool(entry.get("has_thumbnail"))
+                    return
                 name = entry.get("name", "")
                 entry["has_thumbnail"] = bool(is_image_filename(name) or is_video_filename(name))
             else:
@@ -273,7 +276,10 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
                 is_dir = False
             rel_name = rel.rstrip("/").split("/")[-1] if rel else path.rstrip("/").split("/")[-1]
             name_hint = str(info.get("name") or rel_name or "")
-            info["has_thumbnail"] = bool(not is_dir and (is_image_filename(name_hint) or is_video_filename(name_hint)))
+            if not is_dir and info.get("has_thumbnail") is not None:
+                info["has_thumbnail"] = bool(info.get("has_thumbnail"))
+            else:
+                info["has_thumbnail"] = bool(not is_dir and (is_image_filename(name_hint) or is_video_filename(name_hint)))
             if verbose and not is_dir:
                 vector_index = await cls._gather_vector_index(path)
                 if vector_index is not None:

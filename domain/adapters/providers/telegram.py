@@ -1,5 +1,4 @@
-from typing import List, Dict, Tuple, AsyncIterator
-import asyncio
+from typing import List, Dict, Tuple, AsyncIterator, Optional
 import base64
 import io
 import os
@@ -10,16 +9,6 @@ from telethon.crypto import AuthKey
 from telethon.sessions import StringSession
 from telethon.tl import types
 import socks
-
-_SESSION_LOCKS: Dict[str, asyncio.Lock] = {}
-
-
-def _get_session_lock(session_string: str) -> asyncio.Lock:
-    lock = _SESSION_LOCKS.get(session_string)
-    if lock is None:
-        lock = asyncio.Lock()
-        _SESSION_LOCKS[session_string] = lock
-    return lock
 
 
 class _NamedFile:
@@ -61,6 +50,7 @@ CONFIG_SCHEMA = [
 
 class TelegramAdapter:
     """Telegram 存储适配器 (使用用户 Session)"""
+    native_video_thumbnail_only = True
 
     def __init__(self, record: StorageAdapter):
         self.record = record
@@ -194,6 +184,14 @@ class TelegramAdapter:
         """创建一个新的 TelegramClient 实例"""
         return TelegramClient(self._build_session(), self.api_id, self.api_hash, proxy=self.proxy)
 
+    @staticmethod
+    def _parse_message_id(rel: str) -> int:
+        try:
+            message_id_str, _ = rel.split('_', 1)
+            return int(message_id_str)
+        except (ValueError, IndexError):
+            raise FileNotFoundError(f"无效的文件路径格式: {rel}")
+
     def get_effective_root(self, sub_path: str | None) -> str:
         return ""
 
@@ -274,11 +272,7 @@ class TelegramAdapter:
         return page_entries, total_count
 
     async def read_file(self, root: str, rel: str) -> bytes:
-        try:
-            message_id_str, _ = rel.split('_', 1)
-            message_id = int(message_id_str)
-        except (ValueError, IndexError):
-            raise FileNotFoundError(f"无效的文件路径格式: {rel}")
+        message_id = self._parse_message_id(rel)
 
         client = self._get_client()
         try:
@@ -289,6 +283,50 @@ class TelegramAdapter:
             
             file_bytes = await client.download_media(message, file=bytes)
             return file_bytes
+        finally:
+            if client.is_connected():
+                await client.disconnect()
+
+    async def read_file_range(self, root: str, rel: str, start: int, end: Optional[int] = None) -> bytes:
+        from fastapi import HTTPException
+
+        message_id = self._parse_message_id(rel)
+        client = self._get_client()
+        try:
+            await client.connect()
+            message = await client.get_messages(self.chat_id, ids=message_id)
+            if not message:
+                raise FileNotFoundError(f"在频道 {self.chat_id} 中未找到消息ID为 {message_id} 的文件")
+
+            media = message.document or message.video or message.photo
+            if not media:
+                raise FileNotFoundError(f"在频道 {self.chat_id} 中未找到消息ID为 {message_id} 的文件")
+
+            file_meta = message.file
+            file_size = file_meta.size if file_meta and file_meta.size is not None else getattr(media, "size", 0) or 0
+            if file_size > 0:
+                if start >= file_size:
+                    raise HTTPException(status_code=416, detail="Requested Range Not Satisfiable")
+                if end is None or end >= file_size:
+                    end = file_size - 1
+            elif end is None:
+                end = start
+
+            if end < start:
+                raise HTTPException(status_code=416, detail="Requested Range Not Satisfiable")
+
+            limit = end - start + 1
+            data = bytearray()
+            async for chunk in client.iter_download(media, offset=start):
+                if not chunk:
+                    continue
+                need = limit - len(data)
+                if need <= 0:
+                    break
+                data.extend(chunk[:need])
+                if len(data) >= limit:
+                    break
+            return bytes(data)
         finally:
             if client.is_connected():
                 await client.disconnect()
@@ -452,20 +490,19 @@ class TelegramAdapter:
         from fastapi import HTTPException
 
         try:
-            message_id_str, _ = rel.split('_', 1)
-            message_id = int(message_id_str)
-        except (ValueError, IndexError):
+            message_id = self._parse_message_id(rel)
+        except FileNotFoundError:
             raise HTTPException(status_code=400, detail=f"无效的文件路径格式: {rel}")
 
         client = self._get_client()
-        lock = _get_session_lock(self.session_string)
-        await lock.acquire()
         
         try:
             await client.connect()
             message = await client.get_messages(self.chat_id, ids=message_id)
+            if not message:
+                raise FileNotFoundError(f"在频道 {self.chat_id} 中未找到消息ID为 {message_id} 的文件")
             media = message.document or message.video or message.photo
-            if not message or not media:
+            if not media:
                 raise FileNotFoundError(f"在频道 {self.chat_id} 中未找到消息ID为 {message_id} 的文件")
 
             file_meta = message.file
@@ -499,6 +536,12 @@ class TelegramAdapter:
                 "Content-Type": mime_type,
             }
 
+            if file_size <= 0:
+                headers["Content-Length"] = "0"
+                if client.is_connected():
+                    await client.disconnect()
+                return StreamingResponse(iter(()), status_code=status, headers=headers)
+
             if range_header:
                 try:
                     range_val = range_header.strip().partition("=")[2]
@@ -511,6 +554,8 @@ class TelegramAdapter:
                     headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
                 except ValueError:
                     raise HTTPException(status_code=400, detail="Invalid Range header")
+
+            headers["Content-Length"] = str(end - start + 1)
 
             async def iterator():
                 try:
@@ -526,28 +571,22 @@ class TelegramAdapter:
                         if downloaded >= limit:
                             break
                 finally:
-                    try:
-                        if client.is_connected():
-                            await client.disconnect()
-                    finally:
-                        lock.release()
+                    if client.is_connected():
+                        await client.disconnect()
 
             return StreamingResponse(iterator(), status_code=status, headers=headers)
 
         except HTTPException:
             if client.is_connected():
                 await client.disconnect()
-            lock.release()
             raise
         except FileNotFoundError as e:
             if client.is_connected():
                 await client.disconnect()
-            lock.release()
             raise HTTPException(status_code=404, detail=str(e))
         except Exception as e:
             if client.is_connected():
                 await client.disconnect()
-            lock.release()
             raise HTTPException(status_code=500, detail=f"Streaming failed: {str(e)}")
 
     async def stat_file(self, root: str, rel: str):

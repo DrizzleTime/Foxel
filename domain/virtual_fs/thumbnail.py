@@ -415,6 +415,9 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
                     f"Failed to convert native thumbnail to WebP: {e}, falling back.")
                 thumb_bytes, mime = None, None
 
+        if is_video and getattr(adapter, "native_video_thumbnail_only", False) and not thumb_bytes:
+            raise HTTPException(404, detail="Native video thumbnail unavailable")
+
     if not thumb_bytes:
         if is_video:
             async def _maybe_transcoding_thumb() -> Tuple[bytes, str] | None:

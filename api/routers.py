@@ -19,12 +19,14 @@ from domain.audit import api as audit
 from domain.permission import api as permission
 from domain.user import api as user
 from domain.role import api as role
+from domain.recent_files import api as recent_files
 
 
 def include_routers(app: FastAPI):
     app.include_router(adapters.router)
     app.include_router(search_api.router)
     app.include_router(virtual_fs.router)
+    app.include_router(recent_files.router)
     app.include_router(auth.router)
     app.include_router(config.router)
     app.include_router(processors.router)

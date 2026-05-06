@@ -91,6 +91,7 @@ class TelegramAdapter:
         self._client: TelegramClient | None = None
         self._client_lock = asyncio.Lock()
         self._download_lock = asyncio.Lock()
+        self._active_stream_message_id: int | None = None
         self._message_cache: Dict[int, Tuple[float, object]] = {}
 
     @staticmethod
@@ -517,35 +518,7 @@ class TelegramAdapter:
         raise NotImplementedError("Telegram 适配器不支持创建目录。")
 
     async def get_thumbnail(self, root: str, rel: str, size: str = "medium"):
-        try:
-            message_id_str, _ = rel.split('_', 1)
-            message_id = int(message_id_str)
-        except (ValueError, IndexError):
-            return None
-
-        try:
-            client = await self._get_connected_client()
-            message = await self._get_cached_message(message_id)
-            if not message:
-                return None
-
-            thumb = self._pick_photo_thumb(self._get_message_thumbs(message))
-            if not thumb:
-                return None
-
-            embedded = getattr(thumb, "bytes", None)
-            if embedded and isinstance(thumb, types.PhotoCachedSize):
-                return bytes(embedded)
-            if embedded and isinstance(thumb, types.PhotoStrippedSize):
-                return utils.stripped_photo_to_jpg(bytes(embedded))
-
-            async with self._download_lock:
-                result = await client.download_media(message, bytes, thumb=thumb)
-            if isinstance(result, (bytes, bytearray)):
-                return bytes(result)
-            return None
-        except Exception:
-            return None
+        return None
 
     async def delete(self, root: str, rel: str):
         """删除一个文件 (即一条消息)"""
@@ -625,11 +598,14 @@ class TelegramAdapter:
                     raise HTTPException(status_code=400, detail="Invalid Range header")
 
             headers["Content-Length"] = str(end - start + 1)
+            self._active_stream_message_id = message_id
 
             async def iterator():
                 downloaded = 0
                 try:
                     limit = end - start + 1
+                    if self._active_stream_message_id != message_id:
+                        return
                     async with self._download_lock:
                         async for chunk in client.iter_download(
                             media,
@@ -638,6 +614,8 @@ class TelegramAdapter:
                             chunk_size=self._download_chunk_size,
                             file_size=file_size,
                         ):
+                            if self._active_stream_message_id != message_id:
+                                return
                             if not chunk:
                                 continue
                             remaining = limit - downloaded

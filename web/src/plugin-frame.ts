@@ -364,12 +364,27 @@ async function main() {
 
   await mountError();
 
-  window.addEventListener('beforeunload', () => {
+  const runCleanup = () => {
     try {
       cleanup?.();
     } catch {
       void 0;
     }
+    cleanup = null;
+  };
+
+  window.addEventListener('message', (ev) => {
+    if (ev.origin !== window.location.origin) return;
+    if (ev.source !== window.parent) return;
+    const data = ev.data as any;
+    if (!data || typeof data !== 'object') return;
+    if (data.type !== 'foxel-plugin:unload') return;
+    runCleanup();
+    root.innerHTML = '';
+  });
+
+  window.addEventListener('beforeunload', () => {
+    runCleanup();
   });
 }
 

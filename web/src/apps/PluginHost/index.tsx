@@ -24,6 +24,16 @@ function getPluginStylePaths(plugin: PluginItem): string[] {
   return styles.filter((s) => typeof s === 'string' && s.trim().length > 0);
 }
 
+function unloadPluginFrame(iframe: HTMLIFrameElement | null) {
+  if (!iframe) return;
+  try {
+    iframe.contentWindow?.postMessage({ type: 'foxel-plugin:unload' }, window.location.origin);
+  } catch {
+    void 0;
+  }
+  iframe.src = 'about:blank';
+}
+
 /**
  * 插件宿主组件 - 文件打开模式
  * 使用 iframe 隔离渲染与样式，避免插件污染宿主 DOM/CSS。
@@ -66,7 +76,10 @@ export const PluginAppHost: React.FC<PluginAppHostProps> = ({
     };
 
     window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      unloadPluginFrame(iframeRef.current);
+    };
   }, [plugin.key]);
 
   return (
@@ -118,7 +131,10 @@ export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, on
     };
 
     window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      unloadPluginFrame(iframeRef.current);
+    };
   }, [plugin.key]);
 
   return (

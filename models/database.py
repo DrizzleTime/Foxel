@@ -234,6 +234,19 @@ class ShareLink(Model):
         table = "share_links"
 
 
+class RecentFile(Model):
+    id = fields.IntField(pk=True)
+    user: fields.ForeignKeyRelation[UserAccount] = fields.ForeignKeyField(
+        "models.UserAccount", related_name="recent_files", on_delete=fields.CASCADE
+    )
+    path = fields.CharField(max_length=4096)
+    opened_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "recent_files"
+        unique_together = (("user", "path"),)
+
+
 class Plugin(Model):
     id = fields.IntField(pk=True)
     key = fields.CharField(max_length=100, unique=True)  # 插件唯一标识

@@ -43,6 +43,30 @@ const THEME_KEYS = {
   CSS: 'THEME_CUSTOM_CSS',
 };
 
+const CONFIG_DEFAULTS: Record<string, string> = {
+  ...Object.fromEntries(APP_CONFIG_KEYS.map(({ key, default: def }) => [key, def ?? ''])),
+  APP_DEFAULT_LANGUAGE: 'zh',
+  AUTH_ALLOW_REGISTER: 'false',
+  AUTH_DEFAULT_REGISTER_ROLE_ID: '',
+  DEFAULT_FILE_VIEW_MODE: 'grid',
+  [THEME_KEYS.MODE]: 'light',
+  [THEME_KEYS.PRIMARY]: '#111111',
+  [THEME_KEYS.RADIUS]: '10',
+  [THEME_KEYS.TOKENS]: '',
+  [THEME_KEYS.CSS]: '',
+  WEBDAV_MAPPING_ENABLED: '1',
+  S3_MAPPING_ENABLED: '1',
+  S3_MAPPING_BUCKET: 'foxel',
+  S3_MAPPING_REGION: '',
+  S3_MAPPING_BASE_PATH: '/',
+  S3_MAPPING_ACCESS_KEY: '',
+  S3_MAPPING_SECRET_KEY: '',
+  EMAIL_CONFIG: '',
+  EMAIL_PASSWORD_RESET_TEMPLATE: '',
+};
+
+const stringifyConfigValue = (value: unknown) => String(value ?? '');
+
 export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSettingsPageProps) {
   const [loading, setLoading] = useState(false);
   const [config, setConfigState] = useState<Record<string, string> | null>(null);
@@ -69,16 +93,21 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
   const handleSave = async (values: Record<string, unknown>): Promise<boolean> => {
     setLoading(true);
     try {
-      for (const [key, value] of Object.entries(values)) {
-        await setConfig(key, String(value ?? ''));
-      }
-      message.success(t('Saved successfully'));
-      const stringValues = Object.fromEntries(
-        Object.entries(values).map(([key, value]) => [key, String(value ?? '')]),
+      const currentConfig = config ?? {};
+      const changedValues = Object.fromEntries(
+        Object.entries(values)
+          .map(([key, value]) => [key, stringifyConfigValue(value)] as const)
+          .filter(([key, value]) => value !== (currentConfig[key] ?? CONFIG_DEFAULTS[key] ?? '')),
       ) as Record<string, string>;
-      setConfigState((prev) => ({ ...(prev ?? {}), ...stringValues }));
+
+      for (const [key, value] of Object.entries(changedValues)) {
+        await setConfig(key, value);
+      }
+
+      message.success(t('Saved successfully'));
+      setConfigState((prev) => ({ ...(prev ?? {}), ...changedValues }));
       // trigger theme refresh if related keys changed
-      if (Object.keys(values).some(k => Object.values(THEME_KEYS).includes(k))) {
+      if (Object.keys(changedValues).some(k => Object.values(THEME_KEYS).includes(k))) {
         await refreshTheme();
       }
       return true;

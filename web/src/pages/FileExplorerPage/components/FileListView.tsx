@@ -19,6 +19,45 @@ interface FileListViewProps {
   onContextMenu: (e: React.MouseEvent, entry: VfsEntry) => void;
 }
 
+const fileTypeGroups: Array<{ key: string; exts: string[] }> = [
+  { key: 'Image', exts: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'] },
+  { key: 'Video', exts: ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', 'm4v', '3gp'] },
+  { key: 'Audio', exts: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a'] },
+  { key: 'PDF', exts: ['pdf'] },
+  { key: 'Word', exts: ['doc', 'docx'] },
+  { key: 'Spreadsheet', exts: ['xls', 'xlsx', 'csv'] },
+  { key: 'Presentation', exts: ['ppt', 'pptx'] },
+  { key: 'Archive', exts: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'] },
+  { key: 'Code', exts: ['js', 'jsx', 'ts', 'tsx', 'vue', 'html', 'htm', 'css', 'scss', 'sass', 'less', 'json', 'xml', 'yaml', 'yml', 'py', 'java', 'cpp', 'cc', 'cxx', 'c', 'h', 'hpp', 'hxx', 'php', 'rb', 'go', 'rs', 'rust', 'swift', 'kt', 'scala', 'clj', 'cljs', 'cs', 'vb', 'fs', 'pl', 'pm', 'r', 'lua', 'dart', 'elm'] },
+  { key: 'Markdown', exts: ['md', 'markdown'] },
+  { key: 'Text', exts: ['txt', 'log', 'ini', 'cfg', 'conf', 'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd', 'dockerfile', 'makefile', 'gradle', 'cmake', 'gitignore', 'gitattributes', 'editorconfig', 'prettierrc'] },
+  { key: 'Font', exts: ['ttf', 'otf', 'woff', 'woff2', 'eot'] },
+  { key: 'Database', exts: ['db', 'sqlite', 'sql'] },
+  { key: 'Config', exts: ['env', 'config', 'properties', 'toml'] },
+];
+
+const formatFileSize = (size: number) => {
+  if (!Number.isFinite(size) || size < 0) return '-';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = size;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  if (unitIndex === 0) return `${value} ${units[unitIndex]}`;
+  return `${value.toFixed(2)} ${units[unitIndex]}`;
+};
+
+const getFileTypeLabel = (entry: VfsEntry, t: (key: string) => string) => {
+  if (entry.type === 'mount') return t('Mount Point');
+  if (entry.is_dir) return t('Folder');
+
+  const ext = entry.name.split('.').pop()?.toLowerCase() || '';
+  const group = fileTypeGroups.find(item => item.exts.includes(ext));
+  return t(group?.key || 'File');
+};
+
 export const FileListView: React.FC<FileListViewProps> = ({
   entries,
   selectedEntries,
@@ -63,7 +102,8 @@ export const FileListView: React.FC<FileListViewProps> = ({
         </span>
       )
     },
-    { title: t('Size'), dataIndex: 'size', width: 100, render: (v: number, r: VfsEntry) => r.is_dir ? '-' : v },
+    { title: t('Type'), key: 'fileType', width: 110, render: (_: any, r: VfsEntry) => getFileTypeLabel(r, t) },
+    { title: t('Size'), dataIndex: 'size', width: 120, render: (v: number, r: VfsEntry) => r.is_dir ? '-' : formatFileSize(v) },
     { title: t('Modified Time'), dataIndex: 'mtime', width: 160, render: (v: number) => v ? new Date(v * 1000).toLocaleString() : '-' },
     {
       title: t('Actions'),

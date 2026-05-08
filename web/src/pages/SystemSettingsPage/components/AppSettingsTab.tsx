@@ -54,6 +54,7 @@ export default function AppSettingsTab({
     return {
       ...Object.fromEntries(configKeys.map(({ key, default: def }) => [key, config[key] ?? def ?? ''])),
       APP_DEFAULT_LANGUAGE: normalizeLang(config.APP_DEFAULT_LANGUAGE, 'zh'),
+      DEFAULT_FILE_VIEW_MODE: config.DEFAULT_FILE_VIEW_MODE === 'list' ? 'list' : 'grid',
       AUTH_ALLOW_REGISTER: allowRegister,
       AUTH_DEFAULT_REGISTER_ROLE_ID: Number.isFinite(roleId) ? roleId : undefined,
     };
@@ -70,6 +71,7 @@ export default function AppSettingsTab({
         }
         const defaultLanguage = normalizeLang(vals.APP_DEFAULT_LANGUAGE, 'zh');
         payload.APP_DEFAULT_LANGUAGE = defaultLanguage;
+        payload.DEFAULT_FILE_VIEW_MODE = vals.DEFAULT_FILE_VIEW_MODE === 'list' ? 'list' : 'grid';
         const allow = !!vals.AUTH_ALLOW_REGISTER;
         payload.AUTH_ALLOW_REGISTER = allow ? 'true' : 'false';
         if (allow) {
@@ -99,6 +101,19 @@ export default function AppSettingsTab({
           options={[
             { value: 'zh', label: t('Chinese') },
             { value: 'en', label: t('English') },
+          ]}
+        />
+      </Form.Item>
+
+      <Form.Item
+        name="DEFAULT_FILE_VIEW_MODE"
+        label={t('Default File View Mode')}
+      >
+        <Select
+          size="large"
+          options={[
+            { value: 'grid', label: t('Grid') },
+            { value: 'list', label: t('List') },
           ]}
         />
       </Form.Item>

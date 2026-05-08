@@ -28,6 +28,7 @@ import { MoveCopyModal } from './components/Modals/MoveCopyModal';
 import { SearchResultsView } from './components/SearchResultsView';
 import type { ViewMode } from './types';
 import { vfsApi, type VfsEntry } from '../../api/client';
+import { getPublicConfig } from '../../api/config';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import useResponsive from '../../hooks/useResponsive';
 
@@ -105,6 +106,21 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   useEffect(() => {
     load(routePath, 1, pagination.pageSize, sortBy, sortOrder);
   }, [routePath, navKey, load, pagination.pageSize, sortBy, sortOrder]);
+
+  useEffect(() => {
+    let mounted = true;
+    getPublicConfig()
+      .then((cfg) => {
+        if (!mounted || isMobile) return;
+        setViewMode(cfg.DEFAULT_FILE_VIEW_MODE === 'list' ? 'list' : 'grid');
+      })
+      .catch(() => {
+        if (mounted && !isMobile) setViewMode('grid');
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isMobile]);
 
   useEffect(() => {
     if (isMobile && viewMode !== 'grid') {

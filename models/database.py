@@ -247,6 +247,20 @@ class RecentFile(Model):
         unique_together = (("user", "path"),)
 
 
+class Notice(Model):
+    id = fields.IntField(pk=True)
+    remote_id = fields.IntField(unique=True, index=True)
+    title = fields.CharField(max_length=255)
+    content_md = fields.TextField(null=True)
+    is_popup = fields.BooleanField(default=False)
+    popup_dismissed = fields.BooleanField(default=False)
+    created_at = fields.DatetimeField()
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "notices"
+
+
 class Plugin(Model):
     id = fields.IntField(pk=True)
     key = fields.CharField(max_length=100, unique=True)  # 插件唯一标识

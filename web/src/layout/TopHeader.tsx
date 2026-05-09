@@ -1,6 +1,6 @@
 import { Layout, Button, Dropdown, theme, Flex, Avatar, Typography, Tooltip, Modal, QRCode } from 'antd';
 import { SearchOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined, RobotOutlined, BellOutlined, QrcodeOutlined } from '@ant-design/icons';
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import SearchDialog from './SearchDialog.tsx';
 import { authApi } from '../api/auth.ts';
 import { useNavigate } from 'react-router';
@@ -9,8 +9,8 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import ProfileModal from '../components/ProfileModal';
 import NoticesModal from '../components/NoticesModal';
-import { useSystemStatus } from '../contexts/SystemContext';
 import useResponsive from '../hooks/useResponsive';
+import { noticesApi, type NoticeItem } from '../api/notices';
 
 const { Header } = Layout;
 
@@ -30,7 +30,8 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
   const [profileOpen, setProfileOpen] = useState(false);
   const [clientAuthOpen, setClientAuthOpen] = useState(false);
   const [noticesOpen, setNoticesOpen] = useState(false);
-  const status = useSystemStatus();
+  const [popupNotice, setPopupNotice] = useState<NoticeItem | null>(null);
+  const [popupMode, setPopupMode] = useState(false);
   const { isMobile } = useResponsive();
   const clientAuthPayload = useMemo(() => JSON.stringify({
     base_url: window.location.origin,
@@ -44,6 +45,35 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
 
   const openProfile = () => setProfileOpen(true);
   const openClientAuth = () => setClientAuthOpen(true);
+  const openNotices = () => {
+    setPopupMode(false);
+    setNoticesOpen(true);
+  };
+  const closeNotices = async () => {
+    const shouldDismiss = popupMode && popupNotice;
+    setNoticesOpen(false);
+    setPopupMode(false);
+    if (shouldDismiss) {
+      try {
+        await noticesApi.dismiss(popupNotice.id);
+        setPopupNotice(null);
+      } catch { void 0; }
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!authToken) return;
+    noticesApi.getPopup().then((notice) => {
+      if (cancelled || !notice) return;
+      setPopupNotice(notice);
+      setPopupMode(true);
+      setNoticesOpen(true);
+    }).catch(() => void 0);
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken]);
 
   return (
     <Header
@@ -84,7 +114,7 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
             type="text"
             icon={<BellOutlined />}
             aria-label={t('Notices')}
-            onClick={() => setNoticesOpen(true)}
+            onClick={openNotices}
             style={{ paddingInline: 8, height: 40 }}
           />
         </Tooltip>
@@ -133,7 +163,7 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
             <QRCode value={clientAuthPayload} size={220} />
           </Flex>
         </Modal>
-        <NoticesModal open={noticesOpen} onClose={() => setNoticesOpen(false)} version={status?.version || ''} />
+        <NoticesModal open={noticesOpen} onClose={closeNotices} initialNotice={popupMode ? popupNotice : null} />
       </Flex>
     </Header>
   );

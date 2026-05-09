@@ -7,11 +7,11 @@ import { useI18n } from '../i18n';
 
 export interface NoticesModalProps {
   open: boolean;
-  version: string;
   onClose: () => void;
+  initialNotice?: NoticeItem | null;
 }
 
-const NoticesModal = memo(function NoticesModal({ open, version, onClose }: NoticesModalProps) {
+const NoticesModal = memo(function NoticesModal({ open, onClose, initialNotice }: NoticesModalProps) {
   const { token } = theme.useToken();
   const { t } = useI18n();
   const [items, setItems] = useState<NoticeItem[]>([]);
@@ -28,12 +28,15 @@ const NoticesModal = memo(function NoticesModal({ open, version, onClose }: Noti
     if (mode === 'replace') setLoading(true);
     else setLoadingMore(true);
     try {
-      const resp = await noticesApi.list({ version, page: targetPage });
+      const resp = await noticesApi.list({ page: targetPage });
       setPage(resp.page ?? targetPage);
       setTotal(resp.total ?? 0);
-      setItems(prev => mode === 'replace' ? resp.items : [...prev, ...resp.items]);
+      const nextItems = mode === 'replace' && initialNotice && !resp.items.some(item => item.id === initialNotice.id)
+        ? [initialNotice, ...resp.items]
+        : resp.items;
+      setItems(prev => mode === 'replace' ? nextItems : [...prev, ...resp.items]);
       if (mode === 'replace') {
-        setSelectedId(resp.items[0]?.id ?? null);
+        setSelectedId(initialNotice?.id ?? resp.items[0]?.id ?? null);
       } else {
         setSelectedId(prev => prev ?? resp.items[0]?.id ?? null);
       }
@@ -55,7 +58,7 @@ const NoticesModal = memo(function NoticesModal({ open, version, onClose }: Noti
     setSelectedId(null);
     loadPage(1, 'replace');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, version]);
+  }, [open, initialNotice?.id]);
 
   const formatTime = (ts: number) => {
     try {
@@ -181,4 +184,3 @@ const NoticesModal = memo(function NoticesModal({ open, version, onClose }: Noti
 });
 
 export default NoticesModal;
-

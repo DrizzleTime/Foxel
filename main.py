@@ -23,6 +23,7 @@ import httpx
 from dotenv import load_dotenv
 from domain.tasks import task_queue_service, task_scheduler
 from domain.role.service import RoleService
+from domain.notices import notice_sync_service
 
 load_dotenv()
 
@@ -77,6 +78,7 @@ async def lifespan(app: FastAPI):
     from domain.plugins import init_plugins
     await init_plugins(app)
     await task_scheduler.start()
+    await notice_sync_service.start()
 
     # 在所有路由加载完成后，挂载静态文件服务（放在最后以避免覆盖 API 路由）
     app.mount("/", SPAStaticFiles(directory="web/dist", html=True, check_dir=False), name="static")
@@ -85,6 +87,7 @@ async def lifespan(app: FastAPI):
         try:
             yield
         finally:
+            await notice_sync_service.stop()
             await task_scheduler.stop()
             await task_queue_service.stop_worker()
             await close_db()

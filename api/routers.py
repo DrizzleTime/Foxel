@@ -6,6 +6,7 @@ from domain.backup import api as backup
 from domain.config import api as config
 from domain.email import api as email
 from domain.offline_downloads import api as offline_downloads
+from domain.notices import api as notices
 from domain.plugins import api as plugins
 from domain.processors import api as processors
 from domain.share import api as share
@@ -41,6 +42,7 @@ def include_routers(app: FastAPI):
     app.include_router(webdav_api.router)
     app.include_router(s3_api.router)
     app.include_router(offline_downloads.router)
+    app.include_router(notices.router)
     app.include_router(email.router)
     app.include_router(audit.router)
     app.include_router(permission.router)

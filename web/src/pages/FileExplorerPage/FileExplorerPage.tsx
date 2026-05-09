@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
-import { theme, Pagination } from 'antd';
+import { Button, Space, theme, Pagination } from 'antd';
 import { useFileExplorer } from './hooks/useFileExplorer';
 import { useFileSelection } from './hooks/useFileSelection';
 import { useFileActions } from './hooks/useFileActions.tsx';
@@ -43,7 +43,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const skeletonTimerRef = useRef<number | null>(null);
 
   // --- Hooks ---
-  const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange } = useFileExplorer(navKey);
+  const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange, goCursorNext, goCursorPrev } = useFileExplorer(navKey);
   const { selectedEntries, handleSelect, handleSelectRange, clearSelection, setSelectedEntries } = useFileSelection();
   const { openFileWithDefaultApp, confirmOpenWithApp } = useAppWindows();
   const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, openContextMenuAt, closeContextMenus } = useContextMenu();
@@ -221,8 +221,10 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     }
     return joined.startsWith('/') ? joined : `/${joined}`;
   }, [entryBasePath]);
-  const showFsPagination = !isSearching && pagination.total > 0;
+  const showFsPagination = !isSearching && pagination.mode === 'paged' && pagination.total > 0;
+  const showCursorPagination = !isSearching && pagination.mode === 'cursor' && (pagination.cursorHistory.length > 0 || pagination.hasNext);
   const shouldReserveBottomBar = showSearchPagination || showFsPagination;
+  const shouldReserveAnyBottomBar = shouldReserveBottomBar || showCursorPagination;
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -298,6 +300,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         viewMode={viewMode}
         sortBy={sortBy}
         sortOrder={sortOrder}
+        paginationMode={pagination.mode}
         isMobile={isMobile}
         onGoUp={goUp}
         onNavigate={navigateTo}
@@ -325,7 +328,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onChange={handleDirectoryInputChange}
       />
 
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: shouldReserveBottomBar ? '80px' : '0' }} onContextMenu={isMobile ? undefined : openBlankContextMenu}>
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: shouldReserveAnyBottomBar ? '80px' : '0' }} onContextMenu={isMobile ? undefined : openBlankContextMenu}>
         {isSearching ? (
           <SearchResultsView
             viewMode={viewMode}
@@ -377,6 +380,19 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       {showFsPagination && (
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
           <Pagination {...pagination} onChange={handlePaginationChange} onShowSizeChange={handlePaginationChange} />
+        </div>
+      )}
+
+      {showCursorPagination && (
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
+          <Space>
+            <Button size="small" onClick={goCursorPrev} disabled={pagination.cursorHistory.length === 0 || loading}>
+              上一页
+            </Button>
+            <Button size="small" type="primary" onClick={goCursorNext} disabled={!pagination.hasNext || loading}>
+              下一页
+            </Button>
+          </Space>
         </div>
       )}
 

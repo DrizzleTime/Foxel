@@ -7,10 +7,14 @@ type ExplorerSnapshot = {
   path: string;
   entries: VfsEntry[];
   pagination?: {
-    total: number;
-    page: number;
+    mode?: 'paged' | 'cursor';
     page_size: number;
-    pages: number;
+    total?: number;
+    page?: number;
+    pages?: number;
+    cursor?: string | null;
+    next_cursor?: string | null;
+    has_next?: boolean;
   };
   sortBy: string;
   sortOrder: string;
@@ -30,6 +34,11 @@ export function useFileExplorer(navKey: string) {
     current: 1,
     pageSize: 50,
     total: 0,
+    mode: 'paged' as 'paged' | 'cursor',
+    cursor: null as string | null,
+    nextCursor: null as string | null,
+    cursorHistory: [] as (string | null)[],
+    hasNext: false,
     showSizeChanger: true,
     showQuickJumper: true,
     showTotal: (total: number, range: [number, number]) => `${total} ${'items'} ${range[0]}-${range[1]}`,
@@ -38,23 +47,29 @@ export function useFileExplorer(navKey: string) {
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
 
-  const load = useCallback(async (p: string, page: number = 1, pageSize: number = 50, sb = sortBy, so = sortOrder) => {
+  const load = useCallback(async (p: string, page: number = 1, pageSize: number = 50, sb = sortBy, so = sortOrder, cursor?: string | null, cursorHistory: (string | null)[] = []) => {
     const canonical = p === '' ? '/' : (p.startsWith('/') ? p : '/' + p);
     setLoading(true);
     try {
       // Load entries and processor types concurrently
       const [res, processors] = await Promise.all([
-        vfsApi.list(canonical === '/' ? '' : canonical, page, pageSize, sb, so),
+        vfsApi.list(canonical === '/' ? '' : canonical, page, pageSize, sb, so, cursor),
         processorsApi.list()
       ]);
       setEntries(res.entries);
       const resolvedPath = res.path || canonical;
       setPath(resolvedPath);
+      const pageMode = res.pagination?.mode || 'paged';
       setPagination(prev => ({
         ...prev,
-        current: res.pagination!.page,
-        pageSize: res.pagination!.page_size,
-        total: res.pagination!.total
+        mode: pageMode,
+        current: res.pagination?.page || page,
+        pageSize: res.pagination?.page_size || pageSize,
+        total: res.pagination?.total || 0,
+        cursor: res.pagination?.cursor || null,
+        nextCursor: res.pagination?.next_cursor || null,
+        hasNext: Boolean(res.pagination?.has_next),
+        cursorHistory: pageMode === 'cursor' ? cursorHistory : [],
       }));
       setProcessorTypes(processors);
       if (typeof window !== 'undefined') {
@@ -94,8 +109,31 @@ export function useFileExplorer(navKey: string) {
     load(path, page, pageSize, sortBy, sortOrder);
   };
 
+  const goCursorNext = () => {
+    if (!pagination.nextCursor) return;
+    load(path, 1, pagination.pageSize, sortBy, sortOrder, pagination.nextCursor, [
+      ...pagination.cursorHistory,
+      pagination.cursor,
+    ]);
+  };
+
+  const goCursorPrev = () => {
+    if (pagination.cursorHistory.length === 0) return;
+    const nextHistory = pagination.cursorHistory.slice(0, -1);
+    const prevCursor = pagination.cursorHistory[pagination.cursorHistory.length - 1];
+    load(path, 1, pagination.pageSize, sortBy, sortOrder, prevCursor, nextHistory);
+  };
+
   const refresh = () => {
-    load(path, pagination.current, pagination.pageSize, sortBy, sortOrder);
+    load(
+      path,
+      pagination.current,
+      pagination.pageSize,
+      sortBy,
+      sortOrder,
+      pagination.mode === 'cursor' ? pagination.cursor : null,
+      pagination.mode === 'cursor' ? pagination.cursorHistory : [],
+    );
   }
 
   const handleSortChange = (sb: string, so: string) => {
@@ -117,6 +155,8 @@ export function useFileExplorer(navKey: string) {
     goUp,
     handlePaginationChange,
     refresh,
-    handleSortChange
+    handleSortChange,
+    goCursorNext,
+    goCursorPrev,
   };
 }

@@ -13,10 +13,14 @@ export interface DirListing {
   path: string;
   entries: VfsEntry[];
   pagination?: {
-    total: number;
-    page: number;
+    mode?: 'paged' | 'cursor';
     page_size: number;
-    pages: number;
+    total?: number;
+    page?: number;
+    pages?: number;
+    cursor?: string | null;
+    next_cursor?: string | null;
+    has_next?: boolean;
   };
 }
 
@@ -47,7 +51,7 @@ export interface SearchResponse {
 }
 
 export const vfsApi = {
-  list: (path: string, page: number = 1, pageSize: number = 50, sortBy: string = 'name', sortOrder: string = 'asc') => {
+  list: (path: string, page: number = 1, pageSize: number = 50, sortBy: string = 'name', sortOrder: string = 'asc', cursor?: string | null) => {
     const cleaned = path.replace(/\\/g, '/');
     const trimmed = cleaned === '/' ? '' : cleaned.replace(/^\/+/, '');
     const params = new URLSearchParams({
@@ -56,6 +60,7 @@ export const vfsApi = {
       sort_by: sortBy,
       sort_order: sortOrder
     });
+    if (cursor) params.set('cursor', cursor);
     return request<DirListing>(`/fs/${encodeURI(trimmed)}?${params}`);
   },
   readFile: async (path: string) => {

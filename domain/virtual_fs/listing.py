@@ -57,6 +57,7 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
         page_size: int = 50,
         sort_by: str = "name",
         sort_order: str = "asc",
+        cursor: str | None = None,
     ) -> Dict:
         norm = cls._normalize_path(path).rstrip("/") or "/"
         adapters = await StorageAdapter.filter(enabled=True)
@@ -119,12 +120,28 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
         adapter_entries_for_merge: List[Dict] = []
         adapter_entries_page: List[Dict] | None = None
         adapter_total: int | None = None
+        adapter_listing: Dict[str, Any] | None = None
         if adapter_model and adapter_instance:
             list_dir = getattr(adapter_instance, "list_dir", None)
             if callable(list_dir):
-                adapter_entries_page, adapter_total = await list_dir(
-                    effective_root, rel, page_num, page_size, sort_by, sort_order
-                )
+                try:
+                    parameters = inspect.signature(list_dir).parameters
+                except (TypeError, ValueError):
+                    parameters = {}
+                if "cursor" in parameters:
+                    raw_listing = await list_dir(
+                        effective_root, rel, page_num, page_size, sort_by, sort_order, cursor=cursor
+                    )
+                else:
+                    raw_listing = await list_dir(
+                        effective_root, rel, page_num, page_size, sort_by, sort_order
+                    )
+                if isinstance(raw_listing, dict):
+                    adapter_listing = raw_listing
+                    adapter_entries_page = raw_listing.get("items", [])
+                    adapter_total = raw_listing.get("total")
+                else:
+                    adapter_entries_page, adapter_total = raw_listing
             if rel:
                 parent_rel = cls._parent_rel(rel)
                 if rel:
@@ -189,6 +206,9 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
         annotate_entry_list = adapter_entries_page or []
         for ent in annotate_entry_list:
             annotate_entry(ent)
+        if adapter_listing and adapter_listing.get("pagination_mode") == "cursor":
+            adapter_listing["items"] = annotate_entry_list
+            return adapter_listing
         return page(adapter_entries_page, adapter_total, page_num, page_size)
 
     @classmethod
@@ -296,13 +316,14 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
         page_size: int = 50,
         sort_by: str = "name",
         sort_order: str = "asc",
+        cursor: str | None = None,
     ) -> Dict:
         """
         带权限过滤的目录列表
         
         过滤掉用户没有读取权限的条目
         """
-        result = await cls.list_virtual_dir(path, page_num, page_size, sort_by, sort_order)
+        result = await cls.list_virtual_dir(path, page_num, page_size, sort_by, sort_order, cursor)
         items = result.get("items", [])
         if not items:
             return result

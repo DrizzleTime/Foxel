@@ -183,9 +183,10 @@ async def browse_fs(
     page_size: int = Query(50, ge=1, le=500, description="每页条数"),
     sort_by: str = Query("name", description="按字段排序: name, size, mtime"),
     sort_order: str = Query("asc", description="排序顺序: asc, desc"),
+    cursor: str | None = Query(None, description="游标分页位置"),
 ):
     data = await VirtualFSService.list_directory_with_permission(
-        full_path, current_user.id, page_num, page_size, sort_by, sort_order
+        full_path, current_user.id, page_num, page_size, sort_by, sort_order, cursor
     )
     return success(data)
 
@@ -211,9 +212,10 @@ async def root_listing(
     page_size: int = Query(50, ge=1, le=500, description="每页条数"),
     sort_by: str = Query("name", description="按字段排序: name, size, mtime"),
     sort_order: str = Query("asc", description="排序顺序: asc, desc"),
+    cursor: str | None = Query(None, description="游标分页位置"),
 ):
     # 根目录不需要权限检查，但需要过滤无权限的子目录
     data = await VirtualFSService.list_directory_with_permission(
-        "/", current_user.id, page_num, page_size, sort_by, sort_order
+        "/", current_user.id, page_num, page_size, sort_by, sort_order, cursor
     )
     return success(data)

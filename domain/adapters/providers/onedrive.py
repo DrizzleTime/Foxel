@@ -4,6 +4,7 @@ import httpx
 from fastapi.responses import StreamingResponse, Response
 from fastapi import HTTPException
 from models import StorageAdapter
+from api.response import cursor_page
 
 MS_GRAPH_URL = "https://graph.microsoft.com/v1.0"
 MS_OAUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
@@ -114,65 +115,51 @@ class OneDriveAdapter:
             "type": "dir" if is_dir else "file",
         }
 
-    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Tuple[List[Dict], int]:
+    async def list_dir(
+        self,
+        root: str,
+        rel: str,
+        page_num: int = 1,
+        page_size: int = 50,
+        sort_by: str = "name",
+        sort_order: str = "asc",
+        cursor: str | None = None,
+    ):
         """
         列出目录内容。
-        由于 Graph API 不支持基于偏移($skip)的分页，此方法将获取所有项目，
+        Graph API 不提供目录总数，使用 nextLink 游标分页。
         :param root: 根路径 (在此适配器中未使用，通过配置的 root 确定)。
         :param rel: 相对路径。
         :param page_num: 页码。
         :param page_size: 每页大小。
         :param sort_by: 排序字段
         :param sort_order: 排序顺序
-        :return: 文件/目录列表和总数。
+        :param cursor: Graph nextLink。
+        :return: 游标分页结果。
         """
-        api_path = self._get_api_path(rel)
-        children_path = f"{api_path}:/children" if api_path else "/children"
-        all_items = []
-        params = {"$top": 999}
-        resp = await self._request("GET", api_path_segment=children_path, params=params)
+        if cursor:
+            resp = await self._request("GET", full_url=cursor)
+        else:
+            api_path = self._get_api_path(rel)
+            children_path = f"{api_path}:/children" if api_path else "/children"
+            resp = await self._request("GET", api_path_segment=children_path, params={"$top": page_size})
 
-        while True:
-            if resp.status_code == 404 and not all_items:
-                return [], 0
-            resp.raise_for_status()
+        if resp.status_code == 404:
+            return cursor_page([], page_size, cursor=cursor)
+        resp.raise_for_status()
 
-            try:
-                data = resp.json()
-            except Exception as e:
-                raise IOError(f"解析 Graph API 响应失败: {e}") from e
+        try:
+            data = resp.json()
+        except Exception as e:
+            raise IOError(f"解析 Graph API 响应失败: {e}") from e
 
-            all_items.extend(data.get("value", []))
-            next_link = data.get("@odata.nextLink")
-
-            if not next_link:
-                break
-
-            resp = await self._request("GET", full_url=next_link)
-
-        formatted_items = [self._format_item(item) for item in all_items]
-        
-        # 排序
-        reverse = sort_order.lower() == "desc"
-        def get_sort_key(item):
-            key = (not item["is_dir"],)
-            sort_field = sort_by.lower()
-            if sort_field == "name":
-                key += (item["name"].lower(),)
-            elif sort_field == "size":
-                key += (item["size"],)
-            elif sort_field == "mtime":
-                key += (item["mtime"],)
-            else:
-                key += (item["name"].lower(),)
-            return key
-        formatted_items.sort(key=get_sort_key, reverse=reverse)
-
-        total_count = len(formatted_items)
-        start_idx = (page_num - 1) * page_size
-        end_idx = start_idx + page_size
-
-        return formatted_items[start_idx:end_idx], total_count
+        formatted_items = [self._format_item(item) for item in data.get("value", [])]
+        return cursor_page(
+            formatted_items,
+            page_size,
+            cursor=cursor,
+            next_cursor=data.get("@odata.nextLink"),
+        )
 
     async def read_file(self, root: str, rel: str) -> bytes:
         """

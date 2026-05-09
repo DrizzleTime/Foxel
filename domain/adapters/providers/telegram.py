@@ -6,6 +6,7 @@ import os
 import struct
 import time
 from models import StorageAdapter
+from api.response import cursor_page
 from telethon import TelegramClient, errors, utils
 from telethon.crypto import AuthKey
 from telethon.sessions import StringSession
@@ -280,81 +281,79 @@ class TelegramAdapter:
     def get_effective_root(self, sub_path: str | None) -> str:
         return ""
 
-    async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Tuple[List[Dict], int]:
+    async def list_dir(
+        self,
+        root: str,
+        rel: str,
+        page_num: int = 1,
+        page_size: int = 50,
+        sort_by: str = "name",
+        sort_order: str = "asc",
+        cursor: str | None = None,
+    ):
         if rel:
-            return [], 0
+            return cursor_page([], page_size, cursor=cursor)
 
         client = self._get_client()
         entries = []
+        next_cursor = None
         try:
             await client.connect()
-            messages = await client.get_messages(self.chat_id, limit=200)
-            for message in messages:
-                if not message:
-                    continue
+            offset_id = int(cursor) if cursor else 0
+            batch_limit = min(max(page_size, 50), 200)
+            while len(entries) < page_size:
+                messages = await client.get_messages(self.chat_id, limit=batch_limit, offset_id=offset_id)
+                if not messages:
+                    next_cursor = None
+                    break
 
-                media = message.document or message.video or message.photo
-                if not media:
-                    continue
+                offset_id = messages[-1].id
+                next_cursor = str(offset_id)
+                for message in messages:
+                    if not message:
+                        continue
 
-                file_meta = message.file
-                if not file_meta:
-                    continue
+                    media = message.document or message.video or message.photo
+                    if not media:
+                        continue
 
-                filename = file_meta.name
-                if not filename:
-                    if message.text and '.' in message.text and len(message.text) < 256 and '\n' not in message.text:
-                        filename = message.text
-                    else:
-                        filename = f"unknown_{message.id}"
+                    file_meta = message.file
+                    if not file_meta:
+                        continue
 
-                size = file_meta.size
-                if size is None:
-                    # 兼容缺失 size 的情况
-                    if hasattr(media, "size") and media.size is not None:
-                        size = media.size
-                    elif message.photo and getattr(message.photo, "sizes", None):
-                        photo_size = message.photo.sizes[-1]
-                        size = getattr(photo_size, "size", 0) or 0
-                    else:
-                        size = 0
+                    filename = file_meta.name
+                    if not filename:
+                        if message.text and '.' in message.text and len(message.text) < 256 and '\n' not in message.text:
+                            filename = message.text
+                        else:
+                            filename = f"unknown_{message.id}"
 
-                entries.append({
-                    "name": f"{message.id}_{filename}",
-                    "is_dir": False,
-                    "size": size,
-                    "mtime": int(message.date.timestamp()),
-                    "type": "file",
-                    "has_thumbnail": False,
-                })
+                    size = file_meta.size
+                    if size is None:
+                        # 兼容缺失 size 的情况
+                        if hasattr(media, "size") and media.size is not None:
+                            size = media.size
+                        elif message.photo and getattr(message.photo, "sizes", None):
+                            photo_size = message.photo.sizes[-1]
+                            size = getattr(photo_size, "size", 0) or 0
+                        else:
+                            size = 0
+
+                    entries.append({
+                        "name": f"{message.id}_{filename}",
+                        "is_dir": False,
+                        "size": size,
+                        "mtime": int(message.date.timestamp()),
+                        "type": "file",
+                        "has_thumbnail": False,
+                    })
+                    if len(entries) >= page_size:
+                        break
         finally:
             if client.is_connected():
                 await client.disconnect()
 
-        # 排序
-        reverse = sort_order.lower() == "desc"
-        def get_sort_key(item):
-            key = (not item["is_dir"],)
-            sort_field = sort_by.lower()
-            if sort_field == "name":
-                key += (item["name"].lower(),)
-            elif sort_field == "size":
-                key += (item["size"],)
-            elif sort_field == "mtime":
-                key += (item["mtime"],)
-            else:
-                key += (item["name"].lower(),)
-            return key
-        entries.sort(key=get_sort_key, reverse=reverse)
-        
-        total_count = len(entries)
-        
-        # 分页
-        start_idx = (page_num - 1) * page_size
-        end_idx = start_idx + page_size
-        page_entries = entries[start_idx:end_idx]
-        
-        return page_entries, total_count
+        return cursor_page(entries, page_size, cursor=cursor, next_cursor=next_cursor)
 
     async def read_file(self, root: str, rel: str) -> bytes:
         message_id = self._parse_message_id(rel)

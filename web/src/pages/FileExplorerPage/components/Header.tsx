@@ -12,6 +12,7 @@ interface HeaderProps {
   viewMode: ViewMode;
   sortBy: string;
   sortOrder: string;
+  paginationMode?: 'paged' | 'cursor';
   isMobile?: boolean;
   onGoUp: () => void;
   onNavigate: (path: string) => void;
@@ -30,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   viewMode,
   sortBy,
   sortOrder,
+  paginationMode = 'paged',
   isMobile = false,
   onGoUp,
   onNavigate,
@@ -82,6 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
     setEditingPath(false);
     setPathInputValue('');
   };
+  const sortDisabled = paginationMode === 'cursor';
 
   const renderBreadcrumb = () => {
     if (editingPath) {
@@ -154,6 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
     {
       key: 'sort',
       label: t('Sort By') + `: ${t(sortBy === 'mtime' ? 'Modified Time' : sortBy === 'size' ? 'Size' : 'Name')}`,
+      disabled: sortDisabled,
       children: [
         { key: 'sort-name', label: t('Name'), onClick: () => onSortChange('name', sortOrder) },
         { key: 'sort-size', label: t('Size'), onClick: () => onSortChange('size', sortOrder) },
@@ -164,6 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
       key: 'sort-order',
       label: sortOrder === 'asc' ? t('Ascending') : t('Descending'),
       icon: sortOrder === 'asc' ? <ArrowUpOutlined /> : <ArrowDownOutlined />,
+      disabled: sortDisabled,
       onClick: () => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc'),
     },
   ];
@@ -230,6 +235,7 @@ export const Header: React.FC<HeaderProps> = ({
           <Select
             size="small"
             value={sortBy}
+            disabled={sortDisabled}
             onChange={(val) => onSortChange(val, sortOrder)}
             style={{ width: 112 }}
             options={[
@@ -240,6 +246,7 @@ export const Header: React.FC<HeaderProps> = ({
           />
           <Button
             size="small"
+            disabled={sortDisabled}
             icon={sortOrder === 'asc' ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
             onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
           />

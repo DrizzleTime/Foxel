@@ -275,15 +275,30 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
     async def list_directory(cls, full_path: str, page_num: int, page_size: int, sort_by: str, sort_order: str):
         full_path = cls._normalize_path(full_path)
         result = await cls.list_virtual_dir(full_path, page_num, page_size, sort_by, sort_order)
+        pagination = {
+            "mode": result.get("pagination_mode", "paged"),
+            "page_size": result.get("page_size", page_size),
+        }
+        if pagination["mode"] == "cursor":
+            pagination.update(
+                {
+                    "cursor": result.get("cursor"),
+                    "next_cursor": result.get("next_cursor"),
+                    "has_next": bool(result.get("has_next")),
+                }
+            )
+        else:
+            pagination.update(
+                {
+                    "total": result["total"],
+                    "page": result["page"],
+                    "pages": result["pages"],
+                }
+            )
         return {
             "path": full_path,
             "entries": result["items"],
-            "pagination": {
-                "total": result["total"],
-                "page": result["page"],
-                "page_size": result["page_size"],
-                "pages": result["pages"],
-            },
+            "pagination": pagination,
         }
 
     @classmethod

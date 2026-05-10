@@ -1,6 +1,9 @@
 name: Release Drafter
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -10,8 +13,119 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: release-drafter/release-drafter@v6
+      - id: drafter
+        uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add direct commits
+        if: steps.drafter.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.drafter.outputs.id }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+
+          if [ -n "$latest_tag" ]; then
+            commits_json="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${latest_tag}...${HEAD_SHA}" --jq '.commits')"
+          else
+            commits_json="$(gh api "repos/${GITHUB_REPOSITORY}/commits?sha=${HEAD_SHA}&per_page=100")"
+          fi
+
+          direct_commits="$(mktemp)"
+          printf '%s\n' "$commits_json" \
+            | jq -r '.[] | [.sha, (.commit.message | split("\n")[0]), (.author.login // .commit.author.name)] | @tsv' \
+            > "$direct_commits"
+
+          features=()
+          fixes=()
+          refactors=()
+          docs=()
+          maintenance=()
+
+          while IFS=$'\t' read -r sha subject author; do
+            if [[ -z "$sha" || "$subject" =~ ^Merge[[:space:]] ]]; then
+              continue
+            fi
+
+            prs="$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "repos/${GITHUB_REPOSITORY}/commits/${sha}/pulls" \
+              --jq 'length')"
+
+            if [ "$prs" -gt 0 ]; then
+              continue
+            fi
+
+            short_sha="${sha:0:7}"
+            line="- ${short_sha} ${subject} @${author}"
+            type="${subject%%:*}"
+            type="${type%%(*}"
+            type="${type%!}"
+
+            if [ "$type" = "feat" ]; then
+              features+=("$line")
+            elif [ "$type" = "fix" ]; then
+              fixes+=("$line")
+            elif [ "$type" = "refactor" ]; then
+              refactors+=("$line")
+            elif [ "$type" = "docs" ]; then
+              docs+=("$line")
+            elif [[ "$type" = "chore" || "$type" = "ci" || "$type" = "build" ]]; then
+              maintenance+=("$line")
+            fi
+          done < "$direct_commits"
+
+          direct_notes="$(mktemp)"
+          {
+            echo "## Direct Commits"
+            echo
+
+            if [ "${#features[@]}" -gt 0 ]; then
+              echo "### 🚀 Features"
+              printf '%s\n' "${features[@]}"
+              echo
+            fi
+
+            if [ "${#fixes[@]}" -gt 0 ]; then
+              echo "### 🐛 Bug Fixes"
+              printf '%s\n' "${fixes[@]}"
+              echo
+            fi
+
+            if [ "${#refactors[@]}" -gt 0 ]; then
+              echo "### 📦 Code Refactoring"
+              printf '%s\n' "${refactors[@]}"
+              echo
+            fi
+
+            if [ "${#docs[@]}" -gt 0 ]; then
+              echo "### 📄 Documentation"
+              printf '%s\n' "${docs[@]}"
+              echo
+            fi
+
+            if [ "${#maintenance[@]}" -gt 0 ]; then
+              echo "### 🧰 Maintenance"
+              printf '%s\n' "${maintenance[@]}"
+              echo
+            fi
+          } > "$direct_notes"
+
+          if [ "$(wc -l < "$direct_notes")" -le 2 ]; then
+            exit 0
+          fi
+
+          body="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.body')"
+          body_without_direct="$(printf '%s\n' "$body" | sed '/^## Direct Commits$/,$d')"
+          new_body="$(printf '%s\n\n%s\n' "$body_without_direct" "$(cat "$direct_notes")")"
+
+          gh api \
+            --method PATCH \
+            "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -f body="$new_body"

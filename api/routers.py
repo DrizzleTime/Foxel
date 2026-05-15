@@ -21,6 +21,7 @@ from domain.permission import api as permission
 from domain.user import api as user
 from domain.role import api as role
 from domain.recent_files import api as recent_files
+from domain.video_room import api as video_room
 
 
 def include_routers(app: FastAPI):
@@ -48,3 +49,5 @@ def include_routers(app: FastAPI):
     app.include_router(permission.router)
     app.include_router(user.router)
     app.include_router(role.router)
+    app.include_router(video_room.router)
+    app.include_router(video_room.public_router)

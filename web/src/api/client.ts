@@ -75,3 +75,5 @@ export { adaptersApi, type AdapterItem, type AdapterTypeField, type AdapterTypeM
 export { shareApi, type ShareInfo, type ShareInfoWithPassword } from './share';
 export { offlineDownloadsApi, type OfflineDownloadTask, type OfflineDownloadCreate, type TaskProgress } from './offlineDownloads';
 export default request;
+
+export { videoRoomApi, type VideoRoomInfo, type VideoRoomState } from './videoRoom';

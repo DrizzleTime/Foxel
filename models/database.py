@@ -291,3 +291,19 @@ class Plugin(Model):
 
     class Meta:
         table = "plugins"
+
+
+class VideoRoom(Model):
+    id = fields.IntField(pk=True)
+    token = fields.CharField(max_length=120, unique=True, index=True)
+    name = fields.CharField(max_length=255)
+    path = fields.CharField(max_length=4096)
+    owner: fields.ForeignKeyRelation[UserAccount] = fields.ForeignKeyField(
+        "models.UserAccount", related_name="video_rooms", on_delete=fields.CASCADE
+    )
+    control_mode = fields.CharField(max_length=20, default="everyone")
+    created_at = fields.DatetimeField(auto_now_add=True)
+    expires_at = fields.DatetimeField(null=True)
+
+    class Meta:
+        table = "video_rooms"

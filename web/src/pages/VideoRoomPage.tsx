@@ -1,15 +1,10 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
-import { Button, Card, Empty, Space, Spin, Tag, Tooltip, Typography, message } from 'antd';
+import { Button, Empty, Space, Spin, Tag, Tooltip, Typography, message } from 'antd';
 import {
   CheckCircleFilled,
-  ClockCircleOutlined,
-  CopyOutlined,
   DisconnectOutlined,
-  FileTextOutlined,
   LinkOutlined,
-  PlayCircleOutlined,
-  ReloadOutlined,
 } from '@ant-design/icons';
 import Artplayer from 'artplayer';
 import { videoRoomsApi, type VideoRoomInfo, type VideoRoomState } from '../api/videoRooms';
@@ -19,6 +14,16 @@ import './VideoRoomPage.css';
 const { Text, Title } = Typography;
 
 const SYNC_THRESHOLD = 1.2;
+
+function getSyncedTime(state: VideoRoomState) {
+  const baseTime = Math.max(0, Number(state.current_time) || 0);
+  if (state.paused || !state.updated_at) return baseTime;
+
+  const updatedAt = Date.parse(state.updated_at);
+  if (Number.isNaN(updatedAt)) return baseTime;
+
+  return baseTime + Math.max(0, (Date.now() - updatedAt) / 1000);
+}
 
 function formatTime(seconds: number) {
   const safeSeconds = Math.max(0, Math.floor(seconds || 0));
@@ -43,6 +48,7 @@ const VideoRoomPage = memo(function VideoRoomPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const applyingRemoteRef = useRef(false);
   const sendTimerRef = useRef<number | null>(null);
+  const liveStateRef = useRef<VideoRoomState | null>(null);
   const [room, setRoom] = useState<VideoRoomInfo | null>(null);
   const [liveState, setLiveState] = useState<VideoRoomState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +64,7 @@ const VideoRoomPage = memo(function VideoRoomPage() {
         if (!mounted) return;
         setRoom(data);
         setLiveState(data.state);
+        liveStateRef.current = data.state;
       })
       .catch((e: any) => {
         if (!mounted) return;
@@ -100,10 +107,11 @@ const VideoRoomPage = memo(function VideoRoomPage() {
 
     const applyState = (state: VideoRoomState) => {
       const art = artInstance.current;
+      liveStateRef.current = state;
       setLiveState(state);
       if (!art) return;
       const video = art.video;
-      const targetTime = Math.max(0, Number(state.current_time) || 0);
+      const targetTime = getSyncedTime(state);
       applyingRemoteRef.current = true;
       if (Math.abs((video.currentTime || 0) - targetTime) > SYNC_THRESHOLD) {
         video.currentTime = targetTime;
@@ -119,6 +127,10 @@ const VideoRoomPage = memo(function VideoRoomPage() {
       }, 250);
     };
 
+    const applyLatestState = () => {
+      applyState(liveStateRef.current || room.state);
+    };
+
     const art = new Artplayer({
       container: artRef.current,
       url: videoRoomsApi.streamUrl(token),
@@ -131,7 +143,9 @@ const VideoRoomPage = memo(function VideoRoomPage() {
     });
     artInstance.current = art;
 
-    art.on('ready', () => applyState(room.state));
+    art.on('ready', applyLatestState);
+    art.video.addEventListener('loadedmetadata', applyLatestState);
+    art.video.addEventListener('canplay', applyLatestState);
     art.on('play', sendStateSoon);
     art.on('pause', sendStateSoon);
     art.on('seek', sendStateSoon);
@@ -157,6 +171,8 @@ const VideoRoomPage = memo(function VideoRoomPage() {
         window.clearTimeout(sendTimerRef.current);
         sendTimerRef.current = null;
       }
+      art.video.removeEventListener('loadedmetadata', applyLatestState);
+      art.video.removeEventListener('canplay', applyLatestState);
       ws.close();
       art.destroy();
       wsRef.current = null;
@@ -167,18 +183,6 @@ const VideoRoomPage = memo(function VideoRoomPage() {
   const handleCopy = () => {
     navigator.clipboard.writeText(window.location.href);
     message.success(t('Copied to clipboard'));
-  };
-
-  const handleResync = () => {
-    if (!liveState) return;
-    const art = artInstance.current;
-    if (!art) return;
-    art.video.currentTime = Math.max(0, Number(liveState.current_time) || 0);
-    if (liveState.paused) {
-      void art.video.pause();
-    } else {
-      void art.video.play().catch(() => undefined);
-    }
   };
 
   if (loading) {
@@ -238,50 +242,6 @@ const VideoRoomPage = memo(function VideoRoomPage() {
             <span>{t('Playback state is shared in this room')}</span>
           </div>
         </section>
-
-        <aside className="video-room-side">
-          <Card
-            className="video-room-panel"
-            title={t('Room status')}
-            extra={<span className={connected ? 'video-room-dot is-connected' : 'video-room-dot'} />}
-          >
-            <div className="video-room-status-list">
-              <div className="video-room-status-item">
-                <PlayCircleOutlined />
-                <div>
-                  <span>{t('Playback')}</span>
-                  <strong>{state.paused ? t('Paused') : t('Playing')}</strong>
-                </div>
-              </div>
-              <div className="video-room-status-item">
-                <ClockCircleOutlined />
-                <div>
-                  <span>{t('Current position')}</span>
-                  <strong>{formatTime(state.current_time)}</strong>
-                </div>
-              </div>
-              <div className="video-room-status-item">
-                <FileTextOutlined />
-                <div>
-                  <span>{t('File')}</span>
-                  <strong title={room.path}>{fileName}</strong>
-                </div>
-              </div>
-            </div>
-            <Button block className="video-room-primary-action" icon={<ReloadOutlined />} onClick={handleResync}>
-              {t('Resync playback')}
-            </Button>
-          </Card>
-
-          <Card className="video-room-panel" title={t('Room link')}>
-            <p className="video-room-panel__text">
-              {t('Share this room link with friends')}
-            </p>
-            <Button block icon={<CopyOutlined />} onClick={handleCopy}>
-              {t('Copy Link')}
-            </Button>
-          </Card>
-        </aside>
       </main>
     </div>
   );

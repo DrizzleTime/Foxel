@@ -82,15 +82,28 @@ const VideoRoomPage = memo(function VideoRoomPage() {
   useEffect(() => {
     if (!token || !room || !artRef.current) return;
 
-    const sendState = () => {
+    const updateLocalState = () => {
       const art = artInstance.current;
-      const ws = wsRef.current;
-      if (!art || !ws || ws.readyState !== WebSocket.OPEN || applyingRemoteRef.current) return;
+      if (!art || applyingRemoteRef.current) return null;
       const video = art.video;
-      const payload = {
-        type: 'state',
+      const state: VideoRoomState = {
         current_time: video.currentTime || 0,
         paused: video.paused,
+        updated_at: new Date().toISOString(),
+      };
+      liveStateRef.current = state;
+      setLiveState(state);
+      return state;
+    };
+
+    const sendState = () => {
+      const ws = wsRef.current;
+      const state = updateLocalState();
+      if (!state || !ws || ws.readyState !== WebSocket.OPEN) return;
+      const payload = {
+        type: 'state',
+        current_time: state.current_time,
+        paused: state.paused,
       };
       ws.send(JSON.stringify(payload));
     };
@@ -145,7 +158,6 @@ const VideoRoomPage = memo(function VideoRoomPage() {
 
     art.on('ready', applyLatestState);
     art.video.addEventListener('loadedmetadata', applyLatestState);
-    art.video.addEventListener('canplay', applyLatestState);
     art.on('play', sendStateSoon);
     art.on('pause', sendStateSoon);
     art.on('seek', sendStateSoon);
@@ -172,7 +184,6 @@ const VideoRoomPage = memo(function VideoRoomPage() {
         sendTimerRef.current = null;
       }
       art.video.removeEventListener('loadedmetadata', applyLatestState);
-      art.video.removeEventListener('canplay', applyLatestState);
       ws.close();
       art.destroy();
       wsRef.current = null;

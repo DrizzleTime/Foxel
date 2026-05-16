@@ -1,0 +1,238 @@
+.video-room-page {
+  min-height: 100vh;
+  padding: 24px;
+  background: #0b0f12;
+}
+
+.video-room-page--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-room-page--center .ant-empty-description {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.video-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1720px;
+  margin: 0 auto 16px;
+}
+
+.video-room-header__left {
+  min-width: 0;
+}
+
+.video-room-header__right {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.video-room-title-block {
+  min-width: 0;
+}
+
+.video-room-title.ant-typography {
+  max-width: min(980px, 70vw);
+  margin: 0 0 4px;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.92);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-room-file-name {
+  max-width: min(720px, 58vw);
+}
+
+.video-room-status-tag.ant-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 8px;
+}
+
+.video-room-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 18px;
+  max-width: 1720px;
+  margin: 0 auto;
+}
+
+.video-room-main {
+  min-width: 0;
+}
+
+.video-room-stage {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #000;
+}
+
+.video-room-player {
+  width: 100%;
+  height: min(72vh, 760px);
+  min-height: 480px;
+  background: #000;
+}
+
+.video-room-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+}
+
+.video-room-note .anticon {
+  color: var(--ant-color-primary, #1677ff);
+}
+
+.video-room-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.video-room-panel.ant-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #14191d;
+}
+
+.video-room-panel .ant-card-head {
+  min-height: 48px;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.video-room-panel .ant-card-head-title {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+.video-room-panel .ant-card-body {
+  padding: 16px;
+}
+
+.video-room-dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ant-color-error, #ff4d4f);
+  box-shadow: 0 0 0 4px rgba(255, 77, 79, 0.14);
+}
+
+.video-room-dot.is-connected {
+  background: var(--ant-color-success, #52c41a);
+  box-shadow: 0 0 0 4px rgba(82, 196, 26, 0.14);
+}
+
+.video-room-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.video-room-status-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.video-room-status-item > .anticon {
+  flex: none;
+  color: var(--ant-color-primary, #1677ff);
+  font-size: 18px;
+}
+
+.video-room-status-item div {
+  min-width: 0;
+}
+
+.video-room-status-item span {
+  display: block;
+  margin-bottom: 2px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+}
+
+.video-room-status-item strong {
+  display: block;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-room-primary-action.ant-btn {
+  height: 40px;
+}
+
+.video-room-panel__text {
+  margin: 0 0 14px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1180px) {
+  .video-room-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .video-room-side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .video-room-page {
+    padding: 14px;
+  }
+
+  .video-room-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .video-room-header__right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .video-room-title.ant-typography,
+  .video-room-file-name {
+    max-width: 100%;
+  }
+
+  .video-room-player {
+    height: 56vh;
+    min-height: 280px;
+  }
+
+  .video-room-side {
+    display: flex;
+  }
+}

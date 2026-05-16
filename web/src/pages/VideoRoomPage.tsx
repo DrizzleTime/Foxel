@@ -1,14 +1,39 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
-import { Button, Empty, Spin, Typography, message } from 'antd';
-import { CopyOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, Space, Spin, Tag, Tooltip, Typography, message } from 'antd';
+import {
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  CopyOutlined,
+  DisconnectOutlined,
+  FileTextOutlined,
+  LinkOutlined,
+  PlayCircleOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
 import Artplayer from 'artplayer';
 import { videoRoomsApi, type VideoRoomInfo, type VideoRoomState } from '../api/videoRooms';
 import { useI18n } from '../i18n';
+import './VideoRoomPage.css';
 
-const { Title, Text } = Typography;
+const { Text, Title } = Typography;
 
 const SYNC_THRESHOLD = 1.2;
+
+function formatTime(seconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(seconds || 0));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const secs = safeSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+function getFileName(path: string) {
+  return path.split('/').filter(Boolean).pop() || path;
+}
 
 const VideoRoomPage = memo(function VideoRoomPage() {
   const { token } = useParams<{ token: string }>();
@@ -19,6 +44,7 @@ const VideoRoomPage = memo(function VideoRoomPage() {
   const applyingRemoteRef = useRef(false);
   const sendTimerRef = useRef<number | null>(null);
   const [room, setRoom] = useState<VideoRoomInfo | null>(null);
+  const [liveState, setLiveState] = useState<VideoRoomState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [connected, setConnected] = useState(false);
@@ -31,6 +57,7 @@ const VideoRoomPage = memo(function VideoRoomPage() {
       .then((data) => {
         if (!mounted) return;
         setRoom(data);
+        setLiveState(data.state);
       })
       .catch((e: any) => {
         if (!mounted) return;
@@ -73,6 +100,7 @@ const VideoRoomPage = memo(function VideoRoomPage() {
 
     const applyState = (state: VideoRoomState) => {
       const art = artInstance.current;
+      setLiveState(state);
       if (!art) return;
       const video = art.video;
       const targetTime = Math.max(0, Number(state.current_time) || 0);
@@ -141,38 +169,120 @@ const VideoRoomPage = memo(function VideoRoomPage() {
     message.success(t('Copied to clipboard'));
   };
 
+  const handleResync = () => {
+    if (!liveState) return;
+    const art = artInstance.current;
+    if (!art) return;
+    art.video.currentTime = Math.max(0, Number(liveState.current_time) || 0);
+    if (liveState.paused) {
+      void art.video.pause();
+    } else {
+      void art.video.play().catch(() => undefined);
+    }
+  };
+
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: 50 }}><Spin size="large" /></div>;
+    return (
+      <div className="video-room-page video-room-page--center">
+        <Spin size="large" />
+      </div>
+    );
   }
 
   if (error || !room) {
-    return <div style={{ textAlign: 'center', padding: 50 }}><Empty description={error || t('Video room not found')} /></div>;
+    return (
+      <div className="video-room-page video-room-page--center">
+        <Empty description={error || t('Video room not found')} />
+      </div>
+    );
   }
 
+  const fileName = getFileName(room.path);
+  const state = liveState || room.state;
+
   return (
-    <div style={{ minHeight: '100vh', background: '#111', color: '#fff', padding: 24 }}>
-      <div style={{ maxWidth: 1120, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ minWidth: 0 }}>
-            <Title level={3} style={{ color: '#fff', margin: 0 }}>{room.name}</Title>
-            <Text style={{ color: connected ? '#7dd3fc' : '#fca5a5' }}>
-              {connected ? t('Room synced') : t('Room disconnected')}
-            </Text>
+    <div className="video-room-page">
+      <header className="video-room-header">
+        <div className="video-room-header__left">
+          <div className="video-room-title-block">
+            <Title level={3} className="video-room-title">{room.name}</Title>
+            <Space size={8} wrap>
+              <Text type="secondary" ellipsis className="video-room-file-name">{fileName}</Text>
+              <Text type="secondary">{formatTime(state.current_time)}</Text>
+            </Space>
           </div>
-          <Button icon={<CopyOutlined />} onClick={handleCopy}>
-            {t('Copy Link')}
-          </Button>
         </div>
-        <div
-          ref={artRef}
-          style={{
-            width: '100%',
-            height: 'min(70vh, 680px)',
-            minHeight: 360,
-            background: '#000',
-          }}
-        />
-      </div>
+        <div className="video-room-header__right">
+          <Tag
+            className="video-room-status-tag"
+            color={connected ? 'success' : 'error'}
+            icon={connected ? <CheckCircleFilled /> : <DisconnectOutlined />}
+          >
+            {connected ? t('Room synced') : t('Room disconnected')}
+          </Tag>
+          <Tooltip title={t('Copy Link')}>
+            <Button icon={<LinkOutlined />} onClick={handleCopy}>
+              {t('Share room')}
+            </Button>
+          </Tooltip>
+        </div>
+      </header>
+
+      <main className="video-room-shell">
+        <section className="video-room-main">
+          <div className="video-room-stage">
+            <div ref={artRef} className="video-room-player" />
+          </div>
+          <div className="video-room-note">
+            <CheckCircleFilled />
+            <span>{t('Playback state is shared in this room')}</span>
+          </div>
+        </section>
+
+        <aside className="video-room-side">
+          <Card
+            className="video-room-panel"
+            title={t('Room status')}
+            extra={<span className={connected ? 'video-room-dot is-connected' : 'video-room-dot'} />}
+          >
+            <div className="video-room-status-list">
+              <div className="video-room-status-item">
+                <PlayCircleOutlined />
+                <div>
+                  <span>{t('Playback')}</span>
+                  <strong>{state.paused ? t('Paused') : t('Playing')}</strong>
+                </div>
+              </div>
+              <div className="video-room-status-item">
+                <ClockCircleOutlined />
+                <div>
+                  <span>{t('Current position')}</span>
+                  <strong>{formatTime(state.current_time)}</strong>
+                </div>
+              </div>
+              <div className="video-room-status-item">
+                <FileTextOutlined />
+                <div>
+                  <span>{t('File')}</span>
+                  <strong title={room.path}>{fileName}</strong>
+                </div>
+              </div>
+            </div>
+            <Button block className="video-room-primary-action" icon={<ReloadOutlined />} onClick={handleResync}>
+              {t('Resync playback')}
+            </Button>
+          </Card>
+
+          <Card className="video-room-panel" title={t('Room link')}>
+            <p className="video-room-panel__text">
+              {t('Share this room link with friends')}
+            </p>
+            <Button block icon={<CopyOutlined />} onClick={handleCopy}>
+              {t('Copy Link')}
+            </Button>
+          </Card>
+        </aside>
+      </main>
     </div>
   );
 });

@@ -8,7 +8,8 @@ import { useI18n } from '../../../i18n';
 import {
   FolderFilled, AppstoreOutlined, AppstoreAddOutlined, DownloadOutlined,
   EditOutlined, DeleteOutlined, InfoCircleOutlined, UploadOutlined, PlusOutlined,
-  ShareAltOutlined, LinkOutlined, CopyOutlined, SwapOutlined, FileAddOutlined
+  ShareAltOutlined, LinkOutlined, CopyOutlined, SwapOutlined, FileAddOutlined,
+  PlayCircleOutlined
 } from '@ant-design/icons';
 
 interface ContextMenuProps {
@@ -32,12 +33,15 @@ interface ContextMenuProps {
   onCreateFile: () => void;
   onCreateDir: () => void;
   onShare: (entries: VfsEntry[]) => void;
+  onCreateVideoRoom: (entry: VfsEntry) => void;
   onGetDirectLink: (entry: VfsEntry) => void;
   onMove: (entries: VfsEntry[]) => void;
   onCopy: (entries: VfsEntry[]) => void;
 }
 
 type MenuItem = Required<MenuProps>['items'][number];
+
+const isVideoFile = (name: string) => /\.(mp4|webm|ogg|m4v|mov|mkv|avi|flv)$/i.test(name);
 
 interface ActionMenuItem {
   key: string;
@@ -137,6 +141,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         label: t('Share'),
         icon: <ShareAltOutlined />,
         onClick: () => actions.onShare(targetEntries),
+      },
+      {
+        key: 'videoRoom',
+        label: t('Create Video Room'),
+        icon: <PlayCircleOutlined />,
+        disabled: targetEntries.length !== 1 || targetEntries[0].is_dir || !isVideoFile(targetEntries[0].name),
+        onClick: () => actions.onCreateVideoRoom(targetEntries[0]),
       },
       {
         key: 'directLink',

@@ -23,6 +23,7 @@ import { ProcessorModal } from './components/Modals/ProcessorModal';
 import UploadModal from './components/Modals/UploadModal';
 import { ShareModal } from './components/Modals/ShareModal';
 import { DirectLinkModal } from './components/Modals/DirectLinkModal';
+import { VideoRoomModal } from './components/Modals/VideoRoomModal';
 import { FileDetailModal } from './components/FileDetailModal';
 import { MoveCopyModal } from './components/Modals/MoveCopyModal';
 import { SearchResultsView } from './components/SearchResultsView';
@@ -58,6 +59,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [sharingEntries, setSharingEntries] = useState<VfsEntry[]>([]);
   const [detailEntry, setDetailEntry] = useState<VfsEntry | null>(null);
   const [directLinkEntry, setDirectLinkEntry] = useState<VfsEntry | null>(null);
+  const [videoRoomEntry, setVideoRoomEntry] = useState<VfsEntry | null>(null);
   const [detailData, setDetailData] = useState<Record<string, unknown> | { error: string } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [movingEntries, setMovingEntries] = useState<VfsEntry[]>([]);
@@ -453,6 +455,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         open={!!directLinkEntry}
         onCancel={() => setDirectLinkEntry(null)}
       />
+      <VideoRoomModal
+        entry={videoRoomEntry}
+        path={entryBasePath}
+        open={!!videoRoomEntry}
+        onCancel={() => setVideoRoomEntry(null)}
+      />
       <ProcessorModal
         entry={processorHook.processorModal.entry}
         visible={processorHook.processorModal.visible}
@@ -495,6 +503,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           onCreateFile={() => setCreatingFile(true)}
           onCreateDir={() => setCreatingDir(true)}
           onShare={doShare}
+          onCreateVideoRoom={setVideoRoomEntry}
           onGetDirectLink={doGetDirectLink}
           onMove={(entriesToMove) => setMovingEntries(entriesToMove)}
           onCopy={(entriesToCopy) => setCopyingEntries(entriesToCopy)}

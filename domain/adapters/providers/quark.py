@@ -360,25 +360,14 @@ class QuarkAdapter:
             if tr:
                 url = tr
         dl_headers = self._download_headers()
-
-        # 预获取大小/是否支持范围
-        total_size: Optional[int] = None
-        async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=True) as client:
-            try:
-                head_resp = await client.head(url, headers=dl_headers)
-                if head_resp.status_code == 200:
-                    cl = head_resp.headers.get("Content-Length")
-                    if cl and cl.isdigit():
-                        total_size = int(cl)
-            except Exception:
-                pass
+        file_size = int(it.get("size") or 0)
 
         mime, _ = mimetypes.guess_type(rel)
         content_type = mime or "application/octet-stream"
 
         # 解析 Range
         start = 0
-        end: Optional[int] = None
+        end: Optional[int] = file_size - 1 if file_size > 0 else None
         status_code = 200
         if range_header and range_header.startswith("bytes="):
             status_code = 206
@@ -388,35 +377,65 @@ class QuarkAdapter:
                 start = int(s)
             if e.strip():
                 end = int(e)
+            elif file_size > 0:
+                end = file_size - 1
+            if file_size > 0:
+                if start >= file_size:
+                    raise HTTPException(416, detail="Requested Range Not Satisfiable")
+                if end is None or end >= file_size:
+                    end = file_size - 1
+                if start > end:
+                    raise HTTPException(416, detail="Requested Range Not Satisfiable")
+        headers = dict(dl_headers)
+        if status_code == 206:
+            headers["Range"] = f"bytes={start}-" if end is None else f"bytes={start}-{end}"
 
-        if total_size is not None and end is None and status_code == 206:
-            end = total_size - 1
-        if end is not None and total_size is not None and end >= total_size:
-            end = total_size - 1
-        if total_size is not None and start >= total_size:
+        client = httpx.AsyncClient(timeout=None, follow_redirects=True)
+        req = client.build_request("GET", url, headers=headers)
+        resp = await client.send(req, stream=True)
+        if resp.status_code == 404:
+            await resp.aclose()
+            await client.aclose()
+            raise FileNotFoundError(rel)
+        if resp.status_code == 416:
+            await resp.aclose()
+            await client.aclose()
             raise HTTPException(416, detail="Requested Range Not Satisfiable")
+        try:
+            resp.raise_for_status()
+        except Exception:
+            await resp.aclose()
+            await client.aclose()
+            raise
 
-        resp_headers: Dict[str, str] = {"Accept-Ranges": "bytes", "Content-Type": content_type}
-        if status_code == 206 and total_size is not None and end is not None:
-            resp_headers["Content-Range"] = f"bytes {start}-{end}/{total_size}"
-            resp_headers["Content-Length"] = str(end - start + 1)
-        elif total_size is not None:
-            resp_headers["Content-Length"] = str(total_size)
+        resp_headers: Dict[str, str] = {
+            "Accept-Ranges": resp.headers.get("Accept-Ranges", "bytes"),
+            "Content-Type": resp.headers.get("Content-Type", content_type),
+        }
+        content_range = resp.headers.get("Content-Range")
+        content_length = resp.headers.get("Content-Length")
+        if content_range:
+            resp_headers["Content-Range"] = content_range
+        elif status_code == 206 and file_size > 0 and end is not None:
+            resp_headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
+        if content_length:
+            resp_headers["Content-Length"] = content_length
+        elif file_size > 0:
+            if status_code == 206 and end is not None:
+                resp_headers["Content-Length"] = str(end - start + 1)
+            elif resp.status_code == 200:
+                resp_headers["Content-Length"] = str(file_size)
 
         async def iterator():
-            headers = dict(dl_headers)
-            if status_code == 206 and end is not None:
-                headers["Range"] = f"bytes={start}-{end}"
-            async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
-                async with client.stream("GET", url, headers=headers) as resp:
-                    if resp.status_code in (404, 416):
-                        await resp.aclose()
-                        raise HTTPException(resp.status_code, detail="Upstream not available")
-                    async for chunk in resp.aiter_bytes():
-                        if chunk:
-                            yield chunk
+            try:
+                async for chunk in resp.aiter_bytes():
+                    if chunk:
+                        yield chunk
+            finally:
+                await resp.aclose()
+                await client.aclose()
 
-        return StreamingResponse(iterator(), status_code=status_code, headers=resp_headers, media_type=content_type)
+        return StreamingResponse(iterator(), status_code=resp.status_code, headers=resp_headers, media_type=content_type)
 
     # -----------------
     # 上传（大文件分片）

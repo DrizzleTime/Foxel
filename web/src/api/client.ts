@@ -73,5 +73,6 @@ async function request<T = any>(url: string, options: RequestOptions = {}): Prom
 export { vfsApi, type VfsEntry, type DirListing } from './vfs';
 export { adaptersApi, type AdapterItem, type AdapterTypeField, type AdapterTypeMeta, type AdapterUsage } from './adapters';
 export { shareApi, type ShareInfo, type ShareInfoWithPassword } from './share';
+export { videoRoomsApi, type VideoRoomInfo, type VideoRoomState } from './videoRooms';
 export { offlineDownloadsApi, type OfflineDownloadTask, type OfflineDownloadCreate, type TaskProgress } from './offlineDownloads';
 export default request;

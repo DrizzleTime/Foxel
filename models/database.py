@@ -234,6 +234,23 @@ class ShareLink(Model):
         table = "share_links"
 
 
+class VideoRoom(Model):
+    id = fields.IntField(pk=True)
+    token = fields.CharField(max_length=100, unique=True, index=True)
+    name = fields.CharField(max_length=255)
+    path = fields.CharField(max_length=4096)
+    user: fields.ForeignKeyRelation[UserAccount] = fields.ForeignKeyField(
+        "models.UserAccount", related_name="video_rooms", on_delete=fields.CASCADE
+    )
+    current_time = fields.FloatField(default=0)
+    paused = fields.BooleanField(default=True)
+    state_updated_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "video_rooms"
+
+
 class RecentFile(Model):
     id = fields.IntField(pk=True)
     user: fields.ForeignKeyRelation[UserAccount] = fields.ForeignKeyField(

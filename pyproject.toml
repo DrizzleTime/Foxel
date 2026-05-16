@@ -23,4 +23,5 @@ dependencies = [
     "telethon>=1.42.0",
     "tortoise-orm>=1.0.0",
     "uvicorn>=0.40.0",
+    "websockets",
 ]

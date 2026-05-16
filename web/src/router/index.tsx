@@ -5,6 +5,7 @@ import LoginPage from '../pages/LoginPage.tsx';
 import RegisterPage from '../pages/RegisterPage.tsx';
 import SetupPage from '../pages/SetupPage.tsx';
 import PublicSharePage from '../pages/PublicSharePage';
+import VideoRoomPage from '../pages/VideoRoomPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import ResetPasswordPage from '../pages/ResetPasswordPage';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,6 +17,7 @@ export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/share/:token', element: <PublicSharePage /> },
+  { path: '/room/:token', element: <VideoRoomPage /> },
   { path: '/setup', element: <SetupPage /> },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
   { path: '/reset-password', element: <ResetPasswordPage /> },
@@ -26,7 +28,7 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   const location = useLocation();
   const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
   const isPublic = publicPaths.some((p) => location.pathname.startsWith(p));
-  if (!isAuthenticated && !location.pathname.startsWith('/share/') && !isPublic) {
+  if (!isAuthenticated && !location.pathname.startsWith('/share/') && !location.pathname.startsWith('/room/') && !isPublic) {
     return <Navigate to="/login" replace />;
   }
   return children;

@@ -11,6 +11,7 @@ from domain.plugins import api as plugins
 from domain.processors import api as processors
 from domain.share import api as share
 from domain.tasks import api as tasks
+from domain.video_rooms import api as video_rooms
 from domain.ai import api as ai
 from domain.agent import api as agent
 from domain.virtual_fs import api as virtual_fs
@@ -32,6 +33,7 @@ def include_routers(app: FastAPI):
     app.include_router(config.router)
     app.include_router(processors.router)
     app.include_router(tasks.router)
+    app.include_router(video_rooms.router)
     app.include_router(share.router)
     app.include_router(share.public_router)
     app.include_router(backup.router)

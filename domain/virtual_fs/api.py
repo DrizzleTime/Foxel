@@ -172,6 +172,19 @@ async def upload_stream(
     return success(result)
 
 
+@router.put("/upload-raw/{full_path:path}")
+@audit(action=AuditAction.UPLOAD, description="原始流上传文件")
+@require_path_permission(PathAction.WRITE, "full_path")
+async def upload_raw_stream(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    full_path: str,
+    overwrite: bool = Query(True, description="是否覆盖已存在文件"),
+):
+    result = await VirtualFSService.upload_raw_stream(full_path, request, overwrite)
+    return success(result)
+
+
 @router.get("/{full_path:path}")
 @audit(action=AuditAction.READ, description="浏览目录")
 @require_path_permission(PathAction.READ, "full_path")

@@ -2,7 +2,7 @@ import mimetypes
 import re
 from urllib.parse import quote
 
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import Response
 
 from domain.config import ConfigService
@@ -260,6 +260,24 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
                 yield chunk
 
         result = await cls.write_file_stream(full_path, gen(), overwrite=overwrite)
+        path = full_path
+        size = 0
+        if isinstance(result, dict):
+            path = result.get("path") or path
+            size_val = result.get("size")
+            if isinstance(size_val, int):
+                size = size_val
+        else:
+            size = int(result or 0)
+        return {"uploaded": True, "path": path, "size": size, "overwrite": overwrite}
+
+    @classmethod
+    async def upload_raw_stream(cls, full_path: str, request: Request, overwrite: bool):
+        full_path = cls._normalize_path(full_path)
+        if full_path.endswith("/"):
+            raise HTTPException(400, detail="Path must be a file")
+
+        result = await cls.write_file_stream(full_path, request.stream(), overwrite=overwrite)
         path = full_path
         size = 0
         if isinstance(result, dict):

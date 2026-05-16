@@ -100,6 +100,40 @@ export const vfsApi = {
   getTempLinkToken: (path: string, expiresIn: number = 3600) =>
     request<{token: string, path: string, url: string}>(`/fs/temp-link/${encodeURI(path.replace(/^\/+/, ''))}?expires_in=${expiresIn}`),
   getTempPublicUrl: (token: string) => `${API_BASE_URL}/fs/public/${token}`,
+  uploadRaw: (fullPath: string, file: File, overwrite: boolean = true, onProgress?: (loaded: number, total: number) => void) => {
+    const enc = encodeURI(fullPath.replace(/^\/+/, ''));
+    return new Promise<any>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', `${API_BASE_URL}/fs/upload-raw/${enc}?overwrite=${overwrite}`);
+      const token = localStorage.getItem('token');
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable && onProgress) onProgress(ev.loaded, ev.total);
+      };
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const json = JSON.parse(xhr.responseText);
+              if (json.code === 0) return resolve(json.data);
+              return reject(new Error(json.msg || json.message || 'Upload failed'));
+            } catch {
+              return reject(new Error('Invalid response'));
+            }
+          } else {
+            let err = 'Upload failed';
+            try {
+              const json = JSON.parse(xhr.responseText);
+              err = json.detail || json.msg || json.message || err;
+            } catch { void 0; }
+            reject(new Error(err));
+          }
+        }
+      };
+      xhr.send(file);
+    });
+  },
   uploadStream: (fullPath: string, file: File, overwrite: boolean = true, onProgress?: (loaded: number, total: number) => void) => {
     const enc = encodeURI(fullPath.replace(/^\/+/, ''));
     return new Promise<any>((resolve, reject) => {

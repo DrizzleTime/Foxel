@@ -43,6 +43,8 @@ interface RawUploadDirectory {
 
 type RawUploadItem = RawUploadFile | RawUploadDirectory;
 
+const MAX_UPLOAD_CONCURRENCY = 3;
+
 const generateId = (() => {
   const cryptoApi = typeof crypto !== 'undefined' ? crypto : undefined;
   return () => {
@@ -457,15 +459,15 @@ export function useUploader(path: string, onUploadComplete: () => void) {
     }
   }, [ensureDirectory, updateFile, t]);
 
-  const processFileTask = useCallback(async (task: UploadFile) => {
+  const prepareFileTask = useCallback(async (task: UploadFile): Promise<{ task: UploadFile; overwrite: boolean } | null> => {
     if (!task.file) {
       updateFile(task.id, { status: 'error', error: t('Missing file content') });
-      return;
+      return null;
     }
 
     if (skipAllRef.current) {
       updateFile(task.id, { status: 'skipped', progress: 0 });
-      return;
+      return null;
     }
 
     let shouldOverwrite = overwriteAllRef.current;
@@ -475,19 +477,28 @@ export function useUploader(path: string, onUploadComplete: () => void) {
         const decision = await awaitConflictDecision(task);
         if (decision === 'skip') {
           updateFile(task.id, { status: 'skipped', progress: 0 });
-          return;
+          return null;
         }
         shouldOverwrite = true;
       }
     }
 
     setConflict(null);
-    updateFile(task.id, { status: 'uploading', progress: 0, loadedBytes: 0 });
-
     const parentDir = task.targetPath.replace(/\/[^/]+$/, '') || '/';
+    await ensureDirectoryTree(parentDir);
+    updateFile(task.id, { status: 'pending', progress: 0, loadedBytes: 0 });
+    return { task, overwrite: shouldOverwrite };
+  }, [ensureDirectoryTree, awaitConflictDecision, updateFile, t]);
+
+  const uploadPreparedFile = useCallback(async (task: UploadFile, shouldOverwrite: boolean) => {
+    if (!task.file) {
+      updateFile(task.id, { status: 'error', error: t('Missing file content') });
+      return;
+    }
+
+    updateFile(task.id, { status: 'uploading', progress: 0, loadedBytes: 0 });
     try {
-      await ensureDirectoryTree(parentDir);
-      const uploadResult = await vfsApi.uploadStream(task.targetPath, task.file, shouldOverwrite, (loaded, total) => {
+      const uploadResult = await vfsApi.uploadRaw(task.targetPath, task.file, shouldOverwrite, (loaded, total) => {
         mutateFiles((prev) => prev.map((f) => {
           if (f.id !== task.id) return f;
           const effectiveTotal = total > 0 ? total : f.size;
@@ -506,22 +517,34 @@ export function useUploader(path: string, onUploadComplete: () => void) {
       const finalSize = typeof uploadResult?.size === 'number' && uploadResult.size > 0
         ? uploadResult.size
         : task.size;
-      const link = await vfsApi.getTempLinkToken(actualPath, 60 * 60 * 24 * 365 * 10);
-      const permanentLink = vfsApi.getTempPublicUrl(link.token);
       updateFile(task.id, {
         status: 'success',
         progress: 100,
         loadedBytes: finalSize,
         size: finalSize,
         targetPath: actualPath,
-        permanentLink,
       });
     } catch (err: unknown) {
       const error = err instanceof Error ? err.message : t('Upload failed');
       updateFile(task.id, { status: 'error', error, progress: 0 });
       message.error(`${task.relativePath}: ${error}`);
     }
-  }, [ensureDirectoryTree, awaitConflictDecision, mutateFiles, updateFile, t]);
+  }, [mutateFiles, updateFile, t]);
+
+  const uploadPreparedFiles = useCallback(async (preparedFiles: Array<{ task: UploadFile; overwrite: boolean }>) => {
+    let nextIndex = 0;
+    const workerCount = Math.min(MAX_UPLOAD_CONCURRENCY, preparedFiles.length);
+
+    const runWorker = async () => {
+      while (nextIndex < preparedFiles.length) {
+        const current = preparedFiles[nextIndex];
+        nextIndex += 1;
+        await uploadPreparedFile(current.task, current.overwrite);
+      }
+    };
+
+    await Promise.all(Array.from({ length: workerCount }, runWorker));
+  }, [uploadPreparedFile]);
 
   const startUpload = useCallback(async () => {
     if (isUploadingRef.current) return;
@@ -530,6 +553,7 @@ export function useUploader(path: string, onUploadComplete: () => void) {
     isUploadingRef.current = true;
     setIsUploading(true);
     try {
+      const preparedFiles: Array<{ task: UploadFile; overwrite: boolean }> = [];
       for (const task of filesRef.current) {
         if (task.status !== 'pending' && task.status !== 'waiting') {
           continue;
@@ -537,15 +561,17 @@ export function useUploader(path: string, onUploadComplete: () => void) {
         if (task.type === 'directory') {
           await processDirectoryTask(task);
         } else {
-          await processFileTask(task);
+          const prepared = await prepareFileTask(task);
+          if (prepared) preparedFiles.push(prepared);
         }
       }
+      await uploadPreparedFiles(preparedFiles);
       onUploadComplete();
     } finally {
       isUploadingRef.current = false;
       setIsUploading(false);
     }
-  }, [onUploadComplete, processDirectoryTask, processFileTask]);
+  }, [onUploadComplete, processDirectoryTask, prepareFileTask, uploadPreparedFiles]);
 
   const totalFileBytes = useMemo(
     () => files.reduce((acc, f) => acc + (f.type === 'file' ? f.size : 0), 0),

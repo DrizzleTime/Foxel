@@ -515,6 +515,7 @@
   "Enter identifier": "请输入标识符",
   "Only lowercase letters, numbers, dash, dot and underscore are allowed": "仅允许小写字母、数字、连字符、点和下划线",
   "API Format": "API 格式",
+  "OpenAI Protocol": "OpenAI 协议",
   "Base URL": "基础 URL",
   "Enter base url": "请输入基础 URL",
   "Optional, can also be provided per request": "可选，也可在请求时提供",

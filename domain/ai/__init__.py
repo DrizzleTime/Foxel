@@ -22,8 +22,11 @@ from .types import (
     AIModelUpdate,
     AIProviderCreate,
     AIProviderUpdate,
+    OPENAI_PROTOCOL_CHAT_COMPLETIONS,
+    OPENAI_PROTOCOL_RESPONSES,
     VectorDBConfigPayload,
     normalize_capabilities,
+    normalize_openai_protocol,
 )
 from .vector_providers import (
     BaseVectorProvider,
@@ -58,6 +61,9 @@ __all__ = [
     "get_provider_class",
     "ABILITIES",
     "normalize_capabilities",
+    "normalize_openai_protocol",
+    "OPENAI_PROTOCOL_CHAT_COMPLETIONS",
+    "OPENAI_PROTOCOL_RESPONSES",
     "AIDefaultsUpdate",
     "AIModelCreate",
     "AIModelUpdate",

@@ -48,6 +48,7 @@ import type {
   AIModelPayload,
   AIProvider,
   AIProviderPayload,
+  OpenAIProtocol,
 } from '../../../api/aiProviders';
 import {
   createModel,
@@ -90,6 +91,11 @@ interface ProviderTemplate {
 }
 
 const abilityOrder: AIAbility[] = ['chat', 'vision', 'embedding', 'rerank', 'voice', 'tools'];
+const defaultOpenAIProtocol: OpenAIProtocol = 'chat_completions';
+
+function normalizeOpenAIProtocol(value: unknown): OpenAIProtocol {
+  return value === 'responses' ? 'responses' : defaultOpenAIProtocol;
+}
 
 const abilityInfo: Record<AIAbility, { icon: ReactNode; label: string; color: string; description: string }> = {
   chat: {
@@ -242,6 +248,7 @@ type AIProviderFormValues = {
   name?: string;
   identifier?: string;
   api_format: AIProviderPayload['api_format'];
+  openai_protocol?: OpenAIProtocol;
   base_url?: string;
   api_key?: string;
   logo_url?: string;
@@ -275,11 +282,18 @@ export default function AiSettingsTab() {
   const [addingRemoteModels, setAddingRemoteModels] = useState<boolean>(false);
   const [modelModalTab, setModelModalTab] = useState<'remote' | 'manual'>('remote');
   const [remoteSearchKeyword, setRemoteSearchKeyword] = useState<string>('');
+  const providerApiFormat = Form.useWatch('api_format', providerForm);
   const capabilitiesValue = Form.useWatch('capabilities', modelForm);
   const showEmbeddingDimensions = useMemo(() => {
     const capabilities = Array.isArray(capabilitiesValue) ? capabilitiesValue : [];
     return capabilities.includes('embedding') || capabilities.includes('rerank');
   }, [capabilitiesValue]);
+
+  useEffect(() => {
+    if (providerApiFormat === 'openai' && !providerForm.getFieldValue('openai_protocol')) {
+      providerForm.setFieldValue('openai_protocol', defaultOpenAIProtocol);
+    }
+  }, [providerApiFormat, providerForm]);
 
   useEffect(() => {
     if (!showEmbeddingDimensions) {
@@ -338,6 +352,7 @@ export default function AiSettingsTab() {
         name: existing.name,
         identifier: existing.identifier,
         api_format: existing.api_format,
+        openai_protocol: normalizeOpenAIProtocol(existing.extra_config?.openai_protocol),
         base_url: existing.base_url ?? undefined,
         api_key: '',
         logo_url: existing.logo_url ?? undefined,
@@ -345,7 +360,7 @@ export default function AiSettingsTab() {
       });
     } else {
       providerForm.resetFields();
-      providerForm.setFieldsValue({ api_format: 'openai' });
+      providerForm.setFieldsValue({ api_format: 'openai', openai_protocol: defaultOpenAIProtocol });
       setSelectedTemplate(null);
       setProviderModal({ open: true, step: 1 });
     }
@@ -364,6 +379,7 @@ export default function AiSettingsTab() {
       name: t(template.nameKey),
       identifier: template.identifier,
       api_format: template.api_format,
+      openai_protocol: template.api_format === 'openai' ? defaultOpenAIProtocol : undefined,
       base_url: template.base_url ?? '',
       api_key: '',
       logo_url: template.logo_url ?? '',
@@ -375,7 +391,7 @@ export default function AiSettingsTab() {
     setProviderModal((prev) => ({ ...prev, step: 1, editing: undefined }));
     setSelectedTemplate(null);
     providerForm.resetFields();
-    providerForm.setFieldsValue({ api_format: 'openai' });
+    providerForm.setFieldsValue({ api_format: 'openai', openai_protocol: defaultOpenAIProtocol });
   };
 
   const handleSubmitProvider = async () => {
@@ -384,6 +400,12 @@ export default function AiSettingsTab() {
     const trimmedApiKey = values.api_key?.trim();
     const trimmedLogoUrl = values.logo_url?.trim();
     const trimmedProviderType = values.provider_type?.trim();
+    const extraConfig = { ...(providerModal.editing?.extra_config ?? {}) };
+    if (values.api_format === 'openai') {
+      extraConfig.openai_protocol = normalizeOpenAIProtocol(values.openai_protocol);
+    } else {
+      delete extraConfig.openai_protocol;
+    }
     const payload: AIProviderPayload = {
       name: (values.name || '').trim(),
       identifier: (values.identifier || '').trim(),
@@ -391,6 +413,7 @@ export default function AiSettingsTab() {
       base_url: trimmedBaseUrl ? trimmedBaseUrl : null,
       logo_url: trimmedLogoUrl ? trimmedLogoUrl : null,
       provider_type: trimmedProviderType ? trimmedProviderType : null,
+      extra_config: Object.keys(extraConfig).length ? extraConfig : null,
     };
     if (trimmedApiKey) {
       payload.api_key = trimmedApiKey;
@@ -1117,16 +1140,30 @@ export default function AiSettingsTab() {
                   label={t('API Format')}
                   rules={[{ required: true }]}
                 >
-                <Select
-                  disabled={!allowFormatChange}
-                  options={[
-                    { value: 'openai', label: 'OpenAI Compatible' },
-                    { value: 'gemini', label: 'Gemini Compatible' },
-                    { value: 'anthropic', label: 'Anthropic Native' },
-                    { value: 'ollama', label: 'Ollama Native' },
-                  ]}
-                />
-              </Form.Item>
+                  <Select
+                    disabled={!allowFormatChange}
+                    options={[
+                      { value: 'openai', label: 'OpenAI Compatible' },
+                      { value: 'gemini', label: 'Gemini Compatible' },
+                      { value: 'anthropic', label: 'Anthropic Native' },
+                      { value: 'ollama', label: 'Ollama Native' },
+                    ]}
+                  />
+                </Form.Item>
+                {providerApiFormat === 'openai' ? (
+                  <Form.Item
+                    name="openai_protocol"
+                    label={t('OpenAI Protocol')}
+                    rules={[{ required: true }]}
+                  >
+                    <Select
+                      options={[
+                        { value: 'chat_completions', label: 'Chat Completions' },
+                        { value: 'responses', label: 'Responses' },
+                      ]}
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item name="base_url" label={t('Base URL')} rules={[{ required: true, message: t('Enter base url') }]}>
                   <Input placeholder="https://" />
                 </Form.Item>

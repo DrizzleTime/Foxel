@@ -1,6 +1,7 @@
 import request from './client';
 
 export type AIAbility = 'chat' | 'vision' | 'embedding' | 'rerank' | 'voice' | 'tools';
+export type OpenAIProtocol = 'chat_completions' | 'responses';
 
 export interface AIProviderPayload {
   name: string;

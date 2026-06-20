@@ -3,6 +3,19 @@ from typing import Any, Dict, Iterable, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 ABILITIES = ["chat", "vision", "embedding", "rerank", "voice", "tools"]
+OPENAI_PROTOCOL_CHAT_COMPLETIONS = "chat_completions"
+OPENAI_PROTOCOL_RESPONSES = "responses"
+OPENAI_PROTOCOLS = {OPENAI_PROTOCOL_CHAT_COMPLETIONS, OPENAI_PROTOCOL_RESPONSES}
+OPENAI_PROTOCOL_ALIASES = {
+    "chat": OPENAI_PROTOCOL_CHAT_COMPLETIONS,
+    "chat_completion": OPENAI_PROTOCOL_CHAT_COMPLETIONS,
+    "chat_completions": OPENAI_PROTOCOL_CHAT_COMPLETIONS,
+    "chat/completions": OPENAI_PROTOCOL_CHAT_COMPLETIONS,
+    "/chat/completions": OPENAI_PROTOCOL_CHAT_COMPLETIONS,
+    "response": OPENAI_PROTOCOL_RESPONSES,
+    "responses": OPENAI_PROTOCOL_RESPONSES,
+    "/responses": OPENAI_PROTOCOL_RESPONSES,
+}
 
 
 def normalize_capabilities(items: Optional[Iterable[str]]) -> List[str]:
@@ -13,6 +26,34 @@ def normalize_capabilities(items: Optional[Iterable[str]]) -> List[str]:
         key = str(cap).strip().lower()
         if key in ABILITIES and key not in normalized:
             normalized.append(key)
+    return normalized
+
+
+def normalize_openai_protocol(value: Any) -> str:
+    if value is None:
+        return OPENAI_PROTOCOL_CHAT_COMPLETIONS
+    key = str(value).strip().lower().replace("-", "_").replace(".", "_")
+    if not key:
+        return OPENAI_PROTOCOL_CHAT_COMPLETIONS
+    normalized = OPENAI_PROTOCOL_ALIASES.get(key)
+    if normalized:
+        return normalized
+    normalized = OPENAI_PROTOCOL_ALIASES.get(key.replace("_", "/"))
+    if normalized:
+        return normalized
+    if key in OPENAI_PROTOCOLS:
+        return key
+    raise ValueError("openai_protocol must be 'chat_completions' or 'responses'")
+
+
+def normalize_provider_extra_config(config: Optional[dict]) -> Optional[dict]:
+    if config is None:
+        return None
+    if not isinstance(config, dict):
+        raise ValueError("extra_config must be an object")
+    normalized = dict(config)
+    if "openai_protocol" in normalized:
+        normalized["openai_protocol"] = normalize_openai_protocol(normalized.get("openai_protocol"))
     return normalized
 
 
@@ -33,6 +74,11 @@ class AIProviderBase(BaseModel):
         if fmt not in {"openai", "gemini", "anthropic", "ollama"}:
             raise ValueError("api_format must be 'openai', 'gemini', 'anthropic', or 'ollama'")
         return fmt
+
+    @field_validator("extra_config")
+    @classmethod
+    def normalize_extra_config(cls, value: Optional[dict]) -> Optional[dict]:
+        return normalize_provider_extra_config(value)
 
 
 class AIProviderCreate(AIProviderBase):
@@ -57,6 +103,11 @@ class AIProviderUpdate(BaseModel):
         if fmt not in {"openai", "gemini", "anthropic", "ollama"}:
             raise ValueError("api_format must be 'openai', 'gemini', 'anthropic', or 'ollama'")
         return fmt
+
+    @field_validator("extra_config")
+    @classmethod
+    def normalize_extra_config(cls, value: Optional[dict]) -> Optional[dict]:
+        return normalize_provider_extra_config(value)
 
 
 class AIModelBase(BaseModel):

@@ -6,6 +6,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from models.database import AIModel, AIProvider
 from .service import AIProviderService
+from .types import OPENAI_PROTOCOL_RESPONSES, normalize_openai_protocol
 
 
 provider_service = AIProviderService
@@ -225,6 +226,248 @@ def _is_azure_openai(provider: AIProvider) -> bool:
         return True
     base_url = str(provider.base_url or "").lower()
     return ".openai.azure.com" in base_url
+
+
+def _openai_protocol(provider: AIProvider) -> str:
+    extra = provider.extra_config if isinstance(provider.extra_config, dict) else {}
+    return normalize_openai_protocol(extra.get("openai_protocol"))
+
+
+def _content_to_text(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: List[str] = []
+        for part in content:
+            if not isinstance(part, dict):
+                continue
+            text = part.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+        return "".join(parts)
+    try:
+        return json.dumps(content, ensure_ascii=False)
+    except TypeError:
+        return str(content)
+
+
+def _openai_content_to_responses_input(content: Any) -> Any:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return _content_to_text(content)
+
+    blocks: List[Dict[str, Any]] = []
+    for part in content:
+        if not isinstance(part, dict):
+            continue
+        part_type = part.get("type")
+        if part_type in {"text", "input_text"} and isinstance(part.get("text"), str):
+            blocks.append({"type": "input_text", "text": part["text"]})
+            continue
+        if part_type == "image_url":
+            image_url = part.get("image_url")
+            url = image_url.get("url") if isinstance(image_url, dict) else image_url
+            if not isinstance(url, str) or not url.strip():
+                continue
+            block: Dict[str, Any] = {"type": "input_image", "image_url": url}
+            detail = image_url.get("detail") if isinstance(image_url, dict) else None
+            if isinstance(detail, str) and detail.strip():
+                block["detail"] = detail
+            blocks.append(block)
+            continue
+        if part_type == "input_image" and isinstance(part.get("image_url"), str):
+            block = {"type": "input_image", "image_url": part["image_url"]}
+            detail = part.get("detail")
+            if isinstance(detail, str) and detail.strip():
+                block["detail"] = detail
+            blocks.append(block)
+            continue
+        if part_type == "input_file" and isinstance(part.get("file_id") or part.get("filename"), str):
+            blocks.append(dict(part))
+
+    return blocks or ""
+
+
+def _openai_tool_call_to_responses_item(call: Dict[str, Any], idx: int) -> Dict[str, Any] | None:
+    fn = call.get("function")
+    fn = fn if isinstance(fn, dict) else {}
+    name = fn.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None
+
+    raw_args = fn.get("arguments")
+    if isinstance(raw_args, dict):
+        args_text = json.dumps(raw_args, ensure_ascii=False)
+    elif isinstance(raw_args, str):
+        args_text = raw_args
+    else:
+        args_text = ""
+
+    return {
+        "type": "function_call",
+        "call_id": str(call.get("id") or f"call_{idx}"),
+        "name": name,
+        "arguments": args_text,
+    }
+
+
+def _openai_messages_to_responses_input(messages: List[Dict[str, Any]]) -> Tuple[str, List[Dict[str, Any]]]:
+    instructions: List[str] = []
+    input_items: List[Dict[str, Any]] = []
+
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        if role in {"system", "developer"}:
+            text = _content_to_text(msg.get("content")).strip()
+            if text:
+                instructions.append(text)
+            continue
+
+        if role == "tool":
+            content = msg.get("content")
+            output = content if isinstance(content, str) else _content_to_text(content)
+            call_id = str(msg.get("tool_call_id") or "").strip()
+            if call_id:
+                input_items.append({
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": output,
+                })
+            elif output:
+                input_items.append({"role": "user", "content": output})
+            continue
+
+        if role == "user":
+            input_items.append({
+                "role": "user",
+                "content": _openai_content_to_responses_input(msg.get("content")),
+            })
+            continue
+
+        if role == "assistant":
+            text = _content_to_text(msg.get("content"))
+            if text:
+                input_items.append({"role": "assistant", "content": text})
+            tool_calls = msg.get("tool_calls")
+            if isinstance(tool_calls, list):
+                for idx, call in enumerate(tool_calls):
+                    if not isinstance(call, dict):
+                        continue
+                    item = _openai_tool_call_to_responses_item(call, idx)
+                    if item:
+                        input_items.append(item)
+
+    if not input_items:
+        input_items.append({"role": "user", "content": ""})
+
+    return "\n\n".join(instructions).strip(), input_items
+
+
+def _openai_tools_to_responses(tools: List[Dict[str, Any]] | None) -> List[Dict[str, Any]] | None:
+    if not tools:
+        return None
+    out: List[Dict[str, Any]] = []
+    for tool in tools:
+        if not isinstance(tool, dict) or tool.get("type") != "function":
+            continue
+        fn = tool.get("function")
+        fn = fn if isinstance(fn, dict) else {}
+        name = fn.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        entry: Dict[str, Any] = {
+            "type": "function",
+            "name": name,
+            "description": fn.get("description") if isinstance(fn.get("description"), str) else "",
+            "parameters": fn.get("parameters") if isinstance(fn.get("parameters"), dict) else {},
+        }
+        if isinstance(fn.get("strict"), bool):
+            entry["strict"] = fn["strict"]
+        out.append(entry)
+    return out or None
+
+
+def _openai_tool_choice_to_responses(tool_choice: Any) -> Any | None:
+    if tool_choice is None:
+        return None
+    if isinstance(tool_choice, str):
+        return tool_choice
+    if not isinstance(tool_choice, dict):
+        return None
+    if tool_choice.get("type") == "function":
+        fn = tool_choice.get("function")
+        name = fn.get("name") if isinstance(fn, dict) else tool_choice.get("name")
+        if isinstance(name, str) and name.strip():
+            return {"type": "function", "name": name}
+    return None
+
+
+def _responses_function_call_to_openai(item: Dict[str, Any], idx: int) -> Dict[str, Any] | None:
+    name = item.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None
+    raw_args = item.get("arguments")
+    if isinstance(raw_args, dict):
+        args_text = json.dumps(raw_args, ensure_ascii=False)
+    elif isinstance(raw_args, str):
+        args_text = raw_args
+    else:
+        args_text = ""
+    return {
+        "id": str(item.get("call_id") or item.get("id") or f"call_{idx}"),
+        "type": "function",
+        "function": {"name": name, "arguments": args_text},
+    }
+
+
+def _responses_content_to_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts: List[str] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") in {"output_text", "text"} and isinstance(block.get("text"), str):
+            parts.append(block["text"])
+    return "".join(parts)
+
+
+def _responses_body_to_openai_message(body: Dict[str, Any]) -> Dict[str, Any]:
+    text_parts: List[str] = []
+    tool_calls: List[Dict[str, Any]] = []
+    output = body.get("output")
+
+    if isinstance(output, list):
+        for idx, item in enumerate(output):
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type")
+            if item_type == "message":
+                text = _responses_content_to_text(item.get("content"))
+                if text:
+                    text_parts.append(text)
+                continue
+            if item_type == "function_call":
+                tool_call = _responses_function_call_to_openai(item, idx)
+                if tool_call:
+                    tool_calls.append(tool_call)
+
+    if not text_parts and isinstance(body.get("output_text"), str):
+        text_parts.append(body["output_text"])
+
+    message: Dict[str, Any] = {"role": "assistant", "content": "".join(text_parts)}
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+    return message
 
 
 def _gemini_endpoint(provider: AIProvider, path: str) -> str:
@@ -808,6 +1051,12 @@ async def _chat_stream_with_ollama(
 
 
 async def _describe_with_openai(provider: AIProvider, model: AIModel, base64_image: str, detail: str) -> str:
+    if _openai_protocol(provider) == OPENAI_PROTOCOL_RESPONSES:
+        return await _describe_with_openai_responses(provider, model, base64_image, detail)
+    return await _describe_with_openai_chat_completions(provider, model, base64_image, detail)
+
+
+async def _describe_with_openai_chat_completions(provider: AIProvider, model: AIModel, base64_image: str, detail: str) -> str:
     url = _openai_endpoint(provider, "/chat/completions")
     payload = {
         "model": model.name,
@@ -832,6 +1081,32 @@ async def _describe_with_openai(provider: AIProvider, model: AIModel, base64_ima
         response.raise_for_status()
         body = response.json()
         return body["choices"][0]["message"]["content"]
+
+
+async def _describe_with_openai_responses(provider: AIProvider, model: AIModel, base64_image: str, detail: str) -> str:
+    url = _openai_endpoint(provider, "/responses")
+    payload = {
+        "model": model.name,
+        "input": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{base64_image}",
+                        "detail": detail,
+                    },
+                    {"type": "input_text", "text": "描述这个图片"},
+                ],
+            }
+        ],
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(url, headers=_openai_headers(provider), json=payload)
+        response.raise_for_status()
+        body = response.json()
+        message = _responses_body_to_openai_message(body if isinstance(body, dict) else {})
+        return str(message.get("content") or "")
 
 
 async def _describe_with_anthropic(provider: AIProvider, model: AIModel, base64_image: str, detail: str) -> str:
@@ -1081,6 +1356,37 @@ async def _chat_with_openai(
     temperature: float | None,
     timeout: float,
 ) -> Dict[str, Any]:
+    if _openai_protocol(provider) == OPENAI_PROTOCOL_RESPONSES:
+        return await _chat_with_openai_responses(
+            provider,
+            model,
+            messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            temperature=temperature,
+            timeout=timeout,
+        )
+    return await _chat_with_openai_chat_completions(
+        provider,
+        model,
+        messages,
+        tools=tools,
+        tool_choice=tool_choice,
+        temperature=temperature,
+        timeout=timeout,
+    )
+
+
+async def _chat_with_openai_chat_completions(
+    provider: AIProvider,
+    model: AIModel,
+    messages: List[Dict[str, Any]],
+    *,
+    tools: List[Dict[str, Any]] | None,
+    tool_choice: Any | None,
+    temperature: float | None,
+    timeout: float,
+) -> Dict[str, Any]:
     url = _openai_endpoint(provider, "/chat/completions")
     payload: Dict[str, Any] = {
         "model": model.name,
@@ -1104,6 +1410,41 @@ async def _chat_with_openai(
     if not isinstance(message, dict):
         raise RuntimeError("对话接口返回格式异常")
     return message
+
+
+async def _chat_with_openai_responses(
+    provider: AIProvider,
+    model: AIModel,
+    messages: List[Dict[str, Any]],
+    *,
+    tools: List[Dict[str, Any]] | None,
+    tool_choice: Any | None,
+    temperature: float | None,
+    timeout: float,
+) -> Dict[str, Any]:
+    url = _openai_endpoint(provider, "/responses")
+    instructions, input_items = _openai_messages_to_responses_input(messages)
+    payload: Dict[str, Any] = {
+        "model": model.name,
+        "input": input_items,
+    }
+    if instructions:
+        payload["instructions"] = instructions
+    response_tools = _openai_tools_to_responses(tools)
+    if response_tools:
+        payload["tools"] = response_tools
+        payload["tool_choice"] = _openai_tool_choice_to_responses(tool_choice) or "auto"
+    if temperature is not None:
+        payload["temperature"] = float(temperature)
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(url, headers=_openai_headers(provider), json=payload)
+        response.raise_for_status()
+        body = response.json()
+
+    if not isinstance(body, dict):
+        raise RuntimeError("Responses 接口返回格式异常")
+    return _responses_body_to_openai_message(body)
 
 
 async def chat_completion_stream(
@@ -1166,6 +1507,40 @@ async def chat_completion_stream(
 
 
 async def _chat_stream_with_openai(
+    provider: AIProvider,
+    model: AIModel,
+    messages: List[Dict[str, Any]],
+    *,
+    tools: List[Dict[str, Any]] | None,
+    tool_choice: Any | None,
+    temperature: float | None,
+    timeout: float,
+) -> AsyncIterator[Dict[str, Any]]:
+    if _openai_protocol(provider) == OPENAI_PROTOCOL_RESPONSES:
+        async for event in _chat_stream_with_openai_responses(
+            provider,
+            model,
+            messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            temperature=temperature,
+            timeout=timeout,
+        ):
+            yield event
+        return
+    async for event in _chat_stream_with_openai_chat_completions(
+        provider,
+        model,
+        messages,
+        tools=tools,
+        tool_choice=tool_choice,
+        temperature=temperature,
+        timeout=timeout,
+    ):
+        yield event
+
+
+async def _chat_stream_with_openai_chat_completions(
     provider: AIProvider,
     model: AIModel,
     messages: List[Dict[str, Any]],
@@ -1273,3 +1648,100 @@ async def _chat_stream_with_openai(
         message["tool_calls"] = tool_calls
 
     yield {"type": "message", "message": message, "finish_reason": finish_reason}
+
+
+async def _chat_stream_with_openai_responses(
+    provider: AIProvider,
+    model: AIModel,
+    messages: List[Dict[str, Any]],
+    *,
+    tools: List[Dict[str, Any]] | None,
+    tool_choice: Any | None,
+    temperature: float | None,
+    timeout: float,
+) -> AsyncIterator[Dict[str, Any]]:
+    url = _openai_endpoint(provider, "/responses")
+    instructions, input_items = _openai_messages_to_responses_input(messages)
+    payload: Dict[str, Any] = {
+        "model": model.name,
+        "input": input_items,
+        "stream": True,
+    }
+    if instructions:
+        payload["instructions"] = instructions
+    response_tools = _openai_tools_to_responses(tools)
+    if response_tools:
+        payload["tools"] = response_tools
+        payload["tool_choice"] = _openai_tool_choice_to_responses(tool_choice) or "auto"
+    if temperature is not None:
+        payload["temperature"] = float(temperature)
+
+    content_parts: List[str] = []
+    output_items: Dict[int, Dict[str, Any]] = {}
+    completed_body: Dict[str, Any] | None = None
+    current_event: str | None = None
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        async with client.stream("POST", url, headers=_openai_headers(provider), json=payload) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line:
+                    continue
+                if line.startswith("event:"):
+                    current_event = line[6:].strip()
+                    continue
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if not data or data == "[DONE]":
+                    continue
+                try:
+                    chunk = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(chunk, dict):
+                    continue
+
+                event_type = chunk.get("type") or current_event
+                if event_type == "response.output_text.delta":
+                    delta = chunk.get("delta")
+                    if isinstance(delta, str) and delta:
+                        content_parts.append(delta)
+                        yield {"type": "delta", "delta": delta}
+                    continue
+
+                if event_type in {"response.output_item.added", "response.output_item.done"}:
+                    item = chunk.get("item")
+                    idx = chunk.get("output_index")
+                    if isinstance(item, dict) and isinstance(idx, int):
+                        output_items[idx] = item
+                    continue
+
+                if event_type == "response.completed":
+                    response_body = chunk.get("response")
+                    if isinstance(response_body, dict):
+                        completed_body = response_body
+                    elif isinstance(chunk.get("output"), list):
+                        completed_body = chunk
+                    break
+
+                if event_type == "error":
+                    error = chunk.get("error") if isinstance(chunk.get("error"), dict) else chunk
+                    raise RuntimeError(str(error.get("message") if isinstance(error, dict) else error))
+
+    if completed_body is not None:
+        message = _responses_body_to_openai_message(completed_body)
+        if not message.get("content") and content_parts:
+            message["content"] = "".join(content_parts)
+        yield {"type": "message", "message": message, "finish_reason": None}
+        return
+
+    if output_items:
+        body = {"output": [output_items[idx] for idx in sorted(output_items.keys())]}
+        message = _responses_body_to_openai_message(body)
+        if not message.get("content") and content_parts:
+            message["content"] = "".join(content_parts)
+        yield {"type": "message", "message": message, "finish_reason": None}
+        return
+
+    yield {"type": "message", "message": {"role": "assistant", "content": "".join(content_parts)}, "finish_reason": None}

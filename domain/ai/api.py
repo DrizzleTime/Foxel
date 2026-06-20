@@ -34,7 +34,7 @@ async def list_providers_endpoint(
 @audit(
     action=AuditAction.CREATE,
     description="创建 AI 提供商",
-    body_fields=["name", "identifier", "provider_type", "api_format", "base_url", "logo_url"],
+    body_fields=["name", "identifier", "provider_type", "api_format", "base_url", "logo_url", "extra_config"],
     redact_fields=["api_key"],
 )
 @router_ai.post("/providers")
@@ -61,7 +61,7 @@ async def get_provider(
 @audit(
     action=AuditAction.UPDATE,
     description="更新 AI 提供商",
-    body_fields=["name", "provider_type", "api_format", "base_url", "logo_url", "api_key"],
+    body_fields=["name", "provider_type", "api_format", "base_url", "logo_url", "api_key", "extra_config"],
     redact_fields=["api_key"],
 )
 @router_ai.put("/providers/{provider_id}")

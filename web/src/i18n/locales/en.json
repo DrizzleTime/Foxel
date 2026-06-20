@@ -516,6 +516,7 @@
   "Enter identifier": "Enter identifier",
   "Only lowercase letters, numbers, dash, dot and underscore are allowed": "Only lowercase letters, numbers, dash, dot and underscore are allowed",
   "API Format": "API Format",
+  "OpenAI Protocol": "OpenAI Protocol",
   "Base URL": "Base URL",
   "Enter base url": "Enter base URL",
   "Optional, can also be provided per request": "Optional, can also be provided per request",

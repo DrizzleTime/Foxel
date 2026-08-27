@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback } from 'react';
-import { Card, List, Typography, Button, Empty, Breadcrumb } from 'antd';
+import { Card, List, Typography, Button, Empty, Breadcrumb, Pagination } from 'antd';
 import { FileOutlined, FolderOutlined, DownloadOutlined } from '@ant-design/icons';
 import { shareApi, type ShareInfo } from '../../api/share';
 import { type VfsEntry } from '../../api/vfs';
@@ -15,26 +15,43 @@ interface DirectoryViewerProps {
     onFileClick: (entry: VfsEntry, path: string) => void;
 }
 
+const DEFAULT_PAGE_SIZE = 50;
+
 export const DirectoryViewer = memo(function DirectoryViewer({ token, shareInfo, password, onFileClick }: DirectoryViewerProps) {
     const [loading, setLoading] = useState(true);
     const [entries, setEntries] = useState<VfsEntry[]>([]);
     const [currentPath, setCurrentPath] = useState('/');
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
+        total: 0,
+    });
     const [error, setError] = useState('');
     const { t } = useI18n();
 
-	    const loadData = useCallback(async (p: string) => {
-	        setLoading(true);
-	        setError('');
-	        try {
-	            const listing = await shareApi.listDir(token, p, password);
-	            setEntries(listing.entries || []);
-	            setCurrentPath(p);
-	        } catch (e: any) {
-	            setError(e.message || t('Share load failed'));
-	        } finally {
-	            setLoading(false);
-	        }
-	    }, [password, t, token]);
+    const loadData = useCallback(async (
+        p: string,
+        page = 1,
+        pageSize = DEFAULT_PAGE_SIZE,
+    ) => {
+        setLoading(true);
+        setError('');
+        try {
+            const listing = await shareApi.listDir(token, p, password, page, pageSize);
+            const listingPagination = listing.pagination;
+            setEntries(listing.entries || []);
+            setCurrentPath(listing.path || p);
+            setPagination({
+                current: listingPagination?.page || page,
+                pageSize: listingPagination?.page_size || pageSize,
+                total: listingPagination?.total || listing.entries.length,
+            });
+        } catch (e: any) {
+            setError(e.message || t('Share load failed'));
+        } finally {
+            setLoading(false);
+        }
+    }, [password, t, token]);
 
     useEffect(() => {
         loadData(currentPath);
@@ -43,14 +60,18 @@ export const DirectoryViewer = memo(function DirectoryViewer({ token, shareInfo,
     const handleEntryClick = (entry: VfsEntry) => {
         const newPath = (currentPath === '/' ? '' : currentPath) + '/' + entry.name;
         if (entry.is_dir) {
-            loadData(newPath);
+            setCurrentPath(newPath);
         } else {
             onFileClick(entry, newPath);
         }
     };
 
     const handleBreadcrumbClick = (path: string) => {
-        loadData(path);
+        setCurrentPath(path);
+    };
+
+    const handlePageChange = (page: number, pageSize: number) => {
+        loadData(currentPath, page, pageSize);
     };
 
     const renderBreadcrumb = () => {
@@ -112,6 +133,19 @@ export const DirectoryViewer = memo(function DirectoryViewer({ token, shareInfo,
                         </List.Item>
                     )}
                 />
+                {pagination.total > pagination.pageSize ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+                        <Pagination
+                            current={pagination.current}
+                            pageSize={pagination.pageSize}
+                            total={pagination.total}
+                            showSizeChanger
+                            pageSizeOptions={['20', '50', '100', '200']}
+                            showTotal={(total, range) => `${total} ${t('items')} ${range[0]}-${range[1]}`}
+                            onChange={handlePageChange}
+                        />
+                    </div>
+                ) : null}
             </Card>
         </div>
     );

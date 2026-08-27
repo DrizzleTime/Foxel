@@ -1,6 +1,6 @@
 from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
@@ -95,19 +95,29 @@ async def verify_password(request: Request, token: str, payload: SharePassword):
 @public_router.get("/{token}/ls")
 @audit(action=AuditAction.SHARE, description="浏览分享内容")
 async def list_share_content(
-    request: Request, token: str, path: str = "/", password: Optional[str] = None
+    request: Request,
+    token: str,
+    path: str = "/",
+    password: Optional[str] = None,
+    page_num: int = Query(1, alias="page", ge=1, description="页码"),
+    page_size: int = Query(50, ge=1, le=500, description="每页条数"),
 ):
     share = await ShareService.ensure_share_access(token, password)
-    content = await ShareService.get_shared_item_details(share, path)
+    content = await ShareService.get_shared_item_details(
+        share=share,
+        sub_path=path,
+        page_num=page_num,
+        page_size=page_size,
+    )
     return success(
         {
             "path": path,
             "entries": content.get("items", []),
             "pagination": {
                 "total": content.get("total", 0),
-                "page": content.get("page", 1),
-                "page_size": content.get("page_size", 1),
-                "pages": content.get("pages", 1),
+                "page": content.get("page", page_num),
+                "page_size": content.get("page_size", page_size),
+                "pages": content.get("pages", 0),
             },
         }
     )

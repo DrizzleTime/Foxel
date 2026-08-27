@@ -114,7 +114,13 @@ class ShareService:
         return deleted_count
 
     @classmethod
-    async def get_shared_item_details(cls, share: ShareLink, sub_path: str = ""):
+    async def get_shared_item_details(
+        cls,
+        share: ShareLink,
+        sub_path: str = "",
+        page_num: int = 1,
+        page_size: int = 50,
+    ):
         if not share.paths:
             raise HTTPException(status_code=404, detail="分享内容为空")
 
@@ -125,20 +131,38 @@ class ShareService:
             if not full_path.startswith(base_shared_path):
                 raise HTTPException(status_code=403, detail="无权访问此路径")
             try:
-                return await VirtualFSService.list_virtual_dir(full_path)
+                return await VirtualFSService.list_virtual_dir(
+                    full_path,
+                    page_num,
+                    page_size,
+                )
             except FileNotFoundError:
                 raise HTTPException(status_code=404, detail="目录未找到")
 
         try:
             stat = await VirtualFSService.stat_file(base_shared_path)
             if stat.get("is_dir"):
-                return await VirtualFSService.list_virtual_dir(base_shared_path)
+                return await VirtualFSService.list_virtual_dir(
+                    base_shared_path,
+                    page_num,
+                    page_size,
+                )
 
             stat["name"] = base_shared_path.split("/")[-1]
-            return {"items": [stat], "total": 1, "page": 1, "page_size": 1, "pages": 1}
+            return {
+                "items": [stat] if page_num == 1 else [],
+                "total": 1,
+                "page": page_num,
+                "page_size": page_size,
+                "pages": 1,
+            }
         except HTTPException as e:
             if "Path is a directory" in str(e.detail) or "Not a file" in str(e.detail):
-                return await VirtualFSService.list_virtual_dir(base_shared_path)
+                return await VirtualFSService.list_virtual_dir(
+                    base_shared_path,
+                    page_num,
+                    page_size,
+                )
             raise e
 
     @classmethod

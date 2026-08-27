@@ -34,8 +34,18 @@ export const shareApi = {
   clearExpired: () => request<ClearExpiredResult>(`/shares/expired`, { method: 'DELETE' }),
   get: (token: string) => request<ShareInfo>(`/s/${token}`),
   verifyPassword: (token: string, password: string) => request<void>(`/s/${token}/verify`, { method: 'POST', json: { password } }),
-  listDir: (token: string, path: string = '/', password?: string) => {
-    const params: Record<string, string> = { path };
+  listDir: (
+    token: string,
+    path: string = '/',
+    password?: string,
+    page: number = 1,
+    pageSize: number = 50,
+  ) => {
+    const params: Record<string, string> = {
+      path,
+      page: String(page),
+      page_size: String(pageSize),
+    };
     if (password) {
       params.password = password;
     }

@@ -101,6 +101,7 @@ async def list_share_content(
     password: Optional[str] = None,
     page_num: int = Query(1, alias="page", ge=1, description="页码"),
     page_size: int = Query(50, ge=1, le=500, description="每页条数"),
+    cursor: str | None = Query(None, description="游标分页位置"),
 ):
     share = await ShareService.ensure_share_access(token, password)
     content = await ShareService.get_shared_item_details(
@@ -108,17 +109,13 @@ async def list_share_content(
         sub_path=path,
         page_num=page_num,
         page_size=page_size,
+        cursor=cursor,
     )
     return success(
         {
             "path": path,
             "entries": content.get("items", []),
-            "pagination": {
-                "total": content.get("total", 0),
-                "page": content.get("page", page_num),
-                "page_size": content.get("page_size", page_size),
-                "pages": content.get("pages", 0),
-            },
+            "pagination": content.get("pagination"),
         }
     )
 

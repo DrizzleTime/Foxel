@@ -636,6 +636,8 @@
   "Please input name": "Please input name",
   "Confirm delete {name}?": "Confirm delete {name}?",
   "items": "items",
+  "Previous page": "Previous page",
+  "Next page": "Next page",
   "Downloading folders is not supported": "Downloading folders is not supported",
   "Download failed": "Download failed",
   "Please select files or folders to share": "Please select files or folders to share",

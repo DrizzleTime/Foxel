@@ -629,6 +629,8 @@
   "Please input name": "请输入名称",
   "Confirm delete {name}?": "确认删除 {name} ?",
   "items": "项",
+  "Previous page": "上一页",
+  "Next page": "下一页",
   "Downloading folders is not supported": "暂不支持下载目录",
   "Download failed": "下载失败",
   "Please select files or folders to share": "请选择要分享的文件或目录",

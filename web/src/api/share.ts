@@ -38,9 +38,15 @@ export const shareApi = {
     token: string,
     path: string = '/',
     password?: string,
-    page: number = 1,
-    pageSize: number = 50,
+    options?: {
+      page?: number;
+      pageSize?: number;
+      cursor?: string | null;
+      signal?: AbortSignal;
+    },
   ) => {
+    const page = options?.page ?? 1;
+    const pageSize = options?.pageSize ?? 50;
     const params: Record<string, string> = {
       path,
       page: String(page),
@@ -49,7 +55,12 @@ export const shareApi = {
     if (password) {
       params.password = password;
     }
-    return request<DirListing>(`/s/${token}/ls?${new URLSearchParams(params)}`);
+    if (options?.cursor) {
+      params.cursor = options.cursor;
+    }
+    return request<DirListing>(`/s/${token}/ls?${new URLSearchParams(params)}`, {
+      signal: options?.signal,
+    });
   },
   downloadUrl: (token: string, path: string, password?: string) => {
     const url = `${API_BASE_URL}/s/${token}/download?path=${encodeURIComponent(path)}`;

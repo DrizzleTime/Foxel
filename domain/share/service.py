@@ -7,6 +7,7 @@ import bcrypt
 from fastapi import HTTPException, status
 from fastapi.responses import Response
 
+from api.response import listing_pagination
 from domain.virtual_fs import VirtualFSService
 from models.database import ShareLink, UserAccount
 
@@ -114,12 +115,52 @@ class ShareService:
         return deleted_count
 
     @classmethod
+    async def _list_shared_virtual_dir(
+        cls,
+        vfs_path: str,
+        page_num: int,
+        page_size: int,
+        cursor: str | None,
+    ):
+        try:
+            result = await VirtualFSService.list_virtual_dir(
+                vfs_path,
+                page_num,
+                page_size,
+                cursor=cursor,
+            )
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="目录未找到")
+        except HTTPException as e:
+            if e.status_code == 404:
+                raise HTTPException(status_code=404, detail="目录未找到") from e
+            raise
+        items, pagination = listing_pagination(
+            result, page_num=page_num, page_size=page_size, cursor=cursor
+        )
+        return {"items": items, "pagination": pagination}
+
+    @classmethod
+    def _single_file_listing(cls, stat: dict, page_num: int, page_size: int):
+        return {
+            "items": [stat] if page_num == 1 else [],
+            "pagination": {
+                "mode": "paged",
+                "page_size": page_size,
+                "total": 1,
+                "page": page_num,
+                "pages": 1,
+            },
+        }
+
+    @classmethod
     async def get_shared_item_details(
         cls,
         share: ShareLink,
         sub_path: str = "",
         page_num: int = 1,
         page_size: int = 50,
+        cursor: str | None = None,
     ):
         if not share.paths:
             raise HTTPException(status_code=404, detail="分享内容为空")
@@ -130,38 +171,23 @@ class ShareService:
             full_path = f"{base_shared_path.rstrip('/')}/{sub_path.lstrip('/')}".rstrip("/")
             if not full_path.startswith(base_shared_path):
                 raise HTTPException(status_code=403, detail="无权访问此路径")
-            try:
-                return await VirtualFSService.list_virtual_dir(
-                    full_path,
-                    page_num,
-                    page_size,
-                )
-            except FileNotFoundError:
-                raise HTTPException(status_code=404, detail="目录未找到")
+            return await cls._list_shared_virtual_dir(
+                full_path, page_num, page_size, cursor
+            )
 
         try:
             stat = await VirtualFSService.stat_file(base_shared_path)
             if stat.get("is_dir"):
-                return await VirtualFSService.list_virtual_dir(
-                    base_shared_path,
-                    page_num,
-                    page_size,
+                return await cls._list_shared_virtual_dir(
+                    base_shared_path, page_num, page_size, cursor
                 )
 
             stat["name"] = base_shared_path.split("/")[-1]
-            return {
-                "items": [stat] if page_num == 1 else [],
-                "total": 1,
-                "page": page_num,
-                "page_size": page_size,
-                "pages": 1,
-            }
+            return cls._single_file_listing(stat, page_num, page_size)
         except HTTPException as e:
             if "Path is a directory" in str(e.detail) or "Not a file" in str(e.detail):
-                return await VirtualFSService.list_virtual_dir(
-                    base_shared_path,
-                    page_num,
-                    page_size,
+                return await cls._list_shared_virtual_dir(
+                    base_shared_path, page_num, page_size, cursor
                 )
             raise e
 

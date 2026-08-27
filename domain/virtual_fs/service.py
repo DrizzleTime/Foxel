@@ -1,3 +1,5 @@
+from api.response import dir_listing
+
 from .common import VirtualFSCommonMixin
 from .resolver import VirtualFSResolverMixin
 from .listing import VirtualFSListingMixin
@@ -47,28 +49,10 @@ class VirtualFSService(
         result = await cls.list_virtual_dir_with_permission(
             full_path, user_id, page_num, page_size, sort_by, sort_order, cursor
         )
-        pagination = {
-            "mode": result.get("pagination_mode", "paged") if isinstance(result, dict) else "paged",
-            "page_size": result.get("page_size", page_size) if isinstance(result, dict) else page_size,
-        }
-        if pagination["mode"] == "cursor":
-            pagination.update(
-                {
-                    "cursor": result.get("cursor") if isinstance(result, dict) else cursor,
-                    "next_cursor": result.get("next_cursor") if isinstance(result, dict) else None,
-                    "has_next": bool(result.get("has_next")) if isinstance(result, dict) else False,
-                }
-            )
-        else:
-            pagination.update(
-                {
-                    "total": result.get("total", 0) if isinstance(result, dict) else 0,
-                    "page": result.get("page", page_num) if isinstance(result, dict) else page_num,
-                    "pages": result.get("pages", 0) if isinstance(result, dict) else 0,
-                }
-            )
-        return {
-            "path": full_path,
-            "entries": result.get("items", []) if isinstance(result, dict) else [],
-            "pagination": pagination,
-        }
+        return dir_listing(
+            result,
+            path=full_path,
+            page_num=page_num,
+            page_size=page_size,
+            cursor=cursor,
+        )

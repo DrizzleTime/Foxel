@@ -5,6 +5,7 @@ from urllib.parse import quote
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import Response
 
+from api.response import dir_listing
 from domain.config import ConfigService
 from domain.tasks import TaskService
 from .thumbnail import (
@@ -293,31 +294,12 @@ class VirtualFSRouteMixin(VirtualFSTempLinkMixin):
     async def list_directory(cls, full_path: str, page_num: int, page_size: int, sort_by: str, sort_order: str):
         full_path = cls._normalize_path(full_path)
         result = await cls.list_virtual_dir(full_path, page_num, page_size, sort_by, sort_order)
-        pagination = {
-            "mode": result.get("pagination_mode", "paged"),
-            "page_size": result.get("page_size", page_size),
-        }
-        if pagination["mode"] == "cursor":
-            pagination.update(
-                {
-                    "cursor": result.get("cursor"),
-                    "next_cursor": result.get("next_cursor"),
-                    "has_next": bool(result.get("has_next")),
-                }
-            )
-        else:
-            pagination.update(
-                {
-                    "total": result["total"],
-                    "page": result["page"],
-                    "pages": result["pages"],
-                }
-            )
-        return {
-            "path": full_path,
-            "entries": result["items"],
-            "pagination": pagination,
-        }
+        return dir_listing(
+            result,
+            path=full_path,
+            page_num=page_num,
+            page_size=page_size,
+        )
 
     @classmethod
     async def delete(cls, full_path: str):

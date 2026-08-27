@@ -30,5 +30,56 @@ def cursor_page(
     }
 
 
+def listing_pagination(
+    result: Any,
+    *,
+    page_num: int = 1,
+    page_size: int = 50,
+    cursor: str | None = None,
+) -> tuple[list[Any], dict[str, Any]]:
+    """把 list_virtual_dir / page / cursor_page 结果规范成对外 pagination。"""
+    data = result if isinstance(result, dict) else {}
+    items = data.get("items") or []
+    mode = data.get("pagination_mode") or "paged"
+    pagination: dict[str, Any] = {
+        "mode": mode,
+        "page_size": data.get("page_size", page_size),
+    }
+    if mode == "cursor":
+        pagination.update(
+            {
+                "cursor": data.get("cursor", cursor),
+                "next_cursor": data.get("next_cursor"),
+                "has_next": bool(data.get("has_next")),
+            }
+        )
+    else:
+        total = data.get("total")
+        pages = data.get("pages")
+        pagination.update(
+            {
+                "total": 0 if total is None else total,
+                "page": data.get("page", page_num),
+                "pages": 0 if pages is None else pages,
+            }
+        )
+    return items, pagination
+
+
+def dir_listing(
+    result: Any,
+    *,
+    path: str,
+    page_num: int = 1,
+    page_size: int = 50,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """对外目录列表载荷：path / entries / pagination。"""
+    items, pagination = listing_pagination(
+        result, page_num=page_num, page_size=page_size, cursor=cursor
+    )
+    return {"path": path, "entries": items, "pagination": pagination}
+
+
 def error(msg: str, code: int = 1, data: Optional[Any] = None):
     return {"code": code, "msg": msg, "data": data}

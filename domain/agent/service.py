@@ -149,7 +149,7 @@ async def _list_mcp_tools(session) -> List[Dict[str, Any]]:
             {
                 "name": str(getattr(item, "name", "") or ""),
                 "description": str(getattr(item, "description", "") or ""),
-                "input_schema": getattr(item, "inputSchema", None) or {},
+                "input_schema": getattr(item, "input_schema", None) or {},
                 "annotations": annotations.model_dump(exclude_none=True) if annotations is not None else {},
                 "meta": meta if isinstance(meta, dict) else {},
             }
@@ -159,7 +159,7 @@ async def _list_mcp_tools(session) -> List[Dict[str, Any]]:
 
 async def _execute_mcp_call(session, name: str, arguments: Dict[str, Any]) -> str:
     result = await session.call_tool(name, arguments)
-    return mcp_content_to_text(result.content, result.structuredContent)
+    return mcp_content_to_text(result.content, result.structured_content)
 
 
 class AgentService:

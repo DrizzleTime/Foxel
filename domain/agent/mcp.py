@@ -5,12 +5,12 @@ from datetime import timedelta
 from typing import Annotated, Any, Literal
 from urllib.parse import quote, unquote
 
-import httpx
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+import httpx2
+from mcp.client import Client
+from mcp.client.streamable_http import streamable_http_client
 from mcp.server.auth.provider import AccessToken
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.fastmcp.server import AuthSettings
+from mcp.server.auth.settings import AuthSettings
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -119,10 +119,9 @@ class FoxelMcpTokenVerifier:
         return AccessToken(token=token, client_id=user.username, scopes=[])
 
 
-MCP_SERVER = FastMCP(
+MCP_SERVER = MCPServer(
     name="Foxel MCP",
     instructions="Foxel 内置 MCP 服务，提供文件系统、网页抓取、时间与处理器相关能力。",
-    streamable_http_path="/",
     token_verifier=FoxelMcpTokenVerifier(),
     auth=AuthSettings(
         issuer_url="http://127.0.0.1:8000",
@@ -268,21 +267,7 @@ def fetch_web_page_prompt(url: Annotated[str, Field(description="目标网址")]
     return [{"role": "user", "content": f"请抓取网页 `{url}`，并总结标题、正文与关键链接。必要时调用 web_fetch。"}]
 
 
-MCP_HTTP_APP = MCP_SERVER.streamable_http_app()
-
-
-def loopback_httpx_client_factory(app):
-    def factory(headers: dict[str, str] | None = None, timeout=None, auth=None) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
-            base_url=INTERNAL_MCP_BASE_URL.rstrip("/"),
-            headers=headers,
-            timeout=timeout,
-            auth=auth,
-            follow_redirects=True,
-        )
-
-    return factory
+MCP_HTTP_APP = MCP_SERVER.streamable_http_app(streamable_http_path="/")
 
 
 async def create_loopback_mcp_headers(user: User | None, current_path: str | None = None) -> dict[str, str]:
@@ -301,14 +286,20 @@ async def create_loopback_mcp_headers(user: User | None, current_path: str | Non
 @asynccontextmanager
 async def mcp_client_session(user: User | None, current_path: str | None = None):
     headers = await create_loopback_mcp_headers(user, current_path)
-    async with streamablehttp_client(
-        INTERNAL_MCP_BASE_URL,
+    timeout = httpx2.Timeout(30.0, read=300.0)
+    async with httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=MCP_HTTP_APP),
+        base_url=INTERNAL_MCP_BASE_URL.rstrip("/"),
         headers=headers,
-        httpx_client_factory=loopback_httpx_client_factory(MCP_HTTP_APP),
-    ) as (read_stream, write_stream, _):
-        async with ClientSession(read_stream, write_stream) as session:
-            await session.initialize()
-            yield session
+        timeout=timeout,
+        follow_redirects=True,
+    ) as http_client:
+        transport = streamable_http_client(
+            INTERNAL_MCP_BASE_URL,
+            http_client=http_client,
+        )
+        async with Client(transport, mode="2026-07-28") as client:
+            yield client
 
 
 def mcp_content_to_text(content: list[Any], structured_content: dict[str, Any] | None = None) -> str:

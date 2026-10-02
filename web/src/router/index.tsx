@@ -35,11 +35,24 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 }
 
 export function AppRouter() {
+  const location = useLocation();
+  const settingsOpen = /^\/settings(?:\/|$)/.test(location.pathname);
+  const background = location.state?.settingsBackground;
+  const pageLocation = settingsOpen
+    ? background && !/^\/settings(?:\/|$)/.test(background.pathname)
+      ? background
+      : { ...location, pathname: '/files', search: '', hash: '' }
+    : location;
+
   return (
     <RequireAuth>
-      <Routes>
+      <Routes location={pageLocation}>
         {routes.map(r => (
-          <Route key={r.path} path={r.path} element={r.element} />
+          <Route
+            key={r.path}
+            path={r.path}
+            element={r.path === '/:navKey/*' ? <LayoutShell navigationLocation={location} /> : r.element}
+          />
         ))}
       </Routes>
     </RequireAuth>

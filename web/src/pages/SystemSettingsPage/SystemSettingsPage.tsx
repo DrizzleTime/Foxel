@@ -1,8 +1,7 @@
-import { Alert, message, Tabs, Space } from 'antd';
+import { Alert, message, Tabs, Modal } from 'antd';
 import { useEffect, useState } from 'react';
-import PageCard from '../../components/PageCard';
 import { getAllConfig, setConfig } from '../../api/config';
-import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined, CloseOutlined } from '@ant-design/icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import '../../styles/settings-tabs.css';
 import { useI18n } from '../../i18n';
@@ -18,12 +17,21 @@ type TabKey = 'appearance' | 'app' | 'email' | 'ai' | 'vector-db' | 'mappings';
 
 const TAB_KEYS: TabKey[] = ['appearance', 'app', 'email', 'ai', 'vector-db', 'mappings'];
 const DEFAULT_TAB: TabKey = 'appearance';
+const TAB_TITLES: Record<TabKey, string> = {
+  appearance: 'Appearance',
+  app: 'System',
+  email: 'Email',
+  ai: 'AI',
+  'vector-db': 'Database',
+  mappings: 'Mappings',
+};
 
 const isValidTab = (key?: string): key is TabKey => !!key && (TAB_KEYS as string[]).includes(key);
 
 interface SystemSettingsPageProps {
   tabKey?: string;
   onTabNavigate?: (key: TabKey, options?: { replace?: boolean }) => void;
+  onClose?: () => void;
 }
 
 const APP_CONFIG_KEYS: { key: string, label: string, default?: string }[] = [
@@ -67,7 +75,7 @@ const CONFIG_DEFAULTS: Record<string, string> = {
 
 const stringifyConfigValue = (value: unknown) => String(value ?? '');
 
-export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSettingsPageProps) {
+export default function SystemSettingsPage({ tabKey, onTabNavigate, onClose }: SystemSettingsPageProps) {
   const [loading, setLoading] = useState(false);
   const [config, setConfigState] = useState<Record<string, string> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -145,35 +153,47 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
     onTabNavigate?.(nextKey);
   };
 
-  if (loadError) {
-    return (
-      <PageCard title={t('System Settings')}>
-        <Alert type="error" showIcon message={loadError} />
-      </PageCard>
-    );
-  }
-
-  if (!config) {
-    return <PageCard title={t('System Settings')}><div>{t('Loading...')}</div></PageCard>;
-  }
-
   return (
-    <PageCard
-      title={t('System Settings')}
+    <Modal
+      open
+      onCancel={onClose}
+      closeIcon={<CloseOutlined />}
+      title={
+        <div className="fx-settings-modal-heading">
+          <span className="fx-settings-modal-title">{t('System Settings')}</span>
+          <span className="fx-settings-modal-section-title">{t(TAB_TITLES[activeTab])}</span>
+        </div>
+      }
+      footer={null}
+      width={isMobile ? 'calc(100vw - 24px)' : 1180}
+      style={{ maxWidth: 'calc(100vw - 24px)' }}
+      centered
+      destroyOnHidden={false}
+      className="fx-settings-modal"
+      styles={{
+        body: { padding: 0, overflow: 'hidden' },
+        container: { padding: 0, overflow: 'hidden' },
+      }}
     >
-      <Space orientation="vertical" style={{ width: '100%' }} size={16}>
+      {loadError ? (
+        <div className="fx-settings-modal-message"><Alert type="error" showIcon message={loadError} /></div>
+      ) : !config ? (
+        <div className="fx-settings-modal-message">{t('Loading...')}</div>
+      ) : (
         <Tabs
           className="fx-settings-tabs"
+          classNames={{ body: 'fx-settings-body', content: 'fx-settings-pane' }}
+          tabPlacement={isMobile ? 'top' : 'start'}
           activeKey={activeTab}
           onChange={handleTabChange}
-          centered={!isMobile}
+          centered={false}
           items={[
             {
               key: 'appearance',
               label: (
                 <span>
                   <SkinOutlined style={{ marginRight: 8 }} />
-                  {t('Appearance Settings')}
+                  {t(TAB_TITLES.appearance)}
                 </span>
               ),
               children: (
@@ -190,7 +210,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
               label: (
                 <span>
                   <AppstoreOutlined style={{ marginRight: 8 }} />
-                  {t('App Settings')}
+                  {t(TAB_TITLES.app)}
                 </span>
               ),
               children: (
@@ -207,7 +227,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
               label: (
                 <span>
                   <MailOutlined style={{ marginRight: 8 }} />
-                  {t('Email Settings')}
+                  {t(TAB_TITLES.email)}
                 </span>
               ),
               children: (
@@ -223,7 +243,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
               label: (
                 <span>
                   <RobotOutlined style={{ marginRight: 8 }} />
-                  {t('AI Settings')}
+                  {t(TAB_TITLES.ai)}
                 </span>
               ),
               children: (
@@ -236,7 +256,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
               label: (
                 <span>
                   <DatabaseOutlined style={{ marginRight: 8 }} />
-                  {t('Vector Database')}
+                  {t(TAB_TITLES['vector-db'])}
                 </span>
               ),
               children: (
@@ -248,7 +268,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
               label: (
                 <span>
                   <CloudSyncOutlined style={{ marginRight: 8 }} />
-                  {t('Protocol Mappings')}
+                  {t(TAB_TITLES.mappings)}
                 </span>
               ),
               children: (
@@ -261,7 +281,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate }: SystemSett
             },
           ]}
         />
-      </Space>
-    </PageCard>
+      )}
+    </Modal>
   );
 }

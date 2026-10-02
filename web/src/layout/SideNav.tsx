@@ -8,8 +8,8 @@ import {
   FileTextOutlined,
   GithubOutlined,
   MenuFoldOutlined,
-  SendOutlined,
-  WechatOutlined,
+  SettingOutlined,
+  TeamOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import '../styles/sider-menu.css';
@@ -18,7 +18,7 @@ import ReactMarkdown from 'react-markdown';
 import { useTheme } from '../contexts/ThemeContext';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
-import WeChatModal from '../components/WeChatModal';
+import CommunityModal from '../components/CommunityModal';
 import { useAuth } from '../contexts/AuthContext';
 
 const { Sider } = Layout;
@@ -47,7 +47,7 @@ const SideNav = memo(function SideNav({
   const { resolvedMode } = useTheme();
   const { t } = useI18n();
   const { user } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [communityOpen, setCommunityOpen] = useState(false);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [latestVersion, setLatestVersion] = useState<{
     version: string;
@@ -255,14 +255,25 @@ const SideNav = memo(function SideNav({
           )}
         </div>
 
-        {!bodyCollapsed && (
-          <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
-            <Button shape="circle" icon={<GithubOutlined />} href="https://github.com/DrizzleTime/Foxel" target="_blank" />
-            <Button shape="circle" icon={<WechatOutlined />} onClick={() => setIsModalOpen(true)} />
-            <Button shape="circle" icon={<SendOutlined />} href="https://t.me/+thDsBfyqJxZkNTU1" target="_blank" />
-            <Button shape="circle" icon={<FileTextOutlined />} href="https://foxel.cc" target="_blank" />
-          </div>
-        )}
+        <div style={{ display: 'flex', flexDirection: bodyCollapsed ? 'column' : 'row', gap: 8 }}>
+          <Tooltip title="GitHub" placement={bodyCollapsed ? 'right' : 'top'}>
+            <Button shape="circle" aria-label="GitHub" icon={<GithubOutlined />} href="https://github.com/DrizzleTime/Foxel" target="_blank" rel="noopener noreferrer" />
+          </Tooltip>
+          <Tooltip title={t('Community')} placement={bodyCollapsed ? 'right' : 'top'}>
+            <Button shape="circle" aria-label={t('Community')} icon={<TeamOutlined />} onClick={() => {
+              if (mobile) onClose?.();
+              setCommunityOpen(true);
+            }} />
+          </Tooltip>
+          <Tooltip title={t('Documentation')} placement={bodyCollapsed ? 'right' : 'top'}>
+            <Button shape="circle" aria-label={t('Documentation')} icon={<FileTextOutlined />} href="https://foxel.cc" target="_blank" rel="noopener noreferrer" />
+          </Tooltip>
+          {user?.is_admin && (
+            <Tooltip title={t('System Settings')} placement={bodyCollapsed ? 'right' : 'top'}>
+              <Button shape="circle" aria-label={t('System Settings')} icon={<SettingOutlined />} onClick={() => handleChange('settings')} />
+            </Tooltip>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -296,7 +307,7 @@ const SideNav = memo(function SideNav({
         </Sider>
       )}
 
-      <WeChatModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <CommunityModal open={communityOpen} onClose={() => setCommunityOpen(false)} />
       <Modal
         open={isVersionModalOpen}
         onCancel={() => setIsVersionModalOpen(false)}

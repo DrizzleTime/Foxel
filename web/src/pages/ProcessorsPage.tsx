@@ -585,6 +585,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
           styles={{ body: { padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
         >
           <Tabs
+            classNames={{ body: 'processors-tabs-body', content: 'processors-tabs-pane' }}
             activeKey={activeTab}
             onChange={key => setActiveTab(key as TabKey)}
             items={tabs as any}

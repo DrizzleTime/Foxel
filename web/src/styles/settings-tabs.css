@@ -1,67 +1,229 @@
-.fx-settings-tabs .ant-tabs-nav {
-  margin-bottom: 12px;
+.fx-settings-modal {
+  max-width: calc(100vw - 64px);
+  padding-bottom: 0;
 }
 
-.fx-settings-tabs .ant-tabs-nav-list {
-  padding: 4px 8px;
-  width: 100%;
-  gap: 8px;
+.fx-settings-modal .ant-modal-container {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  box-shadow: 0 20px 64px rgba(0, 0, 0, 0.18);
 }
 
-.fx-settings-tabs .ant-tabs-tab {
-  margin: 0 !important;
+.fx-settings-modal .ant-modal-header {
+  margin: 0;
+  padding: 0;
+}
+
+.fx-settings-modal .ant-modal-close {
+  top: 16px;
+  right: 18px;
+}
+
+.fx-settings-modal-heading {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  min-height: 68px;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.fx-settings-modal-title,
+.fx-settings-modal-section-title {
+  display: flex;
+  align-items: center;
+  padding: 18px 24px;
+}
+
+.fx-settings-modal-title {
+  background: var(--ant-color-fill-quaternary);
+  border-right: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-settings-modal-section-title {
+  padding-right: 64px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-settings-tabs {
+  height: min(730px, calc(100dvh - 164px));
+  min-height: 0;
+}
+
+.fx-settings-tabs > .ant-tabs-nav {
+  width: 180px;
+  min-width: 180px;
+  padding: 12px 10px;
+  margin: 0;
+  background: var(--ant-color-fill-quaternary);
+  border-right: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-settings-tabs > .ant-tabs-nav::before,
+.fx-settings-tabs > .ant-tabs-nav .ant-tabs-ink-bar {
+  display: none;
+}
+
+.fx-settings-tabs > .ant-tabs-nav .ant-tabs-tab {
+  margin: 0 0 4px;
+  padding: 11px 12px;
   border-radius: 8px;
-  padding: 8px 12px !important;
-  flex: 1 1 auto;
-  justify-content: center;
+  text-align: left;
+  white-space: normal;
 }
 
-.fx-settings-tabs .ant-tabs-tab .ant-tabs-tab-btn {
-  color: var(--ant-color-text-secondary) !important;
+.fx-settings-tabs > .ant-tabs-nav .ant-tabs-tab-btn {
+  width: 100%;
+  color: var(--ant-color-text-secondary);
+  text-shadow: none;
 }
 
-.fx-settings-tabs .ant-tabs-tab:hover {
-  background: var(--ant-color-fill-tertiary) !important;
+.fx-settings-tabs > .ant-tabs-nav .ant-tabs-tab-btn > span {
+  display: flex;
+  align-items: center;
 }
 
-/* 选中态：按主题细分 */
-html[data-theme='dark'] .fx-settings-tabs .ant-tabs-tab-active {
-  background: var(--ant-color-primary-bg) !important;
+.fx-settings-tabs > .ant-tabs-nav .ant-tabs-tab:hover {
+  background: var(--ant-color-fill-tertiary);
 }
-html[data-theme='dark'] .fx-settings-tabs .ant-tabs-tab-active .ant-tabs-tab-btn,
-html[data-theme='dark'] .fx-settings-tabs .ant-tabs-tab-active .ant-tabs-tab-btn .anticon {
-  color: var(--ant-color-text) !important;
+
+.fx-settings-tabs > .ant-tabs-nav .ant-tabs-tab-active {
+  background: var(--ant-color-fill-secondary);
+}
+
+.fx-settings-tabs > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--ant-color-text);
   font-weight: 600;
 }
 
-html[data-theme='light'] .fx-settings-tabs .ant-tabs-tab-active {
-  background: var(--ant-color-primary) !important;
+.fx-settings-tabs > .ant-tabs-body-holder {
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  overflow: hidden;
 }
-html[data-theme='light'] .fx-settings-tabs .ant-tabs-tab-active .ant-tabs-tab-btn,
-html[data-theme='light'] .fx-settings-tabs .ant-tabs-tab-active .ant-tabs-tab-btn .anticon {
-  color: var(--ant-color-text-light-solid) !important;
+
+.fx-settings-tabs .fx-settings-body {
+  height: 100%;
+}
+
+.fx-settings-modal .fx-settings-tabs > .ant-tabs-body-holder > .fx-settings-body > .fx-settings-pane {
+  height: 100%;
+  padding: 24px 32px 32px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ant-color-border) transparent;
+  overscroll-behavior: contain;
+}
+
+.fx-settings-pane > .ant-form,
+.fx-settings-pane > .ant-space,
+.fx-settings-pane > .ant-card {
+  margin-top: 0 !important;
+}
+
+.fx-settings-section {
+  padding-bottom: 8px;
+}
+
+.fx-settings-section + .fx-settings-section {
+  padding-top: 24px;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-settings-section h3 {
+  margin: 0 0 20px;
+  color: var(--ant-color-text-secondary);
+  font-size: 14px;
   font-weight: 600;
 }
 
-.fx-settings-tabs .ant-tabs-ink-bar {
-  background: var(--ant-color-primary) !important;
+.fx-settings-save {
+  position: sticky;
+  bottom: -32px;
+  margin: 0;
+  padding: 16px 0;
+  background: var(--ant-color-bg-container);
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-settings-modal-message {
+  min-height: 240px;
+  padding: 32px;
+}
+
+.fx-settings-tabs .fx-ai-top-bar h3 {
+  font-size: 18px;
 }
 
 @media (max-width: 767px) {
-  .fx-settings-tabs .ant-tabs-nav {
-    overflow-x: auto;
+  .fx-settings-modal {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px);
+    margin: 12px auto;
   }
 
-  .fx-settings-tabs .ant-tabs-nav-list {
-    width: max-content;
-    min-width: 100%;
-    flex-wrap: nowrap;
-    padding: 2px 4px;
+  .fx-settings-modal .ant-modal-container {
+    border-radius: 16px;
   }
 
-  .fx-settings-tabs .ant-tabs-tab {
+  .fx-settings-modal-heading {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 60px;
+  }
+
+  .fx-settings-modal-title {
+    padding: 18px 20px;
+    padding-right: 60px;
+    border: 0;
+    background: var(--ant-color-bg-container);
+  }
+
+  .fx-settings-modal-section-title {
+    display: none;
+  }
+
+  .fx-settings-tabs {
+    height: calc(100dvh - 108px);
+    flex-direction: column;
+  }
+
+  .fx-settings-tabs > .ant-tabs-nav {
+    width: 100%;
+    min-width: 0;
+    padding: 6px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--ant-color-border-secondary);
+  }
+
+  .fx-settings-tabs > .ant-tabs-nav .ant-tabs-tab {
     flex: 0 0 auto;
-    justify-content: flex-start;
+    padding: 9px 12px;
+    margin: 0 4px 0 0;
     white-space: nowrap;
   }
+
+  .fx-settings-tabs > .ant-tabs-body-holder {
+    flex: 1;
+  }
+
+  .fx-settings-modal .fx-settings-tabs > .ant-tabs-body-holder > .fx-settings-body > .fx-settings-pane {
+    padding: 20px 18px 24px;
+  }
+
+  .fx-settings-save {
+    bottom: -24px;
+  }
+}
+
+.fx-settings-modal .ant-color-picker-trigger,
+.fx-settings-modal .ant-input-outlined,
+.fx-settings-modal .ant-input-number-outlined {
+  background: var(--ant-color-bg-container);
+  color: var(--ant-color-text);
+}
+
+.fx-settings-modal .ant-radio-button-wrapper:not(.ant-radio-button-wrapper-checked) {
+  background: var(--ant-color-bg-container);
+  color: var(--ant-color-text);
 }

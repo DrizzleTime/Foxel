@@ -1,6 +1,7 @@
 import { Layout, Flex } from 'antd';
-import { memo, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { memo, useCallback, useEffect, useState } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router';
+import type { Location } from 'react-router';
 import SideNav from '../layout/SideNav.tsx';
 import TopHeader from '../layout/TopHeader.tsx';
 import FileExplorerPage from '../pages/FileExplorerPage/FileExplorerPage.tsx';
@@ -20,11 +21,14 @@ import { AppWindowsLayer } from '../apps/AppWindowsLayer';
 import AiAgentWidget from '../components/AiAgentWidget';
 import useResponsive from '../hooks/useResponsive';
 
-const ShellBody = memo(function ShellBody() {
+const ShellBody = memo(function ShellBody({ navigationLocation }: { navigationLocation?: Location }) {
   const params = useParams<{ navKey?: string; '*': string }>();
   const navKey = params.navKey ?? 'files';
   const subPath = params['*'] ?? '';
   const navigate = useNavigate();
+  const pageLocation = useLocation();
+  const location = navigationLocation ?? pageLocation;
+  const settingsOpen = /^\/settings(?:\/|$)/.test(location.pathname);
   const { isMobile } = useResponsive();
   const COLLAPSED_KEY = 'layout.siderCollapsed';
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
@@ -40,7 +44,27 @@ const ShellBody = memo(function ShellBody() {
   }, [isMobile, navKey, subPath]);
 
   const { windows, closeWindow, toggleMax, bringToFront, updateWindow } = useAppWindows();
-  const settingsTab = navKey === 'settings' ? (subPath.split('/')[0] || undefined) : undefined;
+  const settingsTab = settingsOpen ? location.pathname.split('/')[2] : undefined;
+  const handleNavChange = useCallback((key: string) => {
+    setMobileNavOpen(false);
+    if (key === 'settings') {
+      navigate('/settings/appearance', {
+        state: { settingsBackground: location },
+      });
+    } else {
+      navigate(`/${key}`);
+    }
+  }, [location, navigate]);
+  const handleSettingsTabNavigate = useCallback((key: string) => {
+    navigate(`/settings/${key}`, { replace: true, state: location.state });
+  }, [location.state, navigate]);
+  const handleCloseSettings = () => {
+    const background = location.state?.settingsBackground;
+    const target = background && !/^\/settings(?:\/|$)/.test(background.pathname)
+      ? background
+      : { pathname: '/files' };
+    navigate(target, { replace: true, state: background?.state });
+  };
   const agentCurrentPath = navKey === 'files' ? ('/' + subPath).replace(/\/+/g, '/').replace(/\/+$/, '') || '/' : null;
   const handleToggleNav = () => {
     if (isMobile) {
@@ -57,13 +81,7 @@ const ShellBody = memo(function ShellBody() {
           collapsed={collapsed}
           onToggle={handleToggleNav}
           activeKey={navKey}
-          onChange={(key) => {
-            if (key === 'settings') {
-              navigate('/settings/appearance', { replace: true });
-            } else {
-              navigate(`/${key}`);
-            }
-          }}
+          onChange={handleNavChange}
         />
       )}
 
@@ -75,13 +93,7 @@ const ShellBody = memo(function ShellBody() {
           collapsed={false}
           onToggle={handleToggleNav}
           activeKey={navKey}
-          onChange={(key) => {
-            if (key === 'settings') {
-              navigate('/settings/appearance', { replace: true });
-            } else {
-              navigate(`/${key}`);
-            }
-          }}
+          onChange={handleNavChange}
         />
       )}
 
@@ -113,9 +125,6 @@ const ShellBody = memo(function ShellBody() {
               {navKey === 'processors' && <ProcessorsPage />}
               {navKey === 'offline' && <OfflineDownloadPage />}
               {navKey === 'plugins' && <PluginsPage />}
-              {navKey === 'settings' && (
-                <SystemSettingsPage tabKey={settingsTab} onTabNavigate={(key, options) => navigate(`/settings/${key}`, options)} />
-              )}
               {navKey === 'audit' && <AuditLogsPage />}
               {navKey === 'backup' && <BackupPage />}
               {navKey === 'users' && <UsersPage />}
@@ -124,6 +133,13 @@ const ShellBody = memo(function ShellBody() {
         </Layout.Content>
       </Layout>
 
+      {settingsOpen && (
+        <SystemSettingsPage
+          tabKey={settingsTab}
+          onTabNavigate={handleSettingsTabNavigate}
+          onClose={handleCloseSettings}
+        />
+      )}
       <AppWindowsLayer
         windows={windows}
         onClose={closeWindow}
@@ -136,10 +152,10 @@ const ShellBody = memo(function ShellBody() {
   );
 });
 
-const LayoutShell = memo(function LayoutShell() {
+const LayoutShell = memo(function LayoutShell({ navigationLocation }: { navigationLocation?: Location }) {
   return (
     <AppWindowsProvider>
-      <ShellBody />
+      <ShellBody navigationLocation={navigationLocation} />
     </AppWindowsProvider>
   );
 });

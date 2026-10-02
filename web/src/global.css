@@ -240,23 +240,19 @@ body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe
   min-height: 0;
   padding: 5px;
 }
-.processors-tabs .ant-tabs-content-holder,
-.processors-tabs .ant-tabs-content {
+.processors-tabs > .ant-tabs-body-holder,
+.processors-tabs .processors-tabs-body {
   flex: 1;
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-.processors-tabs .ant-tabs-tabpane {
+.processors-tabs .processors-tabs-pane {
   flex: 1;
   height: 100%;
   min-height: 0;
-  display: none;
-  flex-direction: column;
-}
-.processors-tabs .ant-tabs-tabpane-active {
-  display: flex;
+  overflow: auto;
 }
 
 .plugins-tabs {

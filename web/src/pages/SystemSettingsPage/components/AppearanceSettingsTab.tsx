@@ -1,4 +1,6 @@
-import { Form, Input, Button, InputNumber, Card, Radio, message } from 'antd';
+import { Form, Input, Button, InputNumber, ColorPicker, Radio, message } from 'antd';
+import { SaveOutlined } from '@ant-design/icons';
+import { useEffect } from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useI18n } from '../../../i18n';
 
@@ -23,8 +25,10 @@ export default function AppearanceSettingsTab({
   onSave,
   themeKeys,
 }: AppearanceSettingsTabProps) {
-  const { previewTheme } = useTheme();
+  const { previewTheme, refreshTheme } = useTheme();
   const { t } = useI18n();
+
+  useEffect(() => () => { void refreshTheme(); }, [refreshTheme]);
 
   return (
     <Form
@@ -66,10 +70,11 @@ export default function AppearanceSettingsTab({
         }
         await onSave(vals);
       }}
-      style={{ marginTop: 24 }}
+      className="fx-appearance-form"
       key={'appearance-' + JSON.stringify(config)}
     >
-      <Card title={t('Theme')}>
+      <section className="fx-settings-section">
+        <h3>{t('Theme')}</h3>
         <Form.Item name={themeKeys.MODE} label={t('Theme Mode')}>
           <Radio.Group buttonStyle="solid">
             <Radio.Button value="light">{t('Light')}</Radio.Button>
@@ -77,23 +82,28 @@ export default function AppearanceSettingsTab({
             <Radio.Button value="system">{t('Follow System')}</Radio.Button>
           </Radio.Group>
         </Form.Item>
-        <Form.Item name={themeKeys.PRIMARY} label={t('Primary Color')}>
-          <Input type="color" size="large" />
+        <Form.Item
+          name={themeKeys.PRIMARY}
+          label={t('Primary Color')}
+          getValueFromEvent={(_, hex: string) => hex}
+        >
+          <ColorPicker showText disabledAlpha />
         </Form.Item>
         <Form.Item name={themeKeys.RADIUS} label={t('Border Radius')}>
-          <InputNumber min={0} max={24} style={{ width: '100%' }} />
+          <InputNumber min={0} max={24} style={{ width: 120 }} />
         </Form.Item>
-      </Card>
-      <Card title={t('Advanced')} style={{ marginTop: 24 }}>
+      </section>
+      <section className="fx-settings-section">
+        <h3>{t('Advanced')}</h3>
         <Form.Item name={themeKeys.TOKENS} label={t('Override AntD Tokens (JSON)')} tooltip={t('e.g. {"colorText": "#222"}')}>
-          <Input.TextArea autoSize={{ minRows: 4 }} placeholder='{ "colorText": "#222" }' />
+          <Input.TextArea autoSize={{ minRows: 3, maxRows: 8 }} placeholder='{ "colorText": "#222" }' />
         </Form.Item>
         <Form.Item name={themeKeys.CSS} label={t('Custom CSS')}>
-          <Input.TextArea autoSize={{ minRows: 6 }} placeholder={":root{ }\n/* CSS */"} />
+          <Input.TextArea autoSize={{ minRows: 4, maxRows: 10 }} placeholder={":root{ }\n/* CSS */"} />
         </Form.Item>
-      </Card>
-      <Form.Item style={{ marginTop: 24 }}>
-        <Button type="primary" htmlType="submit" loading={loading} block>
+      </section>
+      <Form.Item className="fx-settings-save">
+        <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />}>
           {t('Save')}
         </Button>
       </Form.Item>

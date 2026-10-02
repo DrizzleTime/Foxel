@@ -22,7 +22,7 @@ const TAB_TITLES: Record<TabKey, string> = {
   appearance: 'Appearance',
   app: 'System',
   email: 'Email',
-  ai: 'AI',
+  ai: 'LLM',
   mcp: 'MCP',
   'vector-db': 'Database',
   mappings: 'Mappings',

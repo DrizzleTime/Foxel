@@ -980,9 +980,9 @@ export default function AiSettingsTab() {
     <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div className="fx-ai-top-bar">
         <div>
-          <Title level={3} style={{ marginBottom: 4 }}>{t('AI Providers & Models')}</Title>
+          <Title level={3} style={{ marginBottom: 4 }}>{t('LLM Providers & Models')}</Title>
           <Text type="secondary">
-            {t('Manage AI providers, synchronize compatible models, and configure default capabilities across the system.')}
+            {t('Manage LLM providers, synchronize compatible models, and configure default capabilities across the system.')}
           </Text>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenProviderModal()}>
@@ -999,7 +999,7 @@ export default function AiSettingsTab() {
         {!providers.length && !loading ? (
           <Col span={24}>
             <Card className="fx-ai-empty-card">
-              <Empty description={t('Add your first AI provider to get started')} />
+              <Empty description={t('Add your first LLM provider to get started')} />
             </Card>
           </Col>
         ) : null}

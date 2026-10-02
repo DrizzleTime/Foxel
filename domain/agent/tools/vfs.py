@@ -3,7 +3,9 @@ from typing import Any, Dict, Optional
 from domain.virtual_fs import VirtualFSService
 from domain.virtual_fs.search import VirtualFSSearchService
 
-from .base import ToolSpec
+from .base import ToolSpec, tool_error
+from domain.permission.execution import current_user_id, require_path, require_paths
+from domain.permission.types import PathAction
 
 
 def _normalize_vfs_path(value: Any) -> str:
@@ -25,20 +27,25 @@ def _require_vfs_path(value: Any, field: str) -> str:
 
 async def _vfs_list_dir(args: Dict[str, Any]) -> Dict[str, Any]:
     path = _normalize_vfs_path(args.get("path") or "/") or "/"
+    path = await require_path(path, PathAction.READ)
     page = int(args.get("page") or 1)
     page_size = int(args.get("page_size") or 50)
     sort_by = str(args.get("sort_by") or "name")
     sort_order = str(args.get("sort_order") or "asc")
-    return await VirtualFSService.list_directory(path, page, page_size, sort_by, sort_order)
+    return await VirtualFSService.list_directory_with_permission(
+        path, current_user_id(), page, page_size, sort_by, sort_order, args.get("cursor")
+    )
 
 
 async def _vfs_stat(args: Dict[str, Any]) -> Any:
     path = _require_vfs_path(args.get("path"), "path")
+    path = await require_path(path, PathAction.READ)
     return await VirtualFSService.stat(path)
 
 
 async def _vfs_read_text(args: Dict[str, Any]) -> Dict[str, Any]:
     path = _require_vfs_path(args.get("path"), "path")
+    path = await require_path(path, PathAction.READ)
     encoding = str(args.get("encoding") or "utf-8")
     max_chars = int(args.get("max_chars") or 8000)
 
@@ -47,7 +54,7 @@ async def _vfs_read_text(args: Dict[str, Any]) -> Dict[str, Any]:
         try:
             text = bytes(data).decode(encoding)
         except UnicodeDecodeError:
-            return {"error": "binary_or_invalid_text", "path": path}
+            return tool_error("unsupported_capability", "binary_or_invalid_text")
     elif isinstance(data, str):
         text = data
     else:
@@ -70,6 +77,7 @@ async def _vfs_write_text(args: Dict[str, Any]) -> Dict[str, Any]:
     path = _require_vfs_path(args.get("path"), "path")
     if path == "/":
         raise ValueError("invalid_path")
+    path = await require_path(path, PathAction.WRITE)
     encoding = str(args.get("encoding") or "utf-8")
     content = str(args.get("content") or "")
     data = content.encode(encoding)
@@ -79,11 +87,13 @@ async def _vfs_write_text(args: Dict[str, Any]) -> Dict[str, Any]:
 
 async def _vfs_mkdir(args: Dict[str, Any]) -> Dict[str, Any]:
     path = _require_vfs_path(args.get("path"), "path")
+    path = await require_path(path, PathAction.WRITE)
     return await VirtualFSService.mkdir(path)
 
 
 async def _vfs_delete(args: Dict[str, Any]) -> Dict[str, Any]:
     path = _require_vfs_path(args.get("path"), "path")
+    path = await require_path(path, PathAction.DELETE)
     return await VirtualFSService.delete(path)
 
 
@@ -92,6 +102,7 @@ async def _vfs_move(args: Dict[str, Any]) -> Dict[str, Any]:
     dst = _require_vfs_path(args.get("dst"), "dst")
     if src == "/" or dst == "/":
         raise ValueError("invalid_path")
+    await require_paths([(src, PathAction.READ), (src, PathAction.DELETE), (dst, PathAction.WRITE)])
     overwrite = bool(args.get("overwrite") or False)
     return await VirtualFSService.move(src, dst, overwrite)
 
@@ -101,6 +112,7 @@ async def _vfs_copy(args: Dict[str, Any]) -> Dict[str, Any]:
     dst = _require_vfs_path(args.get("dst"), "dst")
     if src == "/" or dst == "/":
         raise ValueError("invalid_path")
+    await require_paths([(src, PathAction.READ), (dst, PathAction.WRITE)])
     overwrite = bool(args.get("overwrite") or False)
     return await VirtualFSService.copy(src, dst, overwrite)
 
@@ -110,6 +122,7 @@ async def _vfs_rename(args: Dict[str, Any]) -> Dict[str, Any]:
     dst = _require_vfs_path(args.get("dst"), "dst")
     if src == "/" or dst == "/":
         raise ValueError("invalid_path")
+    await require_paths([(src, PathAction.READ), (src, PathAction.DELETE), (dst, PathAction.WRITE)])
     overwrite = bool(args.get("overwrite") or False)
     return await VirtualFSService.rename(src, dst, overwrite)
 
@@ -122,7 +135,14 @@ async def _vfs_search(args: Dict[str, Any]) -> Dict[str, Any]:
     top_k = int(args.get("top_k") or 10)
     page = int(args.get("page") or 1)
     page_size = int(args.get("page_size") or 10)
-    return await VirtualFSSearchService.search(q, top_k, mode, page, page_size)
+    result = await VirtualFSSearchService.search(q, top_k, mode, page, page_size)
+    from domain.permission.service import PermissionService
+    allowed = await PermissionService.filter_paths_by_permission(
+        current_user_id(), [str(item.path) for item in result.get("items", [])], PathAction.READ
+    )
+    allowed_set = set(allowed)
+    result["items"] = [item for item in result.get("items", []) if str(item.path) in allowed_set]
+    return result
 
 
 TOOLS: Dict[str, ToolSpec] = {
@@ -133,10 +153,11 @@ TOOLS: Dict[str, ToolSpec] = {
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "目录路径（绝对路径，如 /foo/bar）"},
-                "page": {"type": "integer", "description": "页码（从 1 开始）"},
-                "page_size": {"type": "integer", "description": "每页条数"},
-                "sort_by": {"type": "string", "description": "排序字段：name/size/mtime"},
-                "sort_order": {"type": "string", "description": "排序顺序：asc/desc"},
+                "page": {"type": "integer", "minimum": 1, "description": "页码（从 1 开始）"},
+                "page_size": {"type": "integer", "minimum": 1, "maximum": 100, "description": "每页条数"},
+                "sort_by": {"type": "string", "enum": ["name", "size", "mtime"], "description": "排序字段：name/size/mtime"},
+                "sort_order": {"type": "string", "enum": ["asc", "desc"], "description": "排序顺序：asc/desc"},
+                "cursor": {"type": "string", "description": "游标分页的下一页游标"},
             },
             "required": ["path"],
             "additionalProperties": False,
@@ -166,7 +187,7 @@ TOOLS: Dict[str, ToolSpec] = {
             "properties": {
                 "path": {"type": "string", "description": "文件路径（绝对路径，如 /foo/bar.md）"},
                 "encoding": {"type": "string", "description": "文本编码（默认 utf-8）"},
-                "max_chars": {"type": "integer", "description": "最多返回的字符数（默认 8000）"},
+                "max_chars": {"type": "integer", "minimum": 1, "maximum": 100000, "description": "最多返回的字符数（默认 8000）"},
             },
             "required": ["path"],
             "additionalProperties": False,
@@ -273,10 +294,10 @@ TOOLS: Dict[str, ToolSpec] = {
             "type": "object",
             "properties": {
                 "q": {"type": "string", "description": "搜索关键词"},
-                "mode": {"type": "string", "description": "搜索模式：vector/filename（默认 vector）"},
-                "top_k": {"type": "integer", "description": "返回数量（vector 模式使用，默认 10）"},
-                "page": {"type": "integer", "description": "页码（filename 模式使用，默认 1）"},
-                "page_size": {"type": "integer", "description": "分页大小（filename 模式使用，默认 10）"},
+                "mode": {"type": "string", "enum": ["vector", "filename"], "description": "搜索模式：vector/filename（默认 vector）"},
+                "top_k": {"type": "integer", "minimum": 1, "maximum": 100, "description": "返回数量（vector 模式使用，默认 10）"},
+                "page": {"type": "integer", "minimum": 1, "description": "页码（filename 模式使用，默认 1）"},
+                "page_size": {"type": "integer", "minimum": 1, "maximum": 100, "description": "分页大小（filename 模式使用，默认 10）"},
             },
             "required": ["q"],
             "additionalProperties": False,

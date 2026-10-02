@@ -113,7 +113,9 @@ class NoticeService:
     async def _fetch_remote_notices(cls) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         page = 1
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        # The notice endpoint is public and should not inherit malformed local
+        # proxy variables (for example, ``ALL_PROXY=socks://...``).
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, trust_env=False) as client:
             while True:
                 resp = await client.get(
                     REMOTE_NOTICES_URL,

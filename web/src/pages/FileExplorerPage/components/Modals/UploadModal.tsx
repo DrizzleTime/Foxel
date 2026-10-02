@@ -125,7 +125,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
         </Button>,
       ]}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={16}>
+      <Space orientation="vertical" style={{ width: '100%' }} size={16}>
         <div>
           <Flex justify="space-between" align="center">
             <Typography.Text strong>

@@ -92,7 +92,7 @@ class ConfigService:
         if current_time - cache["timestamp"] < 3600 and cache["data"]:
             return cache["data"]
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, trust_env=False) as client:
                 resp = await client.get(
                     "https://api.github.com/repos/DrizzleTime/Foxel/releases/latest",
                     follow_redirects=True,
@@ -106,7 +106,7 @@ class ConfigService:
                 cache["timestamp"] = current_time
                 cache["data"] = version_info
                 return version_info
-        except httpx.RequestError:
+        except httpx.HTTPError:
             if cache["data"]:
                 return cache["data"]
             return LatestVersionInfo()

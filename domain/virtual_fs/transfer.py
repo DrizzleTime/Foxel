@@ -6,6 +6,8 @@ import aiofiles
 from fastapi import HTTPException
 
 from .file_ops import VirtualFSFileOpsMixin
+from domain.permission.execution import guard_path, validate_scope
+from domain.permission.types import PathAction
 
 
 class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
@@ -13,6 +15,7 @@ class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
     async def move_path(
         cls, src: str, dst: str, overwrite: bool = False, return_debug: bool = True, allow_cross: bool = False
     ):
+        await validate_scope()
         adapter_s, adapter_model_s, root_s, rel_s = await cls.resolve_adapter_and_rel(src)
         adapter_d, adapter_model_d, root_d, rel_d = await cls.resolve_adapter_and_rel(dst)
         debug_info = {
@@ -95,6 +98,7 @@ class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
 
     @classmethod
     async def rename_path(cls, src: str, dst: str, overwrite: bool = False, return_debug: bool = True):
+        await validate_scope()
         adapter_s, adapter_model_s, root_s, rel_s = await cls.resolve_adapter_and_rel(src)
         adapter_d, adapter_model_d, root_d, rel_d = await cls.resolve_adapter_and_rel(dst)
         debug_info = {
@@ -167,6 +171,7 @@ class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
     async def copy_path(
         cls, src: str, dst: str, overwrite: bool = False, return_debug: bool = True, allow_cross: bool = False
     ):
+        await validate_scope()
         adapter_s, adapter_model_s, root_s, rel_s = await cls.resolve_adapter_and_rel(src)
         adapter_d, adapter_model_d, root_d, rel_d = await cls.resolve_adapter_and_rel(dst)
         debug_info = {
@@ -461,9 +466,15 @@ class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
             async def ensure_dir(rel_path: str):
                 if not rel_path or rel_path in ensured_dirs:
                     return
+                absolute = cls._build_absolute_path(adapter_model_d.path, rel_path)
+                exists = getattr(adapter_d, "exists", None)
+                if callable(exists) and await exists(root_d, rel_path):
+                    ensured_dirs.add(rel_path)
+                    return
                 parent = cls._parent_rel(rel_path)
                 if parent:
                     await ensure_dir(parent)
+                await guard_path(absolute, PathAction.WRITE)
                 try:
                     await mkdir_func(root_d, rel_path)
                 except FileExistsError:

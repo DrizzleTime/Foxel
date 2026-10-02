@@ -58,7 +58,7 @@ export default function RegisterPage() {
       </div>
 
       <Card style={{ width: '100%', maxWidth: 420 }} styles={{ body: { padding: isMobile ? '20px 16px' : '24px' } }}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ textAlign: 'center' }}>
             <Title level={2} style={{ marginBottom: 8 }}>{t('Create Account')}</Title>
             <Text type="secondary">{t('Sign up to your Foxel account')}</Text>

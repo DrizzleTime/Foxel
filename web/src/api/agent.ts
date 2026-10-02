@@ -9,6 +9,7 @@ export interface AgentChatContext {
 export interface AgentChatRequest {
   messages: AgentChatMessage[];
   auto_execute?: boolean;
+  approval_batch_id?: string | null;
   approved_mcp_call_ids?: string[];
   rejected_mcp_call_ids?: string[];
   context?: AgentChatContext;
@@ -25,11 +26,15 @@ export interface PendingMcpCall {
   name: string;
   arguments: Record<string, any>;
   requires_confirmation: boolean;
+  status?: 'pending' | 'running';
 }
 
 export interface AgentChatResponse {
   messages: AgentChatMessage[];
   pending_mcp_calls?: PendingMcpCall[];
+  approval_batch_id?: string | null;
+  replace_messages?: boolean;
+  finish_reason?: string;
 }
 
 export type AgentSseEvent =
@@ -38,7 +43,7 @@ export type AgentSseEvent =
   | { event: 'assistant_end'; data: { id: string; message: AgentChatMessage } }
   | { event: 'mcp_call_start'; data: { mcp_call_id: string; name: string } }
   | { event: 'mcp_call_end'; data: { mcp_call_id: string; name: string; message: AgentChatMessage } }
-  | { event: 'pending'; data: { pending_mcp_calls: PendingMcpCall[] } }
+  | { event: 'pending'; data: { pending_mcp_calls: PendingMcpCall[]; approval_batch_id?: string | null } }
   | { event: 'done'; data: AgentChatResponse };
 
 export const agentApi = {

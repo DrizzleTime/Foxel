@@ -3,6 +3,7 @@ from typing import Dict, Any
 from pydantic import BaseModel, Field
 import uuid
 from enum import Enum
+from domain.permission.execution import execution_context, execution_scope, validate_scope
 
 
 class TaskStatus(str, Enum):
@@ -43,6 +44,14 @@ class TaskQueueService:
         self._worker_seq: int = 0
 
     async def add_task(self, name: str, task_info: Dict[str, Any]) -> Task:
+        scope = execution_scope()
+        if scope is not None:
+            if name == "process_file" and any(
+                tree.get(task_info.get("path")) is False for tree in scope.get("trees", {}).values()
+            ):
+                path = task_info["path"]
+                scope["trees"] = {path: {path: False}}
+            task_info = {**task_info, "_execution_scope": scope}
         task = Task(name=name, task_info=task_info)
         self._tasks[task.id] = task
         await self._queue.put(task)
@@ -70,9 +79,15 @@ class TaskQueueService:
         task.meta = (task.meta or {}) | meta
 
     async def _execute_task(self, task: Task):
+        scope = task.task_info.get("_execution_scope")
+        with execution_context(scope):
+            await self._execute_scoped_task(task)
+
+    async def _execute_scoped_task(self, task: Task):
         task.status = TaskStatus.RUNNING
 
         try:
+            await validate_scope()
             # Local import to avoid circular dependency during module load.
             from domain.virtual_fs import VirtualFSService
 

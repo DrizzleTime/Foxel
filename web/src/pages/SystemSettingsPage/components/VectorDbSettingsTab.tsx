@@ -189,8 +189,8 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
 
   return (
     <Card title={t('Vector Database Settings')} style={{ marginTop: 24 }}>
-      <Space direction="vertical" size={24} style={{ width: '100%' }}>
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={24} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <strong>{t('Current Statistics')}</strong>
             <Button onClick={() => { fetchVectorMeta(); fetchVectorStats(); }} loading={vectorStatsLoading || vectorConfigLoading} disabled={(vectorStatsLoading || vectorConfigLoading) && !vectorStats}>
@@ -207,7 +207,7 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
                 <Alert type="error" showIcon message={vectorMetaError} />
               ) : null}
               {vectorStats ? (
-                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
                     <div>
                       <div style={{ color: '#888' }}>{t('Collections')}</div>
@@ -227,10 +227,10 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
                     </div>
                   </div>
                   {vectorStats.collections.length ? (
-                    <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                    <Space orientation="vertical" style={{ width: '100%' }} size={16}>
                       {vectorStats.collections.map((collection) => (
                         <div key={collection.name} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16 }}>
-                          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                               <strong>{collection.name}</strong>
                               <span style={{ color: '#888' }}>
@@ -244,7 +244,7 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
                               <div>{t('Estimated memory')}: {formatBytes(collection.estimated_memory_bytes)}</div>
                             ) : null}
                             {collection.indexes.length ? (
-                              <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                              <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                                 <span>{t('Indexes')}:</span>
                                 <ul style={{ paddingLeft: 20, margin: 0 }}>
                                   {collection.indexes.map((index) => (
@@ -329,7 +329,7 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
                   />
                 ) : null}
                 <Form.Item>
-                  <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
                     <Button
                       type="primary"
                       htmlType="submit"

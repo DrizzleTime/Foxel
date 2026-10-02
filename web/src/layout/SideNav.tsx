@@ -275,7 +275,7 @@ const SideNav = memo(function SideNav({
           open={open}
           onClose={onClose}
           title={null}
-          width={280}
+          size={280}
           styles={{ body: { padding: 0 } }}
         >
           {renderNavBody(false, false)}

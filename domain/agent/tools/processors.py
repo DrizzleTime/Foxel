@@ -4,6 +4,8 @@ from domain.processors import ProcessDirectoryRequest, ProcessRequest, Processor
 from domain.virtual_fs import VirtualFSService
 
 from .base import ToolSpec
+from domain.permission.execution import require_path
+from domain.permission.types import PathAction
 
 
 async def _processors_list(_: Dict[str, Any]) -> Dict[str, Any]:
@@ -12,6 +14,7 @@ async def _processors_list(_: Dict[str, Any]) -> Dict[str, Any]:
 
 async def _processors_run(args: Dict[str, Any]) -> Dict[str, Any]:
     path = str(args.get("path") or "")
+    path = await require_path(path, PathAction.READ)
     processor_type = str(args.get("processor_type") or "")
     config = args.get("config")
     if not isinstance(config, dict):
@@ -85,7 +88,7 @@ TOOLS: Dict[str, ToolSpec] = {
                 "config": {"type": "object", "description": "处理器配置，按 processors_list 返回的 config_schema 填写"},
                 "overwrite": {"type": "boolean", "description": "是否覆盖原文件/目录内文件"},
                 "save_to": {"type": "string", "description": "保存到指定路径（仅文件模式，且 overwrite=false 时使用）"},
-                "max_depth": {"type": "integer", "description": "目录遍历深度（仅目录模式）"},
+                "max_depth": {"type": "integer", "minimum": 0, "description": "目录遍历深度（仅目录模式）"},
                 "suffix": {"type": "string", "description": "目录批处理时的输出后缀（仅 produces_file 且 overwrite=false）"},
             },
             "required": ["path", "processor_type"],

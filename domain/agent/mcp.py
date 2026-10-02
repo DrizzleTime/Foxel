@@ -1,6 +1,7 @@
 import inspect
 import json
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import timedelta
 from typing import Annotated, Any, Literal
 from urllib.parse import quote, unquote
@@ -10,6 +11,7 @@ from mcp.client import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
+from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -17,11 +19,24 @@ from pydantic import Field
 from domain.auth import AuthService, User
 from domain.processors import ProcessorService
 
-from .tools import get_tool, mcp_tool_descriptors
-from .tools.base import McpToolDescriptor, normalize_tool_result, tool_result_to_content
+from .tools import mcp_tool_descriptors
+from .tools.base import McpToolDescriptor, tool_result_to_content
+from .execution import execute_tool
+from domain.permission.execution import ExecutionError, normalize_path
 
 INTERNAL_MCP_BASE_URL = "http://127.0.0.1:8000/"
 CURRENT_PATH_HEADER = "x-foxel-current-path"
+_resource_context: ContextVar[Context | None] = ContextVar("foxel_resource_context", default=None)
+
+
+class FoxelMCPServer(MCPServer):
+    async def read_resource(self, uri, context=None):
+        # The SDK does not inject Context into fixed-URI resource handlers.
+        token = _resource_context.set(context)
+        try:
+            return await super().read_resource(uri, context)
+        finally:
+            _resource_context.reset(token)
 
 
 def _normalize_path(path: str | None) -> str | None:
@@ -32,14 +47,17 @@ def _normalize_path(path: str | None) -> str | None:
         return None
     if not value.startswith("/"):
         value = "/" + value
-    return value.rstrip("/") or "/"
+    return normalize_path(value)
 
 
 def _header_current_path(ctx: Context | None) -> str | None:
     request = ctx.request_context.request if ctx and ctx.request_context else None
     if request is None:
         return None
-    return _normalize_path(request.headers.get(CURRENT_PATH_HEADER))
+    try:
+        return _normalize_path(request.headers.get(CURRENT_PATH_HEADER))
+    except ExecutionError:
+        return None
 
 
 def _field_annotation(schema: dict[str, Any], required: bool) -> tuple[Any, Any]:
@@ -69,7 +87,15 @@ def _field_annotation(schema: dict[str, Any], required: bool) -> tuple[Any, Any]
     if not required and default is None:
         annotation = annotation | None
 
-    if description:
+    if enum_values:
+        annotation = Annotated[annotation, Field(description=description)]
+    elif raw_type in {"string", "integer", "number", "boolean"}:
+        annotation = Annotated[annotation, Field(
+            description=description, strict=True,
+            ge=schema.get("minimum") if raw_type in {"integer", "number"} else None,
+            le=schema.get("maximum") if raw_type in {"integer", "number"} else None,
+        )]
+    elif description:
         annotation = Annotated[annotation, Field(description=description)]
     return annotation, default
 
@@ -94,20 +120,23 @@ def _build_tool_signature(descriptor: McpToolDescriptor) -> inspect.Signature:
 
 
 def _build_tool_wrapper(descriptor: McpToolDescriptor):
-    async def wrapper(**kwargs: Any) -> dict[str, Any]:
-        spec = get_tool(descriptor.name)
-        if not spec:
-            return normalize_tool_result({"error": f"unknown_tool: {descriptor.name}"})
-        try:
-            result = await spec.handler(kwargs)
-            return normalize_tool_result(result)
-        except Exception as exc:  # noqa: BLE001
-            return normalize_tool_result({"error": str(exc)})
+    async def wrapper(ctx: Context, **kwargs: Any) -> dict[str, Any]:
+        return await _tool_resource(descriptor.name, kwargs, _header_current_path(ctx))
 
     wrapper.__name__ = descriptor.name
     wrapper.__doc__ = descriptor.description
     wrapper.__signature__ = _build_tool_signature(descriptor)
     return wrapper
+
+
+async def _authenticated_user() -> User | None:
+    token = get_access_token()
+    if token is None:
+        return None
+    try:
+        return await AuthService.get_current_active_user(await AuthService.get_current_user(token.token))
+    except Exception:
+        return None
 
 
 class FoxelMcpTokenVerifier:
@@ -119,7 +148,7 @@ class FoxelMcpTokenVerifier:
         return AccessToken(token=token, client_id=user.username, scopes=[])
 
 
-MCP_SERVER = MCPServer(
+MCP_SERVER = FoxelMCPServer(
     name="Foxel MCP",
     instructions="Foxel 内置 MCP 服务，提供文件系统、网页抓取、时间与处理器相关能力。",
     token_verifier=FoxelMcpTokenVerifier(),
@@ -150,7 +179,7 @@ for descriptor in mcp_tool_descriptors():
     mime_type="application/json",
 )
 def current_path_resource() -> dict[str, Any]:
-    return {"current_path": None}
+    return {"current_path": _header_current_path(_resource_context.get())}
 
 
 @MCP_SERVER.resource(
@@ -162,9 +191,11 @@ def current_path_resource() -> dict[str, Any]:
 )
 def tool_confirmation_policy_resource() -> dict[str, Any]:
     return {
-        "read_tools": [tool.name for tool in mcp_tool_descriptors() if not tool.requires_confirmation],
+        "read_tools": [tool.name for tool in mcp_tool_descriptors() if tool.annotations.get("readOnlyHint")],
+        "unconfirmed_tools": [tool.name for tool in mcp_tool_descriptors() if not tool.requires_confirmation],
         "write_tools": [tool.name for tool in mcp_tool_descriptors() if tool.requires_confirmation],
         "rule": "直接调用 MCP tool 时不额外审批；通过 agent 代表用户执行写操作时需要审批。",
+        "web_fetch": "所有 HTTP 方法免审批，包含可能修改外部系统的请求；免审批不代表只读。",
     }
 
 
@@ -179,15 +210,8 @@ def processors_index_resource() -> dict[str, Any]:
     return {"processors": ProcessorService.list_processors()}
 
 
-async def _tool_resource(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    spec = get_tool(tool_name)
-    if not spec:
-        return normalize_tool_result({"error": f"unknown_tool: {tool_name}"})
-    try:
-        result = await spec.handler(arguments)
-        return normalize_tool_result(result)
-    except Exception as exc:  # noqa: BLE001
-        return normalize_tool_result({"error": str(exc)})
+async def _tool_resource(tool_name: str, arguments: dict[str, Any], current_path: str | None = None) -> dict[str, Any]:
+    return await execute_tool(tool_name, arguments, await _authenticated_user(), current_path)
 
 
 @MCP_SERVER.resource(
@@ -197,8 +221,8 @@ async def _tool_resource(tool_name: str, arguments: dict[str, Any]) -> dict[str,
     description="读取指定路径的文件或目录元信息；path 需要 URL 编码。",
     mime_type="application/json",
 )
-async def vfs_stat_resource(path: str) -> dict[str, Any]:
-    return await _tool_resource("vfs_stat", {"path": "/" + unquote(path).lstrip("/")})
+async def vfs_stat_resource(path: str, ctx: Context) -> dict[str, Any]:
+    return await _tool_resource("vfs_stat", {"path": "/" + unquote(path).lstrip("/")}, _header_current_path(ctx))
 
 
 @MCP_SERVER.resource(
@@ -208,8 +232,8 @@ async def vfs_stat_resource(path: str) -> dict[str, Any]:
     description="读取文本文件内容；path 需要 URL 编码。",
     mime_type="application/json",
 )
-async def vfs_text_resource(path: str) -> dict[str, Any]:
-    return await _tool_resource("vfs_read_text", {"path": "/" + unquote(path).lstrip("/")})
+async def vfs_text_resource(path: str, ctx: Context) -> dict[str, Any]:
+    return await _tool_resource("vfs_read_text", {"path": "/" + unquote(path).lstrip("/")}, _header_current_path(ctx))
 
 
 @MCP_SERVER.resource(
@@ -219,8 +243,8 @@ async def vfs_text_resource(path: str) -> dict[str, Any]:
     description="列出目录内容；path 需要 URL 编码。",
     mime_type="application/json",
 )
-async def vfs_dir_resource(path: str) -> dict[str, Any]:
-    return await _tool_resource("vfs_list_dir", {"path": "/" + unquote(path).lstrip("/")})
+async def vfs_dir_resource(path: str, ctx: Context) -> dict[str, Any]:
+    return await _tool_resource("vfs_list_dir", {"path": "/" + unquote(path).lstrip("/")}, _header_current_path(ctx))
 
 
 @MCP_SERVER.resource(
@@ -230,8 +254,8 @@ async def vfs_dir_resource(path: str) -> dict[str, Any]:
     description="搜索文件；query 需要 URL 编码。",
     mime_type="application/json",
 )
-async def vfs_search_resource(query: str) -> dict[str, Any]:
-    return await _tool_resource("vfs_search", {"q": unquote(query)})
+async def vfs_search_resource(query: str, ctx: Context) -> dict[str, Any]:
+    return await _tool_resource("vfs_search", {"q": unquote(query)}, _header_current_path(ctx))
 
 
 @MCP_SERVER.prompt(name="browse_path", title="Browse Path", description="生成浏览目录的推荐提示词。")

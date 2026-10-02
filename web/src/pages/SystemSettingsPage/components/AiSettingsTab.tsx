@@ -606,7 +606,7 @@ export default function AiSettingsTab() {
   );
 
   const renderRemoteModelsTab = () => (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Space wrap>
         <Button
           icon={<ReloadOutlined />}
@@ -977,7 +977,7 @@ export default function AiSettingsTab() {
     );
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div className="fx-ai-top-bar">
         <div>
           <Title level={3} style={{ marginBottom: 4 }}>{t('AI Providers & Models')}</Title>
@@ -1006,7 +1006,7 @@ export default function AiSettingsTab() {
       </Row>
 
       <Card className="fx-ai-defaults-card" title={t('Default Models Configuration')}>
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           {abilityOrder.map((ability) => {
             const info = abilityInfo[ability];
             const options = collectionsByAbility(ability);
@@ -1043,13 +1043,13 @@ export default function AiSettingsTab() {
       </Card>
 
       <Drawer
-        width={640}
+        size={640}
         open={providerModal.open}
         title={providerModal.editing ? t('Edit Provider') : t('Add Provider')}
         onClose={handleCloseProviderModal}
         footer={drawerFooter}
       >
-        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={24} style={{ width: '100%' }}>
           <Steps
             size="small"
             current={providerModal.step - 1}
@@ -1200,7 +1200,7 @@ export default function AiSettingsTab() {
       </Drawer>
 
       <Drawer
-        width={520}
+        size={520}
         open={modelModal.open}
         title={modelModal.editing ? t('Edit Model') : t('Add Model')}
         onClose={handleCloseModelModal}
@@ -1213,7 +1213,7 @@ export default function AiSettingsTab() {
           </Space>
         )}
       >
-        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={24} style={{ width: '100%' }}>
           {modelModal.editing ? (
             renderManualModelForm()
           ) : (

@@ -207,7 +207,7 @@ export default function EmailSettingsTab({ config, loading, onSave }: EmailSetti
   };
 
   return (
-    <Space direction="vertical" size={32} style={{ width: '100%', marginTop: 24 }}>
+    <Space orientation="vertical" size={32} style={{ width: '100%', marginTop: 24 }}>
       <Row gutter={24}>
         <Col xs={24} lg={15}>
           <Card
@@ -296,7 +296,7 @@ export default function EmailSettingsTab({ config, loading, onSave }: EmailSetti
           </Card>
         </Col>
         <Col xs={24} lg={9}>
-          <Space direction="vertical" size={24} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={24} style={{ width: '100%' }}>
             <Card title={t('Current Configuration')} bodyStyle={{ paddingBottom: 12 }}>
               <Descriptions column={1} size="small" colon={false}>
                 {summary.map(item => (

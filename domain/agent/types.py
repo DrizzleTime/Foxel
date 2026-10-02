@@ -10,6 +10,7 @@ class AgentChatContext(BaseModel):
 class AgentChatRequest(BaseModel):
     messages: List[Dict[str, Any]] = Field(default_factory=list)
     auto_execute: bool = False
+    approval_batch_id: Optional[str] = None
     approved_mcp_call_ids: List[str] = Field(default_factory=list)
     rejected_mcp_call_ids: List[str] = Field(default_factory=list)
     context: Optional[AgentChatContext] = None

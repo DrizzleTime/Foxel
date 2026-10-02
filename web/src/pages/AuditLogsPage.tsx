@@ -264,7 +264,7 @@ const AuditLogsPage = memo(function AuditLogsPage() {
         styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       >
         {selectedLog && (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Descriptions
               column={isMobile ? 1 : 2}
               bordered

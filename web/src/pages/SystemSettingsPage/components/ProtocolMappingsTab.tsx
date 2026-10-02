@@ -131,7 +131,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Card
         title={t('WebDAV Mapping')}
         extra={(
@@ -191,7 +191,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
           />
         )}
       >
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           {!hasS3Credentials && (
             <Alert
               type="warning"

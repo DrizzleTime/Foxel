@@ -159,7 +159,7 @@ export const RoleEditorDrawer = memo(function RoleEditorDrawer({
                     ? category.charAt(0).toUpperCase() + category.slice(1)
                     : t(`permission.category.${category}`),
                   children: (
-                    <Space direction="vertical" style={{ width: '100%' }}>
+                    <Space orientation="vertical" style={{ width: '100%' }}>
                       {perms.map(p => (
                         <Checkbox key={p.code} value={p.code}>
                           {p.name}
@@ -186,7 +186,7 @@ export const RoleEditorDrawer = memo(function RoleEditorDrawer({
           key: 'path_rules',
           label: `${t('Path Rules')} (${pathRules.length})`,
           children: (
-            <Space direction="vertical" style={{ width: '100%' }} size={12}>
+            <Space orientation="vertical" style={{ width: '100%' }} size={12}>
               <Space>
                 <Button type="primary" size="small" onClick={onAddPathRule}>
                   {t('Add Path Rule')}
@@ -226,7 +226,7 @@ export const RoleEditorDrawer = memo(function RoleEditorDrawer({
   return (
     <Drawer
       title={editingRole ? `${t('Edit')}: ${editingRole.name}` : t('Create Role')}
-      width={600}
+      size={600}
       open={open}
       onClose={onClose}
       destroyOnHidden

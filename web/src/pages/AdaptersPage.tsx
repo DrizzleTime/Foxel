@@ -282,7 +282,7 @@ const AdaptersPage = memo(function AdaptersPage() {
       />
       <Drawer
         title={editing ? `${t('Edit')}: ${editing.name}` : t('Create Adapter')}
-        width={480}
+        size={480}
         open={open}
         onClose={() => { setOpen(false); setEditing(null); }}
         destroyOnHidden

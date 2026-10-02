@@ -170,7 +170,7 @@ const TasksPage = memo(function TasksPage() {
       />
       <Drawer
         title={editing ? `${t('Edit Task')}: ${editing.name}` : t('Create Automation Task')}
-        width={480}
+        size={480}
         open={open}
         onClose={() => { setOpen(false); setEditing(null); setPathPickerField(null); }}
         destroyOnHidden

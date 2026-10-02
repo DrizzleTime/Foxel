@@ -109,6 +109,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [pending, setPending] = useState<PendingMcpCall[]>([]);
+  const [approvalBatchId, setApprovalBatchId] = useState<string | null>(null);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [expandedRaw, setExpandedRaw] = useState<Record<string, boolean>>({});
   const [runningTools, setRunningTools] = useState<Record<string, string>>({});
@@ -193,6 +194,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
         {
           messages: payload.messages,
           auto_execute: autoExecute,
+          approval_batch_id: approvalBatchId,
           context: effectivePath ? { current_path: effectivePath } : undefined,
           approved_mcp_call_ids: payload.approved_mcp_call_ids,
           rejected_mcp_call_ids: payload.rejected_mcp_call_ids,
@@ -267,14 +269,16 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
             case 'pending': {
               const items = Array.isArray((evt.data as any)?.pending_mcp_calls) ? (evt.data as any).pending_mcp_calls : [];
               setPending(items);
+              setApprovalBatchId(evt.data.approval_batch_id || null);
               return;
             }
             case 'done': {
               const base = baseMessagesRef.current || [];
               const newMessages = Array.isArray((evt.data as any)?.messages) ? (evt.data as any).messages : [];
               const nextPending = Array.isArray((evt.data as any)?.pending_mcp_calls) ? (evt.data as any).pending_mcp_calls : [];
-              setMessages([...base, ...newMessages]);
+              setMessages(evt.data.replace_messages ? newMessages : [...base, ...newMessages]);
               setPending(nextPending);
+              setApprovalBatchId(evt.data.approval_batch_id || null);
               setRunningTools({});
               assistantIndexRef.current = {};
               return;
@@ -297,7 +301,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
         }
       }
     }
-  }, [autoExecute, effectivePath, t]);
+  }, [autoExecute, approvalBatchId, effectivePath, t]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -318,6 +322,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
     streamControllerRef.current?.abort();
     setMessages([]);
     setPending([]);
+    setApprovalBatchId(null);
     setExpandedTools({});
     setExpandedRaw({});
     setRunningTools({});
@@ -332,13 +337,13 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
   }, [messages, runStream]);
 
   const approveAll = useCallback(async () => {
-    const ids = pending.map((p) => p.id).filter(Boolean);
+    const ids = pending.filter((p) => p.status !== 'running').map((p) => p.id).filter(Boolean);
     if (ids.length === 0) return;
     await runStream({ messages, approved_mcp_call_ids: ids });
   }, [messages, pending, runStream]);
 
   const rejectAll = useCallback(async () => {
-    const ids = pending.map((p) => p.id).filter(Boolean);
+    const ids = pending.filter((p) => p.status !== 'running').map((p) => p.id).filter(Boolean);
     if (ids.length === 0) return;
     await runStream({ messages, rejected_mcp_call_ids: ids });
   }, [messages, pending, runStream]);
@@ -444,7 +449,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
       if (metaEntries.length === 0 && !title) return null;
       return (
         <>
-          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={6} style={{ width: '100%' }}>
             {title ? (
               <Text type="secondary" style={{ fontSize: 12 }}>{title}</Text>
             ) : null}
@@ -614,7 +619,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
             <Text strong>{t('AI Agent')}</Text>
             <Space align="center">
               <Text type="secondary">{t('Auto execute')}</Text>
-              <Switch size="small" checked={autoExecute} onChange={setAutoExecute} />
+              <Switch size="small" checked={autoExecute} onChange={setAutoExecute} disabled={loading || pending.length > 0} />
               <Button
                 type="text"
                 size="small"
@@ -767,10 +772,10 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                         <Text type="secondary">{pending.length}</Text>
                       </Space>
                       <Space size={6}>
-                        <Button size="small" type="primary" onClick={approveAll} loading={loading}>
+                        <Button size="small" type="primary" onClick={approveAll} loading={loading} disabled={pending.every((p) => p.status === 'running')}>
                           {t('Execute all')}
                         </Button>
-                        <Button size="small" onClick={rejectAll} disabled={loading}>
+                        <Button size="small" onClick={rejectAll} disabled={loading || pending.every((p) => p.status === 'running')}>
                           {t('Cancel all')}
                         </Button>
                       </Space>
@@ -781,7 +786,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                         const args = p.arguments || {};
                         const key = `pending:${p.id}`;
                         const expanded = !!expandedTools[key];
-                        const running = Object.prototype.hasOwnProperty.call(runningTools, p.id);
+                        const running = p.status === 'running' || Object.prototype.hasOwnProperty.call(runningTools, p.id);
                         const summary = renderToolArgsSummary(args);
                         return (
                           <div key={p.id} className="fx-agent-tool-block fx-agent-pending-item">
@@ -801,14 +806,14 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                                   type="primary"
                                   onClick={() => void approveOne(p.id)}
                                   loading={loading && running}
-                                  disabled={loading && !running}
+                                  disabled={loading || p.status === 'running'}
                                 >
                                   {t('Execute')}
                                 </Button>
                                 <Button
                                   size="small"
                                   onClick={() => void rejectOne(p.id)}
-                                  disabled={loading && !running}
+                                  disabled={loading || p.status === 'running'}
                                 >
                                   {t('Cancel')}
                                 </Button>

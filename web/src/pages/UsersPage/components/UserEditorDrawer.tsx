@@ -30,7 +30,7 @@ export const UserEditorDrawer = memo(function UserEditorDrawer({
   return (
     <Drawer
       title={editingUser ? `${t('Edit')}: ${editingUser.username}` : t('Create User')}
-      width={480}
+      size={480}
       open={open}
       onClose={onClose}
       destroyOnHidden

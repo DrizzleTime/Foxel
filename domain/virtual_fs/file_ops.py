@@ -5,6 +5,8 @@ from fastapi import HTTPException
 from fastapi.responses import Response
 
 from domain.tasks import TaskService
+from domain.permission.execution import guard_path, validate_scope, forget_tree
+from domain.permission.types import PathAction
 from .thumbnail import is_raw_filename, raw_bytes_to_jpeg
 
 from .listing import VirtualFSListingMixin
@@ -36,6 +38,7 @@ class VirtualFSFileOpsMixin(VirtualFSListingMixin):
 
     @classmethod
     async def read_file(cls, path: str) -> Union[bytes, Any]:
+        await guard_path(path, PathAction.READ)
         adapter_instance, _, root, rel = await cls.resolve_adapter_and_rel(path)
         if rel.endswith("/") or rel == "":
             raise HTTPException(400, detail="Path is a directory")
@@ -44,6 +47,7 @@ class VirtualFSFileOpsMixin(VirtualFSListingMixin):
 
     @classmethod
     async def write_file(cls, path: str, data: bytes):
+        await guard_path(path, PathAction.WRITE)
         adapter_instance, adapter_model, root, rel = await cls.resolve_adapter_and_rel(path)
         if rel.endswith("/"):
             raise HTTPException(400, detail="Invalid file path")
@@ -55,6 +59,7 @@ class VirtualFSFileOpsMixin(VirtualFSListingMixin):
 
     @classmethod
     async def write_file_stream(cls, path: str, data_iter: AsyncIterator[bytes], overwrite: bool = True):
+        await guard_path(path, PathAction.WRITE)
         adapter_instance, adapter_model, root, rel = await cls.resolve_adapter_and_rel(path)
         if rel.endswith("/"):
             raise HTTPException(400, detail="Invalid file path")
@@ -91,6 +96,7 @@ class VirtualFSFileOpsMixin(VirtualFSListingMixin):
 
     @classmethod
     async def make_dir(cls, path: str):
+        await guard_path(path, PathAction.WRITE)
         adapter_instance, _, root, rel = await cls.resolve_adapter_and_rel(path)
         if not rel:
             return
@@ -99,11 +105,14 @@ class VirtualFSFileOpsMixin(VirtualFSListingMixin):
 
     @classmethod
     async def delete_path(cls, path: str):
+        await validate_scope()
+        await guard_path(path, PathAction.DELETE)
         adapter_instance, _, root, rel = await cls.resolve_adapter_and_rel(path)
         if not rel:
             raise HTTPException(400, detail="Cannot delete root")
         delete_func = await cls._ensure_method(adapter_instance, "delete")
         await delete_func(root, rel)
+        forget_tree(path)
         await TaskService.trigger_tasks("file_deleted", path)
 
     @classmethod

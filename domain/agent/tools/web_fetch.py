@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import httpx
 
 from .base import ToolSpec
+from domain.permission.execution import ExecutionError
 
 
 class _HtmlTextExtractor(HTMLParser):
@@ -99,10 +100,19 @@ async def _web_fetch(args: Dict[str, Any]) -> Dict[str, Any]:
         request_kwargs["content"] = str(body)
 
     async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-        resp = await client.request(method, url, **request_kwargs)
+        async with client.stream(method, url, **request_kwargs) as resp:
+            chunks = []
+            size = 0
+            async for chunk in resp.aiter_bytes():
+                size += len(chunk)
+                if size > 2 * 1024 * 1024:
+                    raise ExecutionError("response_too_large")
+                chunks.append(chunk)
+            await resp.aclose()
+            body_bytes = b"".join(chunks)
 
     content_type = resp.headers.get("content-type") or ""
-    text = resp.text or ""
+    text = body_bytes.decode(resp.encoding or "utf-8", errors="replace")
     is_html = "html" in content_type.lower()
     if not is_html:
         probe = text.lstrip()[:200].lower()
@@ -167,7 +177,7 @@ TOOLS: Dict[str, ToolSpec] = {
             "type": "object",
             "properties": {
                 "url": {"type": "string", "description": "目标 URL"},
-                "method": {"type": "string", "description": "请求方法（默认 GET）"},
+                "method": {"type": "string", "description": "请求方法（默认 GET，所有方法免审批）"},
                 "headers": {"type": "object", "description": "请求头", "additionalProperties": {"type": "string"}},
                 "params": {"type": "object", "description": "查询参数", "additionalProperties": {"type": "string"}},
                 "json": {"type": "object", "description": "JSON 请求体"},

@@ -4,6 +4,8 @@ from fastapi import HTTPException
 from fastapi.responses import Response
 
 from .transfer import VirtualFSTransferMixin
+from domain.permission.execution import guard_path
+from domain.permission.types import PathAction
 
 
 class VirtualFSProcessingMixin(VirtualFSTransferMixin):
@@ -17,6 +19,8 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
         overwrite: bool = False,
     ) -> Any:
         from domain.processors import get_processor
+
+        await guard_path(path, PathAction.READ)
 
         processor = get_processor(processor_type)
         if not processor:
@@ -81,6 +85,7 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
                         if not matches_extension(child_rel):
                             continue
                         absolute_path = cls._build_absolute_path(adapter_model.path, child_rel)
+                        await guard_path(absolute_path, PathAction.READ)
                         data = b""
                         if requires_input_bytes:
                             data = await cls.read_file(absolute_path)

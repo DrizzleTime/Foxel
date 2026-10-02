@@ -75,6 +75,15 @@ Run asynchronous background tasks — file indexing, data backups, scheduled job
 
 An integrated AI agent with built-in tools for VFS operations, web fetching, and file processing — bringing intelligent automation directly into your cloud storage.
 
+#### MCP and Agent boundaries
+
+- The MCP endpoint is `/api/mcp/`. External clients authenticate with a Foxel Bearer Token and own their confirmation UI; the server always enforces the authenticated user's path permissions.
+- `time`, directory listing, metadata, text reads, search, processor listing, and `web_fetch` can run directly. `web_fetch` supports GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS, including external write requests, without an additional Foxel approval step.
+- Agent writes, creates, deletes, moves, copies, renames, and `processors_run` calls create database-backed approval batches. Approval requests must include the returned `approval_batch_id`; execution uses the server-stored arguments, rejects expired or cross-user requests, and does not re-execute repeated confirmations.
+- Recursive changes and directory processing validate all enumerated children before starting. Any denied or unverifiable path rejects the batch; queued work rechecks permissions and stops after a scope change.
+- Tools return structured error codes such as `permission_denied`, `invalid_arguments`, `permission_scope_unverifiable`, `approval_expired`, `request_timeout`, and `execution_failed` without exposing internal exceptions or credentials.
+- Agent conversations currently support OpenAI, Anthropic, and Ollama interfaces, with at most eight tool-call rounds per request. Processor task IDs can be tracked in the task queue.
+
 ### 🌐 Protocol Mappings
 
 Access your files through familiar protocols:

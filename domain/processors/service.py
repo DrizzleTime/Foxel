@@ -17,6 +17,8 @@ from .types import (
     ProcessRequest,
     UpdateSourceRequest,
 )
+from domain.permission.execution import guard_path, validate_scope, execution_scope
+from domain.permission.types import PathAction
 
 
 class ProcessorService:
@@ -91,6 +93,7 @@ class ProcessorService:
         else:
             overwrite = False
             suffix = None
+
         payload = {
             "path": req.path,
             "processor_type": req.processor_type,
@@ -104,6 +107,7 @@ class ProcessorService:
 
     @classmethod
     async def scan_directory(cls, req: ProcessDirectoryRequest):
+        await validate_scope()
         if req.max_depth is not None and req.max_depth < 0:
             raise HTTPException(400, detail="max_depth must be >= 0")
 
@@ -129,6 +133,34 @@ class ProcessorService:
         else:
             overwrite = False
             suffix = None
+
+        scope = execution_scope()
+        if scope is not None:
+            snapshot = scope["trees"].get(req.path)
+            if snapshot is None:
+                raise HTTPException(400, detail="permission_scope_unverifiable")
+            supported = {str(ext).lower().lstrip(".") for ext in schema.get("supported_exts", [])}
+            scheduled = 0
+            for source, is_dir in snapshot.items():
+                if is_dir:
+                    continue
+                relative = Path(source).relative_to(req.path)
+                if req.max_depth is not None and len(relative.parts) - 1 > req.max_depth:
+                    continue
+                extension = Path(source).suffix.lower().lstrip(".")
+                if supported and extension not in supported:
+                    continue
+                await guard_path(source, PathAction.READ)
+                output = None
+                if produces_file and not overwrite:
+                    p = Path(source)
+                    output = str(p.with_name(p.stem + suffix + p.suffix))
+                await task_queue_service.add_task("process_file", {
+                    "path": source, "processor_type": req.processor_type, "config": req.config,
+                    "save_to": output, "overwrite": overwrite,
+                })
+                scheduled += 1
+            return {"scheduled": scheduled}
 
         supported_exts = schema.get("supported_exts") or []
         allowed_exts = {
@@ -196,6 +228,7 @@ class ProcessorService:
                     if not matches_extension(child_rel):
                         continue
                     absolute_path = build_absolute_path(adapter_model.path, child_rel)
+                    await guard_path(absolute_path, PathAction.READ)
                     save_to = None
                     if produces_file and not overwrite and suffix:
                         save_to = apply_suffix(absolute_path, suffix)

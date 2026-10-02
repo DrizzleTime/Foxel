@@ -25,7 +25,7 @@ export const PathRuleEditorDrawer = memo(function PathRuleEditorDrawer({
   return (
     <Drawer
       title={editingRule ? t('Edit Path Rule') : t('Add Path Rule')}
-      width={400}
+      size={400}
       open={open}
       onClose={onClose}
       destroyOnHidden
@@ -52,7 +52,7 @@ export const PathRuleEditorDrawer = memo(function PathRuleEditorDrawer({
           <InputNumber style={{ width: '100%' }} />
         </Form.Item>
         <Divider>{t('Permissions')}</Divider>
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Form.Item name="can_read" valuePropName="checked" noStyle>
             <Checkbox>{t('Read')} - {t('Download and preview files')}</Checkbox>
           </Form.Item>

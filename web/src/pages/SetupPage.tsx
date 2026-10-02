@@ -394,7 +394,7 @@ const SetupPage = () => {
         </Form>
 
         <div style={{ marginTop: isMobile ? 16 : 24 }}>
-          <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+          <Space orientation={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
             {currentStep > 0 && (
               <Button block={isMobile} onClick={() => prev()}>
                 {t('Previous')}

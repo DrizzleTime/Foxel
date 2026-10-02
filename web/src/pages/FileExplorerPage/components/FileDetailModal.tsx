@@ -99,7 +99,7 @@ export const FileDetailModal: React.FC<Props> = ({ entry, loading, data, onClose
           borderBottom: idx === total - 1 ? 'none' : `1px solid ${token.colorSplit}`,
         }}
       >
-        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={6} style={{ width: '100%' }}>
           <Space size={[4, 4]} wrap>
             {entry?.chunk_id && (
               <Tag color="blue">{t('Chunk ID')}: {entry.chunk_id}</Tag>

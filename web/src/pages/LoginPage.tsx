@@ -83,7 +83,7 @@ export default function LoginPage() {
           }}
         >
           <div style={{ width: '100%', maxWidth: 360 }}>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="large" style={{ width: '100%' }}>
               <div style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
                   <img src={status?.logo} alt="Foxel Logo" style={{ width: 32, marginRight: 16 }} />
@@ -161,7 +161,7 @@ export default function LoginPage() {
                 Foxel 旨在提供一个安全、高效且智能的文件管理解决方案，帮助您轻松组织、访问和共享您的数字资产。
               </Text>
               <div style={{ marginTop: 32 }}>
-                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                   <Card size="small" variant="borderless" style={{ backgroundColor: 'var(--ant-color-bg-container)' }}>
                     <Space>
                       <CloudSyncOutlined style={{ fontSize: 20, color: 'var(--ant-color-primary, #1677ff)' }} />

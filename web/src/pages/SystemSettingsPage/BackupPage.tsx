@@ -88,7 +88,7 @@ const BackupPage = memo(function BackupPage() {
             {t('Export selected data into a JSON file.')}
             <Text strong>{t('Keep your backup file safe.')}</Text>
           </Paragraph>
-          <Space direction="vertical" size={8} style={{ width: '100%', marginBottom: 12 }}>
+          <Space orientation="vertical" size={8} style={{ width: '100%', marginBottom: 12 }}>
             <Text>{t('Select backup sections')}</Text>
             <Checkbox.Group
               options={exportOptions}
@@ -109,7 +109,7 @@ const BackupPage = memo(function BackupPage() {
           <Paragraph>
             {t('Restore data from a previously exported JSON file.')}
           </Paragraph>
-          <Space direction="vertical" size={8} style={{ width: '100%', marginBottom: 12 }}>
+          <Space orientation="vertical" size={8} style={{ width: '100%', marginBottom: 12 }}>
             <Text>{t('Import mode')}</Text>
             <Radio.Group
               optionType="button"

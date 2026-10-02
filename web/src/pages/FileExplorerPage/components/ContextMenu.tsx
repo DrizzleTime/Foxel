@@ -263,7 +263,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         placement="bottom"
         onClose={onClose}
         title={entry ? t('Actions') : t('Quick Actions')}
-        height="auto"
+        size="auto"
         styles={{ body: { padding: 8 } }}
       >
         <div onClick={(e) => e.stopPropagation()}>

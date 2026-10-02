@@ -180,6 +180,41 @@ class AIDefaultModel(Model):
         table = "ai_default_models"
 
 
+class AgentApprovalBatch(Model):
+    id = fields.CharField(max_length=36, pk=True)
+    user: fields.ForeignKeyRelation[UserAccount] = fields.ForeignKeyField(
+        "models.UserAccount", related_name="agent_approvals", on_delete=fields.CASCADE
+    )
+    assistant_message = fields.JSONField()
+    continuation_status = fields.CharField(max_length=20, default="pending")
+    continuation_result = fields.JSONField(null=True)
+    executing = fields.BooleanField(default=False)
+    expires_at = fields.DatetimeField()
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "agent_approval_batches"
+
+
+class AgentApprovalCall(Model):
+    id = fields.IntField(pk=True)
+    batch: fields.ForeignKeyRelation[AgentApprovalBatch] = fields.ForeignKeyField(
+        "models.AgentApprovalBatch", related_name="calls", on_delete=fields.CASCADE
+    )
+    call_id = fields.CharField(max_length=255)
+    position = fields.IntField()
+    name = fields.CharField(max_length=100)
+    arguments = fields.JSONField()
+    requires_confirmation = fields.BooleanField(default=True)
+    status = fields.CharField(max_length=20, default="pending")
+    result = fields.TextField(null=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "agent_approval_calls"
+        unique_together = (("batch", "call_id"),)
+
+
 class AutomationTask(Model):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=100)

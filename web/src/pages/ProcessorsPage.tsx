@@ -354,7 +354,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                 </Space>
                 <Tag color={selected ? token.colorPrimary : token.colorBorderSecondary}>{item.type}</Tag>
               </Flex>
-              <Space direction="vertical" size={6} style={{ marginTop: 8 }}>
+              <Space orientation="vertical" size={6} style={{ marginTop: 8 }}>
                 <div>
                   <Text type="secondary" style={{ marginRight: 8 }}>{t('Supported Extensions')}:</Text>
                   {item.supported_exts?.length ? (
@@ -446,7 +446,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                 </Flex>
               </Form.Item>
               {isDirectory && supportsDirectory && (
-                <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
+                <Space orientation="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
                   <Alert
                     type="info"
                     showIcon
@@ -455,7 +455,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                 </Space>
               )}
               {isDirectory && !supportsDirectory && (
-                <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
+                <Space orientation="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
                   <Alert
                     type="info"
                     showIcon

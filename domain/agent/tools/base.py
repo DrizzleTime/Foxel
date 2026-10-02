@@ -121,6 +121,10 @@ def _build_error_payload(code: str, message: str, detail: Any = None) -> Dict[st
     return payload
 
 
+def tool_error(code: str, message: str | None = None) -> Dict[str, Any]:
+    return _build_error_payload(code, message or code)
+
+
 def _normalize_tool_result(result: Any) -> Dict[str, Any]:
     if isinstance(result, dict) and "ok" in result:
         payload = dict(result)
@@ -144,7 +148,8 @@ def _normalize_tool_result(result: Any) -> Dict[str, Any]:
     if isinstance(result, dict) and "error" in result:
         error = result.get("error")
         message = _stringify_value(error.get("message") if isinstance(error, dict) else error)
-        return _build_error_payload("error", message, detail=error)
+        code = str(error.get("code") or "execution_failed") if isinstance(error, dict) else "execution_failed"
+        return _build_error_payload(code, message)
 
     view = _build_view(result)
     summary = _build_summary(view)
@@ -166,8 +171,8 @@ def tool_result_to_content(result: Any) -> str:
 def tool_spec_to_mcp_descriptor(spec: ToolSpec) -> McpToolDescriptor:
     read_only = not spec.requires_confirmation
     annotations: Dict[str, Any] = {
-        "readOnlyHint": read_only,
-        "destructiveHint": bool(spec.requires_confirmation),
+        "readOnlyHint": read_only and spec.name != "web_fetch",
+        "destructiveHint": bool(spec.requires_confirmation) or spec.name == "web_fetch",
     }
     if spec.name == "web_fetch":
         annotations["openWorldHint"] = True

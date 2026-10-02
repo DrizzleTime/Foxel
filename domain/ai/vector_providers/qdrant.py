@@ -150,13 +150,13 @@ class QdrantProvider(BaseVectorProvider):
     def search_vectors(self, collection_name: str, query_embedding, top_k: int):
         client = self._get_client()
         vector = [float(x) for x in query_embedding]
-        points = client.search(
+        response = client.query_points(
             collection_name=collection_name,
-            query_vector=vector,
+            query=vector,
             limit=top_k,
             with_payload=True,
         )
-        return [self._format_search_results(points)]
+        return [self._format_search_results(response.points)]
 
     def search_by_path(self, collection_name: str, query_path: str, top_k: int):
         client = self._get_client()

@@ -14,7 +14,7 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         main: 'index.html',
         'plugin-frame': 'plugin-frame.html',

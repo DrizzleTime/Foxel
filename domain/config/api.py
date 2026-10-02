@@ -56,6 +56,7 @@ async def get_all_config(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     configs = await ConfigService.get_all()
+    configs["MCP_ENABLED"] = await ConfigService.get("MCP_ENABLED", "1")
     return success(configs)
 
 

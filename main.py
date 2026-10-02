@@ -3,7 +3,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from domain.adapters import runtime_registry
-from domain.agent.mcp import MCP_HTTP_APP
+from domain.agent.mcp import MCP_HTTP_APP, MCP_REMOTE_APP
 from domain.config import ConfigService, VERSION
 from db.session import close_db, init_db
 from api.routers import include_routers
@@ -100,7 +100,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     include_routers(app)
-    app.mount("/api/mcp", MCP_HTTP_APP, name="mcp")
+    app.mount("/api/mcp", MCP_REMOTE_APP, name="mcp")
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(httpx.HTTPStatusError, httpx_exception_handler)

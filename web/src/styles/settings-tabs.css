@@ -138,6 +138,121 @@
   font-weight: 600;
 }
 
+.fx-mcp-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.fx-mcp-overview {
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: 8px;
+  background: var(--ant-color-fill-quaternary);
+}
+
+.fx-mcp-heading {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+}
+
+.fx-mcp-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 8px;
+  background: var(--ant-color-primary-bg);
+  color: var(--ant-color-primary);
+  font-size: 22px;
+}
+
+.fx-mcp-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.fx-mcp-title h4,
+.fx-mcp-heading .ant-typography,
+.fx-mcp-permission-row .ant-typography,
+.fx-mcp-permission-info .ant-typography {
+  margin: 0;
+}
+
+.fx-mcp-endpoint {
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-mcp-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.fx-mcp-code-row code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fx-mcp-code-row .ant-btn,
+.fx-mcp-permission-row .ant-switch {
+  flex-shrink: 0;
+}
+
+.fx-mcp-permission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-mcp-permission-info {
+  padding-top: 20px;
+}
+
+.fx-mcp-permission-row .ant-typography-secondary,
+.fx-mcp-permission-info .ant-typography-secondary {
+  margin-top: 6px;
+}
+
+.fx-mcp-token-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fx-mcp-config-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.fx-mcp-config-heading h3 {
+  margin: 0;
+}
+
+.fx-mcp-config {
+  margin: 0;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--ant-color-fill-quaternary);
+  color: var(--ant-color-text);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .fx-settings-save {
   position: sticky;
   bottom: -32px;

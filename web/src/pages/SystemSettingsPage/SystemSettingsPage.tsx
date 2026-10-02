@@ -1,7 +1,7 @@
 import { Alert, message, Tabs, Modal } from 'antd';
 import { useEffect, useState } from 'react';
 import { getAllConfig, setConfig } from '../../api/config';
-import { AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined, CloseOutlined } from '@ant-design/icons';
+import { ApiOutlined, AppstoreOutlined, RobotOutlined, DatabaseOutlined, SkinOutlined, MailOutlined, CloudSyncOutlined, CloseOutlined } from '@ant-design/icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import '../../styles/settings-tabs.css';
 import { useI18n } from '../../i18n';
@@ -12,16 +12,18 @@ import AiSettingsTab from './components/AiSettingsTab';
 import VectorDbSettingsTab from './components/VectorDbSettingsTab';
 import EmailSettingsTab from './components/EmailSettingsTab';
 import ProtocolMappingsTab from './components/ProtocolMappingsTab';
+import McpSettingsTab from './components/McpSettingsTab';
 
-type TabKey = 'appearance' | 'app' | 'email' | 'ai' | 'vector-db' | 'mappings';
+type TabKey = 'appearance' | 'app' | 'email' | 'ai' | 'mcp' | 'vector-db' | 'mappings';
 
-const TAB_KEYS: TabKey[] = ['appearance', 'app', 'email', 'ai', 'vector-db', 'mappings'];
+const TAB_KEYS: TabKey[] = ['appearance', 'app', 'email', 'ai', 'mcp', 'vector-db', 'mappings'];
 const DEFAULT_TAB: TabKey = 'appearance';
 const TAB_TITLES: Record<TabKey, string> = {
   appearance: 'Appearance',
   app: 'System',
   email: 'Email',
   ai: 'AI',
+  mcp: 'MCP',
   'vector-db': 'Database',
   mappings: 'Mappings',
 };
@@ -71,6 +73,7 @@ const CONFIG_DEFAULTS: Record<string, string> = {
   S3_MAPPING_SECRET_KEY: '',
   EMAIL_CONFIG: '',
   EMAIL_PASSWORD_RESET_TEMPLATE: '',
+  MCP_ENABLED: '1',
 };
 
 const stringifyConfigValue = (value: unknown) => String(value ?? '');
@@ -250,6 +253,16 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate, onClose }: S
                 <AiSettingsTab
                 />
               ),
+            },
+            {
+              key: 'mcp',
+              label: (
+                <span>
+                  <ApiOutlined style={{ marginRight: 8 }} />
+                  {t(TAB_TITLES.mcp)}
+                </span>
+              ),
+              children: <McpSettingsTab config={config} loading={loading} onSave={handleSave} />,
             },
             {
               key: 'vector-db',

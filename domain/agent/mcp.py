@@ -15,8 +15,11 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from domain.auth import AuthService, User
+from domain.config import ConfigService
 from domain.processors import ProcessorService
 
 from .tools import mcp_tool_descriptors
@@ -292,6 +295,25 @@ def fetch_web_page_prompt(url: Annotated[str, Field(description="目标网址")]
 
 
 MCP_HTTP_APP = MCP_SERVER.streamable_http_app(streamable_http_path="/")
+
+
+class RemoteMcpApp:
+    """Gate external access while keeping the agent's loopback transport available."""
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http":
+            enabled = str(await ConfigService.get("MCP_ENABLED", "1")).strip().lower()
+            if enabled not in {"1", "true", "yes", "on"}:
+                response = JSONResponse({"detail": "Remote MCP is disabled"}, status_code=503)
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
+MCP_REMOTE_APP = RemoteMcpApp(MCP_HTTP_APP)
 
 
 async def create_loopback_mcp_headers(user: User | None, current_path: str | None = None) -> dict[str, str]:

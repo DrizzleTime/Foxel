@@ -592,6 +592,7 @@
   "adapter.type.quark": "Quark Drive",
   "adapter.type.uc": "UC Drive",
   "adapter.type.pan123": "123Pan (Account)",
+  "adapter.type.pan115": "115 Cloud (Cookie)",
   "adapter.type.alist": "AList",
   "adapter.type.openlist": "OpenList",
   "Automation Tasks": "Automation Tasks",

@@ -40,7 +40,7 @@
 | 分类 | 适配器 |
 |---|---|
 | **标准协议** | 本地存储、S3 兼容存储、WebDAV、SFTP、FTP |
-| **网盘服务** | Google Drive、OneDrive、Dropbox、夸克网盘、UC 网盘、123 网盘 |
+| **网盘服务** | Google Drive、OneDrive、Dropbox、夸克网盘、UC 网盘、123 网盘、115 网盘 |
 | **特殊类型** | Telegram、AList、Foxel 互联 |
 
 ### 🔍 AI 语义搜索

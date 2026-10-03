@@ -1,11 +1,14 @@
 from typing import List, Dict, Optional, Tuple, AsyncIterator
+import asyncio
+from collections import deque
+import re
 import httpx
 from urllib.parse import urljoin, quote
 from urllib.parse import urlparse, unquote
 import xml.etree.ElementTree as ET
 from models import StorageAdapter
 import mimetypes
-import logging
+from starlette.background import BackgroundTask
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse, Response
 
@@ -22,6 +25,8 @@ class WebDAVAdapter:
         self.username = cfg.get("username")
         self.password = cfg.get("password")
         self.timeout = cfg.get("timeout", 15)
+        self.download_segment_size = max(1, min(64, int(cfg.get("download_segment_size_mb") or 8))) * 1024 * 1024
+        self.download_concurrency = max(1, min(16, int(cfg.get("download_concurrency") or 4)))
 
     def get_effective_root(self, sub_path: str | None) -> str:
         base_url = self.record.config.get("base_url", "").rstrip('/') + '/'
@@ -235,146 +240,149 @@ class WebDAVAdapter:
         url = self._build_url(rel)
         mime, _ = mimetypes.guess_type(rel)
         content_type = mime or "application/octet-stream"
-        logger = logging.getLogger(__name__)
-        timeout = self.timeout
-        auth = (self.username, self.password) if self.username else None
+        range_match = None
+        if range_header:
+            range_match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip())
+            if not range_match or not any(range_match.groups()):
+                raise HTTPException(400, detail="Invalid Range header")
 
-        client_start = 0
-        client_end = None
-        status_code = 200
-        if range_header and range_header.startswith("bytes="):
-            status_code = 206
-            part = range_header.removeprefix("bytes=")
-            s, e = part.split("-", 1)
-            if s.strip():
-                client_start = int(s)
-            if e.strip():
-                client_end = int(e)
-
-        total_size = None
-        accept_ranges = False
-        async with httpx.AsyncClient(timeout=timeout, auth=auth, follow_redirects=True) as client:
-            try:
-                head_resp = await client.head(url)
-                if head_resp.status_code == 404:
+        client = self._client()
+        identity_headers = {"Accept-Encoding": "identity"}
+        try:
+            total_size = None
+            validator = None
+            accept_ranges = False
+            # Probe the real response: Accept-Ranges alone is not reliable.
+            async with client.stream("GET", url, headers={**identity_headers, "Range": "bytes=0-0"}) as probe:
+                if probe.status_code == 404:
                     raise HTTPException(404, detail="File not found")
-                if head_resp.status_code == 200:
-                    cl = head_resp.headers.get("Content-Length")
-                    if cl and cl.isdigit():
-                        total_size = int(cl)
-                    ar = head_resp.headers.get("Accept-Ranges", "").lower()
-                    accept_ranges = "bytes" in ar
-            except HTTPException:
-                raise
-            except Exception as e:
-                logger.debug("HEAD failed %s err=%s", url, e)
-            if total_size is None and (client_end is None):
-                try:
-                    probe_req = client.build_request("GET", url, headers={"Range": "bytes=0-0"})
-                    probe_resp = await client.send(probe_req, stream=True)
-                    if probe_resp.status_code in (200, 206):
-                        cr = probe_resp.headers.get("Content-Range")
-                        if cr and "/" in cr:
-                            try:
-                                total_size = int(cr.rsplit("/", 1)[1])
-                            except Exception:
-                                pass
-                    await probe_resp.aclose()
-                except Exception as e:
-                    logger.debug("Probe 0-0 failed %s err=%s", url, e)
+                if probe.status_code == 206:
+                    match = re.fullmatch(r"bytes 0-0/(\d+)", probe.headers.get("Content-Range", ""))
+                    if match and int(match[1]) > 0:
+                        total_size = int(match[1])
+                        accept_ranges = True
+                        etag = probe.headers.get("ETag")
+                        validator = etag if etag and not etag.startswith("W/") else probe.headers.get("Last-Modified")
+                elif probe.status_code >= 400 and probe.status_code != 416:
+                    raise HTTPException(probe.status_code, detail="Upstream download failed")
 
-        if total_size is not None and client_end is None:
-            client_end = total_size - 1
-        if client_end is not None and client_end < client_start:
-            raise HTTPException(416, detail="Requested Range Not Satisfiable")
-
-        # 若客户端未请求范围且上游不支持 Range，直接透传
-        if status_code == 200 and (range_header is None) and not accept_ranges:
-            async with httpx.AsyncClient(timeout=timeout, auth=auth, follow_redirects=True) as client:
-                req = client.build_request("GET", url)
-                resp = await client.send(req, stream=True)
-                if resp.status_code == 404:
-                    await resp.aclose()
-                    raise HTTPException(404, detail="File not found")
-                upstream_ct = resp.headers.get("Content-Type", content_type)
+            if not accept_ranges:
+                request_headers = dict(identity_headers)
+                if range_header:
+                    request_headers["Range"] = range_header
+                upstream = await client.send(client.build_request("GET", url, headers=request_headers), stream=True)
+                if upstream.status_code not in (200, 206):
+                    await upstream.aclose()
+                    raise HTTPException(upstream.status_code, detail="Upstream download failed")
+                headers = {"X-VFS-Remote-Status": str(upstream.status_code)}
+                for name in ("Content-Length", "Content-Range", "Accept-Ranges", "Content-Encoding"):
+                    if name in upstream.headers:
+                        headers[name] = upstream.headers[name]
 
                 async def passthrough():
                     try:
-                        async for chunk in resp.aiter_bytes():
-                            if chunk:
-                                yield chunk
+                        async for chunk in upstream.aiter_raw():
+                            yield chunk
                     finally:
-                        await resp.aclose()
-                return StreamingResponse(passthrough(), status_code=resp.status_code,
-                                         headers={"Accept-Ranges": "bytes",
-                                                  "X-VFS-Remote-Status": str(resp.status_code)},
-                                         media_type=upstream_ct)
+                        await upstream.aclose()
+                        await client.aclose()
 
-        SEGMENT_SIZE = 5 * 1024 * 1024
-        MAX_RETRY_PER_SEG = 3
-        FIRST_BYTE_MAX_RETRY = 3
+                return StreamingResponse(
+                    passthrough(), status_code=upstream.status_code, headers=headers,
+                    media_type=upstream.headers.get("Content-Type", content_type),
+                    background=BackgroundTask(client.aclose),
+                )
 
-        resp_headers = {
-            "Accept-Ranges": "bytes",
-            "Content-Type": content_type,
-            "X-VFS-Segmented": "1",
-        }
-        if status_code == 206 and total_size is not None:
-            resp_headers["Content-Range"] = f"bytes {client_start}-{client_end}/{total_size}"
+            start, end = 0, total_size - 1
+            if range_match:
+                first, last = range_match.groups()
+                if first:
+                    start = int(first)
+                    end = min(int(last), end) if last else end
+                else:
+                    suffix = int(last)
+                    if suffix <= 0:
+                        raise HTTPException(416, detail="Requested Range Not Satisfiable",
+                                            headers={"Content-Range": f"bytes */{total_size}"})
+                    start = max(0, total_size - suffix)
+                if start > end:
+                    raise HTTPException(416, detail="Requested Range Not Satisfiable",
+                                        headers={"Content-Range": f"bytes */{total_size}"})
 
-        async def segmented_body():
-            current = client_start
-            first_byte_sent = False
-            while True:
-                if client_end is not None and current > client_end:
-                    break
-                seg_start = current
-                seg_end = (min(seg_start + SEGMENT_SIZE - 1, client_end)
-                           if client_end is not None else seg_start + SEGMENT_SIZE - 1)
-                attempt = 0
-                ok = False
-                while attempt < MAX_RETRY_PER_SEG and not ok:
-                    attempt += 1
-                    headers_req = {"Range": f"bytes={seg_start}-{seg_end}"}
+            async def fetch_segment(seg_start: int, seg_end: int) -> bytes:
+                headers = {**identity_headers, "Range": f"bytes={seg_start}-{seg_end}"}
+                if validator:
+                    headers["If-Range"] = validator
+                for attempt in range(3):
                     try:
-                        async with httpx.AsyncClient(timeout=timeout, auth=auth, follow_redirects=True) as cseg:
-                            req = cseg.build_request("GET", url, headers=headers_req)
-                            rseg = await cseg.send(req, stream=True)
-                            if rseg.status_code in (200, 206):
-                                async for chunk in rseg.aiter_bytes():
-                                    if chunk:
-                                        first_byte_sent = True
-                                        yield chunk
-                                await rseg.aclose()
-                                ok = True
-                            elif rseg.status_code == 404:
-                                await rseg.aclose()
-                                if not first_byte_sent:
-                                    raise HTTPException(404, detail="File not found")
-                                return
-                            else:
-                                await rseg.aclose()
-                                logger.warning("Segment unexpected status %s %s-%s %s", rel, seg_start, seg_end, rseg.status_code)
-                        if not ok:
-                            continue
-                    except (httpx.ReadError, httpx.HTTPError, httpx.StreamError) as e:
-                        if not first_byte_sent and attempt >= FIRST_BYTE_MAX_RETRY:
-                            raise HTTPException(502, detail=f"Upstream error before first byte err={e}")
-                        logger.warning("Segment error %s %s-%s attempt=%d err=%s", rel, seg_start, seg_end, attempt, e)
-                    except Exception as e:
-                        if not first_byte_sent:
-                            raise
-                        logger.error("Segment unexpected %s %s-%s attempt=%d err=%s", rel, seg_start, seg_end, attempt, e)
-                if not ok:
-                    logger.error("Abort streaming %s at %s-%s", rel, seg_start, seg_end)
-                    break
-                current = seg_end + 1
-                if client_end is None:
-                    continue
-                if current > client_end:
-                    break
+                        async with client.stream("GET", url, headers=headers) as response:
+                            if response.status_code == 404:
+                                raise HTTPException(404, detail="File not found")
+                            if response.status_code == 429 or response.status_code >= 500:
+                                raise httpx.HTTPStatusError("Upstream temporarily unavailable",
+                                                            request=response.request, response=response)
+                            expected_range = f"bytes {seg_start}-{seg_end}/{total_size}"
+                            if (response.status_code != 206
+                                    or response.headers.get("Content-Range") != expected_range
+                                    or response.headers.get("Content-Encoding", "identity") != "identity"):
+                                raise HTTPException(502, detail="Upstream returned an invalid range response")
+                            data = bytearray()
+                            expected_size = seg_end - seg_start + 1
+                            async for chunk in response.aiter_raw():
+                                if len(data) + len(chunk) > expected_size:
+                                    raise HTTPException(502, detail="Upstream range exceeded requested size")
+                                data.extend(chunk)
+                            if len(data) != expected_size:
+                                raise httpx.ReadError("Incomplete range response")
+                            return bytes(data)
+                    except httpx.HTTPError as exc:
+                        if attempt == 2:
+                            raise HTTPException(502, detail="Upstream segment download failed") from exc
+                        await asyncio.sleep(0.25 * 2 ** attempt)
 
-        return StreamingResponse(segmented_body(), status_code=status_code, headers=resp_headers, media_type=content_type)
+            # Validate the first segment before sending response headers.
+            first_end = min(start + self.download_segment_size - 1, end)
+            first_segment = await fetch_segment(start, first_end)
+            headers = {"Accept-Ranges": "bytes", "Content-Length": str(end - start + 1),
+                       "X-VFS-Segmented": "1"}
+            if range_match:
+                headers["Content-Range"] = f"bytes {start}-{end}/{total_size}"
+
+            async def segmented_body():
+                pending = deque()
+                next_start = first_end + 1
+
+                def fill_window():
+                    nonlocal next_start
+                    while next_start <= end and len(pending) < self.download_concurrency:
+                        next_end = min(next_start + self.download_segment_size - 1, end)
+                        pending.append(asyncio.create_task(fetch_segment(next_start, next_end)))
+                        next_start = next_end + 1
+
+                try:
+                    fill_window()
+                    yield first_segment
+                    while pending:
+                        # Finished segments stay in order and occupy a window slot
+                        # until consumed, bounding memory even for a slow client.
+                        data = await pending[0]
+                        pending.popleft()
+                        yield data
+                        fill_window()
+                finally:
+                    for task in pending:
+                        task.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
+                    await client.aclose()
+
+            return StreamingResponse(
+                segmented_body(), status_code=206 if range_match else 200,
+                headers=headers, media_type=content_type,
+                background=BackgroundTask(client.aclose),
+            )
+        except BaseException:
+            await client.aclose()
+            raise
 
     async def stat_file(self, root: str, rel: str, include_metadata: bool = False):
         url = self._build_url(rel)
@@ -481,6 +489,10 @@ class WebDAVAdapter:
 
 ADAPTER_TYPE = "webdav"
 CONFIG_SCHEMA = [
+    {"key": "download_segment_size_mb", "label": "下载分片大小 (MiB)",
+        "type": "number", "required": False, "default": 8},
+    {"key": "download_concurrency", "label": "下载并发数",
+        "type": "number", "required": False, "default": 4},
     {"key": "base_url", "label": "基础地址", "type": "string",
         "required": True, "placeholder": "https://example.com/dav/"},
     {"key": "username", "label": "用户名", "type": "string", "required": False},

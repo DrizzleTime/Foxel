@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { Modal, Button, List, Progress, Typography, message, Flex, Tag, Space } from 'antd';
-import { CopyOutlined, CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
+import { CopyOutlined, CheckCircleFilled, CloseCircleFilled, ReloadOutlined } from '@ant-design/icons';
 import type { ConflictDecision, UploadConflict, UploadFile } from '../../hooks/useUploader';
 import { useI18n } from '../../../../i18n';
 
@@ -14,6 +14,8 @@ interface UploadModalProps {
   conflict: UploadConflict | null;
   onClose: () => void;
   onStartUpload: () => void;
+  onRetryFailed: () => void;
+  onCancelUpload: () => void;
   onResolveConflict: (decision: ConflictDecision) => void;
 }
 
@@ -35,6 +37,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
   conflict,
   onClose,
   onStartUpload,
+  onRetryFailed,
+  onCancelUpload,
   onResolveConflict,
 }) => {
   const { t } = useI18n();
@@ -120,6 +124,10 @@ const UploadModal: React.FC<UploadModalProps> = ({
       maskClosable={!isUploading}
       onCancel={onClose}
       footer={[
+        isUploading && <Button key="cancel" onClick={onCancelUpload}>{t('Cancel')}</Button>,
+        summary.failures > 0 && <Button key="retry" icon={<ReloadOutlined />} onClick={onRetryFailed} disabled={isUploading}>
+          {t('Retry failed uploads')}
+        </Button>,
         <Button key="close" onClick={onClose} disabled={!allFinished || isUploading}>
           {allFinished ? t('Close') : t('Done')}
         </Button>,

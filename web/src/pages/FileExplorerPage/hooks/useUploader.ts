@@ -2,6 +2,7 @@ import type { ChangeEvent, RefObject } from 'react';
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { message } from 'antd';
 import { vfsApi } from '../../../api/client';
+import type { UploadTransferState } from '../../../api/vfs';
 import { useI18n } from '../../../i18n';
 
 type UploadStatus = 'pending' | 'waiting' | 'uploading' | 'success' | 'error' | 'skipped';
@@ -270,6 +271,18 @@ export function useUploader(path: string, onUploadComplete: () => void) {
   const createdDirsRef = useRef<Set<string>>(new Set());
   const filesRef = useRef<UploadFile[]>(files);
   const isUploadingRef = useRef(false);
+  const transferStatesRef = useRef(new Map<string, UploadTransferState>());
+  const batchControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const states = transferStatesRef.current;
+    return () => {
+      batchControllerRef.current?.abort();
+      for (const state of states.values()) {
+        if (state.session) void vfsApi.abortUploadSession(state.session.upload_id).catch(() => void 0);
+      }
+    };
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const directoryInputRef = useRef<HTMLInputElement | null>(null);
@@ -282,11 +295,9 @@ export function useUploader(path: string, onUploadComplete: () => void) {
   }, []);
 
   const mutateFiles = useCallback((updater: (prev: UploadFile[]) => UploadFile[]) => {
-    setFiles((prev) => {
-      const next = updater(prev);
-      filesRef.current = next;
-      return next;
-    });
+    const next = updater(filesRef.current);
+    filesRef.current = next;
+    setFiles(next);
   }, []);
 
   const replaceFiles = useCallback((next: UploadFile[]) => {
@@ -320,6 +331,10 @@ export function useUploader(path: string, onUploadComplete: () => void) {
       return;
     }
     setIsModalVisible(false);
+    for (const state of transferStatesRef.current.values()) {
+      if (state.session) void vfsApi.abortUploadSession(state.session.upload_id).catch(() => void 0);
+    }
+    transferStatesRef.current.clear();
     replaceFiles([]);
     resetOverwriteDecisions();
     setConflict(null);
@@ -498,12 +513,17 @@ export function useUploader(path: string, onUploadComplete: () => void) {
 
     updateFile(task.id, { status: 'uploading', progress: 0, loadedBytes: 0 });
     try {
-      const uploadResult = await vfsApi.uploadRaw(task.targetPath, task.file, shouldOverwrite, (loaded, total) => {
+      const state = transferStatesRef.current.get(task.id) ?? {};
+      transferStatesRef.current.set(task.id, state);
+      let lastProgress = 0;
+      const uploadResult = await vfsApi.uploadOptimized(task.targetPath, task.file, shouldOverwrite, (loaded, total) => {
+        if (loaded < total && Date.now() - lastProgress < 100) return;
+        lastProgress = Date.now();
         mutateFiles((prev) => prev.map((f) => {
           if (f.id !== task.id) return f;
           const effectiveTotal = total > 0 ? total : f.size;
           const size = Math.max(f.size, effectiveTotal, loaded);
-          const percent = size > 0 ? Math.min(100, Math.round((loaded / size) * 100)) : 0;
+          const percent = size > 0 ? Math.min(99, Math.round((loaded / size) * 100)) : 0;
           return {
             ...f,
             size,
@@ -511,7 +531,8 @@ export function useUploader(path: string, onUploadComplete: () => void) {
             progress: percent,
           };
         }));
-      });
+      }, batchControllerRef.current?.signal, state);
+      transferStatesRef.current.delete(task.id);
 
       const actualPath = uploadResult?.path || task.targetPath;
       const finalSize = typeof uploadResult?.size === 'number' && uploadResult.size > 0
@@ -525,6 +546,10 @@ export function useUploader(path: string, onUploadComplete: () => void) {
         targetPath: actualPath,
       });
     } catch (err: unknown) {
+      if (batchControllerRef.current?.signal.aborted) {
+        updateFile(task.id, { status: 'error', error: t('Upload cancelled') });
+        return;
+      }
       const error = err instanceof Error ? err.message : t('Upload failed');
       updateFile(task.id, { status: 'error', error, progress: 0 });
       message.error(`${task.relativePath}: ${error}`);
@@ -537,6 +562,7 @@ export function useUploader(path: string, onUploadComplete: () => void) {
 
     const runWorker = async () => {
       while (nextIndex < preparedFiles.length) {
+        if (batchControllerRef.current?.signal.aborted) return;
         const current = preparedFiles[nextIndex];
         nextIndex += 1;
         await uploadPreparedFile(current.task, current.overwrite);
@@ -551,10 +577,12 @@ export function useUploader(path: string, onUploadComplete: () => void) {
     if (!filesRef.current.length) return;
 
     isUploadingRef.current = true;
+    batchControllerRef.current = new AbortController();
     setIsUploading(true);
     try {
       const preparedFiles: Array<{ task: UploadFile; overwrite: boolean }> = [];
       for (const task of filesRef.current) {
+        if (batchControllerRef.current.signal.aborted) break;
         if (task.status !== 'pending' && task.status !== 'waiting') {
           continue;
         }
@@ -566,12 +594,31 @@ export function useUploader(path: string, onUploadComplete: () => void) {
         }
       }
       await uploadPreparedFiles(preparedFiles);
+      if (batchControllerRef.current.signal.aborted) {
+        mutateFiles(previous => previous.map(task => ['pending', 'waiting', 'uploading'].includes(task.status)
+          ? { ...task, status: 'error', error: t('Upload cancelled') } : task));
+      }
       onUploadComplete();
     } finally {
       isUploadingRef.current = false;
+      batchControllerRef.current = null;
       setIsUploading(false);
     }
-  }, [onUploadComplete, processDirectoryTask, prepareFileTask, uploadPreparedFiles]);
+  }, [onUploadComplete, processDirectoryTask, prepareFileTask, uploadPreparedFiles, mutateFiles, t]);
+
+  const cancelUpload = useCallback(() => {
+    batchControllerRef.current?.abort();
+    conflictResolverRef.current?.('skip');
+    conflictResolverRef.current = null;
+    setConflict(null);
+  }, []);
+
+  const retryFailed = useCallback(() => {
+    if (isUploadingRef.current) return;
+    replaceFiles(filesRef.current.map(task => task.status === 'error'
+      ? { ...task, status: 'pending', error: undefined, loadedBytes: 0, progress: 0 } : task));
+    void startUpload();
+  }, [replaceFiles, startUpload]);
 
   const totalFileBytes = useMemo(
     () => files.reduce((acc, f) => acc + (f.type === 'file' ? f.size : 0), 0),
@@ -611,7 +658,7 @@ export function useUploader(path: string, onUploadComplete: () => void) {
     files,
     isModalVisible,
     isUploading,
-    totalProgress: Math.min(100, Math.max(0, totalProgress)),
+    totalProgress: Math.min(isUploading ? 99 : 100, Math.max(0, totalProgress)),
     totalFileBytes,
     uploadedFileBytes,
     conflict,
@@ -622,6 +669,8 @@ export function useUploader(path: string, onUploadComplete: () => void) {
     openFilePicker,
     openDirectoryPicker,
     closeModal,
+    retryFailed,
+    cancelUpload,
     handleFileInputChange,
     handleDirectoryInputChange,
     handleFileDrop,

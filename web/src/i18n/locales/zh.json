@@ -864,5 +864,8 @@
   "Delete files and folders": "删除文件和目录",
   "Create share links": "创建分享链接",
   "permission.category.system": "系统",
-  "permission.category.adapter": "存储适配器"
+  "permission.category.adapter": "存储适配器",
+  "Retry failed uploads": "重试失败上传",
+  "Upload cancelled": "上传已取消",
+  "Download completed": "下载完成"
 }

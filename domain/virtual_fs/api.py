@@ -1,6 +1,11 @@
 from typing import Annotated
+import hashlib
+import json
+import mimetypes
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import Response
 
 from api.response import success
 from domain.audit import AuditAction, audit
@@ -9,8 +14,97 @@ from domain.permission import require_path_permission
 from domain.permission.types import PathAction
 from .service import VirtualFSService
 from .types import MkdirRequest, MoveRequest
+from .chunk_uploads import ChunkUploadCreate, ChunkUploadService
 
 router = APIRouter(prefix="/api/fs", tags=["virtual-fs"])
+
+
+@router.post("/uploads")
+async def create_chunk_upload(
+    body: ChunkUploadCreate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    return success(await ChunkUploadService.create(body, current_user.id))
+
+
+@router.put("/uploads/{upload_id}/parts/{part}")
+async def upload_chunk(
+    upload_id: str,
+    part: int,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    return success(await ChunkUploadService.put_part(upload_id, part, current_user.id, request.stream()))
+
+
+@router.get("/uploads/{upload_id}")
+async def chunk_upload_status(
+    upload_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    return success(await ChunkUploadService.status(upload_id, current_user.id))
+
+
+@router.post("/uploads/{upload_id}/complete")
+@audit(action=AuditAction.UPLOAD, description="Complete chunked upload")
+async def complete_chunk_upload(
+    upload_id: str,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    overwrite: bool | None = Query(None),
+):
+    return success(await ChunkUploadService.complete(upload_id, current_user.id, overwrite))
+
+
+@router.delete("/uploads/{upload_id}")
+async def abort_chunk_upload(
+    upload_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    return success(await ChunkUploadService.abort(upload_id, current_user.id))
+
+
+@router.get("/download/{full_path:path}")
+@audit(action=AuditAction.DOWNLOAD, description="Download original file")
+@require_path_permission(PathAction.READ, "full_path")
+async def download_original(
+    full_path: str,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    return await _download_original_response(full_path, request)
+
+
+@router.get("/download-public/{token}/{filename}")
+@audit(action=AuditAction.DOWNLOAD, description="Download original file through temporary link")
+async def download_original_public(token: str, filename: str, request: Request):
+    path = await VirtualFSService.verify_temp_link_token(token)
+    return await _download_original_response(path, request)
+
+
+async def _download_original_response(full_path: str, request: Request):
+    full_path = VirtualFSService._normalize_path(full_path)
+    try:
+        stat = await VirtualFSService.stat_file(full_path)
+    except FileNotFoundError:
+        raise HTTPException(404, detail="File not found")
+    if stat.get("is_dir"):
+        raise HTTPException(400, detail="Path is a directory")
+    # Pin the metadata version across browser range requests. Providers such as
+    # S3 additionally pin their native object version while fetching each range.
+    etag = '"' + hashlib.sha256(json.dumps(stat, sort_keys=True, default=str).encode()).hexdigest() + '"'
+    if request.headers.get("If-Match") not in (None, etag):
+        raise HTTPException(412, detail="File changed during download")
+    adapter, _, root, rel = await VirtualFSService.resolve_adapter_and_rel(full_path)
+    stream = getattr(adapter, "stream_file", None)
+    if callable(stream):
+        response = await stream(root, rel, request.headers.get("Range"))
+    else:
+        data = await VirtualFSService.read_file(full_path)
+        response = Response(data, media_type=mimetypes.guess_type(full_path)[0] or "application/octet-stream")
+    response.headers["ETag"] = etag
+    response.headers["Content-Disposition"] = "attachment; filename*=UTF-8''" + quote(full_path.rstrip("/").split("/")[-1], safe="")
+    return response
 
 
 @router.get("/file/{full_path:path}")

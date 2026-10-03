@@ -310,6 +310,7 @@ class LocalAdapter:
             "is_dir": is_dir,
             "size": st.st_size,
             "mtime": int(st.st_mtime),
+            "mtime_ns": st.st_mtime_ns,
             "mode": stat.S_IMODE(st.st_mode),
             "type": "dir" if is_dir else "file",
             "path": str(fp),

@@ -861,5 +861,8 @@
   "Delete files and folders": "Delete files and folders",
   "Create share links": "Create share links",
   "permission.category.system": "System",
-  "permission.category.adapter": "Adapter"
+  "permission.category.adapter": "Adapter",
+  "Retry failed uploads": "Retry failed uploads",
+  "Upload cancelled": "Upload cancelled",
+  "Download completed": "Download completed"
 }

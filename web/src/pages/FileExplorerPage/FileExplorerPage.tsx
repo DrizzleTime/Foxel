@@ -519,6 +519,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         conflict={uploader.conflict}
         onClose={uploader.closeModal}
         onStartUpload={uploader.startUpload}
+        onRetryFailed={uploader.retryFailed}
+        onCancelUpload={uploader.cancelUpload}
         onResolveConflict={uploader.confirmConflict}
       />
       <DropzoneOverlay visible={isDragging} />

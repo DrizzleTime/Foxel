@@ -1,7 +1,12 @@
-import { useCallback } from 'react';
-import { message, Modal } from 'antd';
+import { useCallback, useEffect, useRef } from 'react';
+import { Button, message, Modal, Progress, Tooltip } from 'antd';
+import { CloseOutlined } from '@ant-design/icons';
 import { useI18n } from '../../../i18n';
 import { vfsApi, type VfsEntry } from '../../../api/client';
+import { API_BASE_URL } from '../../../api/client';
+import { downloadRanges, encodeFilePath, MAX_BLOB_DOWNLOAD_SIZE, saveDownloadUrl,
+  selectDownloadTarget, TRANSFER_CHUNK_SIZE } from '../../../api/transfers';
+import type { DownloadTarget } from '../../../api/transfers';
 
 interface FileActionsParams {
   path: string;
@@ -13,6 +18,11 @@ interface FileActionsParams {
 
 export function useFileActions({ path, refresh, clearSelection, onShare, onGetDirectLink }: FileActionsParams) {
   const { t } = useI18n();
+  const downloadsRef = useRef(new Map<string, AbortController>());
+  useEffect(() => {
+    const downloads = downloadsRef.current;
+    return () => { for (const controller of downloads.values()) controller.abort(); };
+  }, []);
   const normalizeFullPath = useCallback((name: string) => {
     const base = path === '/' ? '' : path;
     return `${base}/${name}`.replace(/\/{2,}/g, '/');
@@ -168,23 +178,68 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     refresh();
   }, [normalizeDestination, normalizeFullPath, t, buildEntryDestination, refresh]);
 
-  const doDownload = useCallback((entry: VfsEntry) => {
+  const doDownload = useCallback(async (entry: VfsEntry) => {
     if (entry.is_dir) {
       message.warning(t('Downloading folders is not supported'));
       return;
     }
+    const fullPath = normalizeFullPath(entry.name);
+    if (downloadsRef.current.has(fullPath)) return;
+    const controller = new AbortController();
+    downloadsRef.current.set(fullPath, controller);
+    const key = `download:${fullPath}`;
+    let target: DownloadTarget | undefined;
+    let lastUpdate = 0;
+    const report = (loaded: number, total: number) => {
+      if (Date.now() - lastUpdate < 200 && loaded < total) return;
+      lastUpdate = Date.now();
+      message.open({ key, duration: 0, content: <div style={{ width: 280, maxWidth: '70vw', textAlign: 'left' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}</span>
+          <Tooltip title={t('Cancel')}><Button type="text" size="small" icon={<CloseOutlined />}
+            aria-label={t('Cancel')} onClick={() => controller.abort()} /></Tooltip>
+        </div>
+        <Progress percent={total ? Math.min(99, Math.round(loaded / total * 100)) : 0} size="small" />
+      </div> });
+    };
     try {
-      const url = vfsApi.streamUrl((path === '/' ? '' : path) + '/' + entry.name);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = entry.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (e: any) {
-      message.error(e.message || t('Download failed'));
+      // The picker must be called while the click still has user activation.
+      const handle = entry.size > TRANSFER_CHUNK_SIZE ? await selectDownloadTarget(entry.name) : undefined;
+      controller.signal.throwIfAborted();
+      const optimized = entry.size > TRANSFER_CHUNK_SIZE
+        && (handle !== undefined || entry.size <= MAX_BLOB_DOWNLOAD_SIZE);
+      if (optimized) {
+        target = await handle?.createWritable();
+        report(0, entry.size);
+        const blob = await downloadRanges(`${API_BASE_URL}/fs/download/${encodeFilePath(fullPath)}`,
+          entry.size, report, controller.signal, target);
+        if (blob !== null) {
+          if (target) {
+            await target.close();
+            target = undefined;
+          } else {
+            const objectUrl = URL.createObjectURL(blob);
+            saveDownloadUrl(objectUrl, entry.name);
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+          }
+          message.success({ key, content: t('Download completed') });
+          return;
+        }
+        await target?.abort();
+        target = undefined;
+      }
+      const link = await vfsApi.getTempLinkToken(fullPath);
+      controller.signal.throwIfAborted();
+      saveDownloadUrl(`${API_BASE_URL}/fs/download-public/${encodeURIComponent(link.token)}/${encodeURIComponent(entry.name)}`, entry.name);
+      message.destroy(key);
+    } catch (error) {
+      await target?.abort().catch(() => void 0);
+      if ((error as Error).name === 'AbortError' || controller.signal.aborted) message.destroy(key);
+      else message.error({ key, content: error instanceof Error ? error.message : t('Download failed') });
+    } finally {
+      downloadsRef.current.delete(fullPath);
     }
-  }, [path, t]);
+  }, [normalizeFullPath, t]);
 
   const doShare = useCallback((entries: VfsEntry[]) => {
     if (entries.length === 0) {

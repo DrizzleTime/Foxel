@@ -1,4 +1,10 @@
 import request, { API_BASE_URL } from './client';
+import { encodeFilePath, retryTransfer, runTransferWorkers, sendUpload, transferJson,
+  TRANSFER_CHUNK_SIZE } from './transfers';
+
+export interface UploadTransferState {
+  session?: { upload_id: string; chunk_size: number; parts: number };
+}
 
 export interface VfsEntry {
   name: string;
@@ -51,6 +57,62 @@ export interface SearchResponse {
 }
 
 export const vfsApi = {
+  abortUploadSession: (id: string) => request(`/fs/uploads/${id}`, { method: 'DELETE' }),
+  uploadOptimized: async (fullPath: string, file: File, overwrite = true,
+    onProgress?: (loaded: number, total: number) => void, signal?: AbortSignal,
+    state: UploadTransferState = {}) => {
+    if (file.size <= TRANSFER_CHUNK_SIZE) {
+      return sendUpload(`${API_BASE_URL}/fs/upload-raw/${encodeFilePath(fullPath)}?overwrite=${overwrite}`,
+        file, onProgress, signal);
+    }
+    const base = `${API_BASE_URL}/fs/uploads`;
+    let uploaded: number[] = [];
+    if (state.session) {
+      try {
+        const status = await transferJson<{ uploaded: number[]; completed: boolean }>(`${base}/${state.session.upload_id}`, { signal });
+        if (status.completed) {
+          const result = await transferJson<{ path: string; size: number }>(`${base}/${state.session.upload_id}/complete`, { method: 'POST', signal });
+          state.session = undefined;
+          return result;
+        }
+        uploaded = status.uploaded;
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+        if (status !== 404 && status !== 410) throw error;
+        state.session = undefined;
+      }
+    }
+    if (!state.session) {
+      state.session = await transferJson(`${base}`, {
+        method: 'POST', body: JSON.stringify({ path: fullPath, size: file.size, overwrite }), signal,
+      });
+    }
+    const session = state.session!;
+    const done = new Set(uploaded);
+    const progress = Array.from({ length: session.parts }, (_, index) => done.has(index)
+      ? Math.min(session.chunk_size, file.size - index * session.chunk_size) : 0);
+    const report = () => onProgress?.(progress.reduce((sum, bytes) => sum + bytes, 0), file.size);
+    report();
+    await runTransferWorkers(session.parts, 4, async (index, workerSignal) => {
+      if (done.has(index)) return;
+      const start = index * session.chunk_size;
+      const chunk = file.slice(start, Math.min(file.size, start + session.chunk_size));
+      await retryTransfer(() => {
+        progress[index] = 0;
+        report();
+        return sendUpload(`${base}/${session.upload_id}/parts/${index}`, chunk, loaded => {
+          progress[index] = Math.min(loaded, chunk.size);
+          report();
+        }, workerSignal);
+      }, workerSignal);
+      progress[index] = chunk.size;
+      report();
+    }, signal);
+    const result = await retryTransfer(() => transferJson<{ path: string; size: number }>(
+      `${base}/${session.upload_id}/complete?overwrite=${overwrite}`, { method: 'POST', signal }), signal);
+    state.session = undefined;
+    return result;
+  },
   list: (path: string, page: number = 1, pageSize: number = 50, sortBy: string = 'name', sortOrder: string = 'asc', cursor?: string | null) => {
     const cleaned = path.replace(/\\/g, '/');
     const trimmed = cleaned === '/' ? '' : cleaned.replace(/^\/+/, '');
@@ -64,7 +126,7 @@ export const vfsApi = {
     return request<DirListing>(`/fs/${encodeURI(trimmed)}?${params}`);
   },
   readFile: async (path: string) => {
-    const enc = encodeURI(path.replace(/^\/+/, ''));
+    const enc = encodeFilePath(path);
     const resp = await request(`/fs/file/${enc}`, { rawResponse: true });
     return await (resp as Response).arrayBuffer();
   },
@@ -95,10 +157,10 @@ export const vfsApi = {
     const params = new URLSearchParams();
     if (options?.verbose) params.set('verbose', 'true');
     const query = params.toString();
-    return request(`/fs/stat/${encodeURI(path.replace(/^\/+/, ''))}${query ? `?${query}` : ''}`);
+    return request(`/fs/stat/${encodeFilePath(path)}${query ? `?${query}` : ''}`);
   },
   getTempLinkToken: (path: string, expiresIn: number = 3600) =>
-    request<{token: string, path: string, url: string}>(`/fs/temp-link/${encodeURI(path.replace(/^\/+/, ''))}?expires_in=${expiresIn}`),
+    request<{token: string, path: string, url: string}>(`/fs/temp-link/${encodeFilePath(path)}?expires_in=${expiresIn}`),
   getTempPublicUrl: (token: string) => `${API_BASE_URL}/fs/public/${token}`,
   uploadRaw: (fullPath: string, file: File, overwrite: boolean = true, onProgress?: (loaded: number, total: number) => void) => {
     const enc = encodeURI(fullPath.replace(/^\/+/, ''));

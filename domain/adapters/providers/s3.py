@@ -1,11 +1,14 @@
 import asyncio
+import logging
 import mimetypes
+import re
 from datetime import datetime
 from typing import List, Dict, Tuple, AsyncIterator
 from urllib.parse import quote
 
 import aioboto3
 from botocore.exceptions import ClientError
+from botocore.config import Config
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from models import StorageAdapter
@@ -23,6 +26,10 @@ class S3Adapter:
         self.region_name = cfg.get("region_name")
         self.endpoint_url = cfg.get("endpoint_url")
         self.root = cfg.get("root", "").strip("/")
+        self.multipart_part_size = max(5, min(64, int(cfg.get("multipart_part_size_mb") or 8))) * 1024 * 1024
+        self.multipart_concurrency = max(1, min(16, int(cfg.get("multipart_concurrency") or 4)))
+        self.download_segment_size = max(1, min(64, int(cfg.get("download_segment_size_mb") or 8))) * 1024 * 1024
+        self.download_concurrency = max(1, min(16, int(cfg.get("download_concurrency") or 4)))
 
         if not all([self.bucket_name, self.aws_access_key_id, self.aws_secret_access_key]):
             raise ValueError(
@@ -48,7 +55,10 @@ class S3Adapter:
         return rel_path
 
     def _get_client(self):
-        return self.session.client("s3", endpoint_url=self.endpoint_url)
+        return self.session.client(
+            "s3", endpoint_url=self.endpoint_url,
+            config=Config(max_pool_connections=max(10, self.multipart_concurrency, self.download_concurrency)),
+        )
 
     async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Tuple[List[Dict], int]:
         prefix = self._get_s3_key(rel)
@@ -128,62 +138,80 @@ class S3Adapter:
 
     async def write_file_stream(self, root: str, rel: str, data_iter: AsyncIterator[bytes]):
         key = self._get_s3_key(rel)
-        MIN_PART_SIZE = 5 * 1024 * 1024
-        
+
         async with self._get_client() as s3:
             mpu = await s3.create_multipart_upload(Bucket=self.bucket_name, Key=key)
             upload_id = mpu['UploadId']
-            
+
             parts = []
+            pending = set()
             part_number = 1
             total_size = 0
             buffer = bytearray()
-            
+
+            async def upload_part(number: int, body: bytes):
+                result = await s3.upload_part(
+                    Bucket=self.bucket_name, Key=key, PartNumber=number,
+                    UploadId=upload_id, Body=body,
+                )
+                parts.append({'PartNumber': number, 'ETag': result['ETag']})
+
+            async def schedule_part(body: bytes):
+                nonlocal part_number, total_size
+                if part_number > 10000:
+                    raise ValueError("Too many S3 parts; increase multipart_part_size_mb")
+                # Backpressure bounds the number of retained part buffers.
+                if len(pending) >= self.multipart_concurrency:
+                    done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                    for task in done:
+                        task.result()
+                    pending.difference_update(done)
+                pending.add(asyncio.create_task(upload_part(part_number, body)))
+                total_size += len(body)
+                part_number += 1
+
             try:
                 async for chunk in data_iter:
                     if not chunk:
                         continue
-                    buffer.extend(chunk)
-                    
-                    while len(buffer) >= MIN_PART_SIZE:
-                        part_data = buffer[:MIN_PART_SIZE]
-                        del buffer[:MIN_PART_SIZE]
-                        
-                        part = await s3.upload_part(
-                            Bucket=self.bucket_name,
-                            Key=key,
-                            PartNumber=part_number,
-                            UploadId=upload_id,
-                            Body=part_data
-                        )
-                        
-                        parts.append({'PartNumber': part_number, 'ETag': part['ETag']})
-                        total_size += len(part_data)
-                        part_number += 1
+                    view = memoryview(chunk)
+                    offset = 0
+                    while offset < len(view):
+                        take = min(self.multipart_part_size - len(buffer), len(view) - offset)
+                        buffer.extend(view[offset:offset + take])
+                        offset += take
+                        if len(buffer) == self.multipart_part_size:
+                            part_data = bytes(buffer)
+                            buffer.clear()
+                            await schedule_part(part_data)
 
                 if buffer:
-                    part = await s3.upload_part(
-                        Bucket=self.bucket_name,
-                        Key=key,
-                        PartNumber=part_number,
-                        UploadId=upload_id,
-                        Body=bytes(buffer)
-                    )
-                    parts.append({'PartNumber': part_number, 'ETag': part['ETag']})
-                    total_size += len(buffer)
-                
+                    await schedule_part(bytes(buffer))
+                if pending:
+                    await asyncio.gather(*pending)
+                if not parts:
+                    await s3.abort_multipart_upload(Bucket=self.bucket_name, Key=key, UploadId=upload_id)
+                    await s3.put_object(Bucket=self.bucket_name, Key=key, Body=b"")
+                    return 0
+
                 await s3.complete_multipart_upload(
                     Bucket=self.bucket_name,
                     Key=key,
                     UploadId=upload_id,
-                    MultipartUpload={'Parts': parts}
+                    MultipartUpload={'Parts': sorted(parts, key=lambda part: part['PartNumber'])}
                 )
-            except Exception as e:
-                await s3.abort_multipart_upload(
-                    Bucket=self.bucket_name,
-                    Key=key,
-                    UploadId=upload_id
-                )
+            except BaseException as e:
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+                try:
+                    await s3.abort_multipart_upload(
+                        Bucket=self.bucket_name, Key=key, UploadId=upload_id,
+                    )
+                except Exception:
+                    logging.getLogger(__name__).warning("Failed to abort S3 multipart upload", exc_info=True)
+                if not isinstance(e, Exception):
+                    raise
                 raise IOError(f"S3 stream upload failed: {e}") from e
 
         return total_size
@@ -254,6 +282,7 @@ class S3Adapter:
                     "is_dir": False,
                     "size": head["ContentLength"],
                     "mtime": int(head["LastModified"].timestamp()),
+                    "etag": head.get("ETag"),
                     "type": "file",
                 }
             except ClientError as e:
@@ -297,31 +326,74 @@ class S3Adapter:
             }
 
             if range_header:
-                range_val = range_header.strip().partition("=")[2]
-                s, _, e = range_val.partition("-")
-                try:
-                    start = int(s) if s else 0
-                    end = int(e) if e else file_size - 1
-                    if start >= file_size or end >= file_size or start > end:
-                        raise HTTPException(
-                            status_code=416, detail="Requested Range Not Satisfiable")
-                    status = 206
-                    headers["Content-Length"] = str(end - start + 1)
-                    headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
-                except ValueError:
-                    raise HTTPException(
-                        status_code=400, detail="Invalid Range header")
+                match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip())
+                if not match or not any(match.groups()):
+                    raise HTTPException(400, detail="Invalid Range header")
+                first, last = match.groups()
+                if first:
+                    start = int(first)
+                    end = min(int(last), end) if last else end
+                else:
+                    suffix = int(last)
+                    start = max(0, file_size - suffix) if suffix else file_size
+                if start > end:
+                    raise HTTPException(416, detail="Requested Range Not Satisfiable",
+                                        headers={"Content-Range": f"bytes */{file_size}"})
+                status = 206
+                headers["Content-Length"] = str(end - start + 1)
+                headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
 
-            range_arg = f"bytes={start}-{end}"
+            segment_size = self.download_segment_size
+            segment_concurrency = self.download_concurrency
+            etag = head.get("ETag")
 
             async def iterator():
-                try:
-                    resp = await s3.get_object(Bucket=self.bucket_name, Key=key, Range=range_arg)
-                    body = resp["Body"]
-                    while chunk := await body.read(65536):
-                        yield chunk
-                except Exception as e:
-                    raise
+                # Reuse one async S3 client while fetching a bounded window of
+                # ordered ranges.  This keeps memory bounded and lets object
+                # stores serve large downloads over several connections.
+                async with self._get_client() as download_s3:
+                    async def fetch(seg_start: int, seg_end: int) -> bytes:
+                        options = {"IfMatch": etag} if etag else {}
+                        response = await download_s3.get_object(
+                            Bucket=self.bucket_name,
+                            Key=key,
+                            Range=f"bytes={seg_start}-{seg_end}",
+                            **options,
+                        )
+                        body = response["Body"]
+                        expected_size = seg_end - seg_start + 1
+                        try:
+                            if (response.get("ContentRange") != f"bytes {seg_start}-{seg_end}/{file_size}"
+                                    or response.get("ContentLength") != expected_size):
+                                raise IOError("S3 returned an invalid range response")
+                            data = bytearray()
+                            while chunk := await body.read(min(1024 * 1024, expected_size + 1 - len(data))):
+                                data.extend(chunk)
+                                if len(data) > expected_size:
+                                    raise IOError("S3 range exceeded requested size")
+                            if len(data) != expected_size:
+                                raise IOError("Incomplete S3 range response")
+                            return bytes(data)
+                        finally:
+                            body.close()
+
+                    pending: list[asyncio.Task[bytes]] = []
+                    next_start = start
+                    try:
+                        while next_start <= end or pending:
+                            while next_start <= end and len(pending) < segment_concurrency:
+                                next_end = min(next_start + segment_size - 1, end)
+                                pending.append(asyncio.create_task(fetch(next_start, next_end)))
+                                next_start = next_end + 1
+                            if not pending:
+                                break
+                            data = await pending[0]
+                            pending.pop(0)
+                            yield data
+                    finally:
+                        for task in pending:
+                            task.cancel()
+                        await asyncio.gather(*pending, return_exceptions=True)
 
         return StreamingResponse(iterator(), status_code=status, headers=headers, media_type=content_type)
 
@@ -329,6 +401,14 @@ class S3Adapter:
 ADAPTER_TYPE = "s3"
 
 CONFIG_SCHEMA = [
+    {"key": "download_segment_size_mb", "label": "下载分片大小 (MiB)",
+     "type": "number", "required": False, "default": 8},
+    {"key": "download_concurrency", "label": "下载并发数",
+     "type": "number", "required": False, "default": 4},
+    {"key": "multipart_part_size_mb", "label": "上传分片大小 (MiB)",
+     "type": "number", "required": False, "default": 8},
+    {"key": "multipart_concurrency", "label": "上传并发数",
+     "type": "number", "required": False, "default": 4},
     {"key": "bucket_name", "label": "Bucket 名称",
         "type": "string", "required": True},
     {"key": "access_key_id", "label": "Access Key ID",

@@ -115,6 +115,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Range", "Content-Length", "Accept-Ranges", "ETag", "Last-Modified"],
 )
 if __name__ == "__main__":
     import uvicorn

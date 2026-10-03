@@ -594,6 +594,7 @@
   "adapter.type.pan123": "123Pan (Account)",
   "adapter.type.pan115": "115 Cloud (Cookie)",
   "adapter.type.cloud189": "189 Cloud",
+  "adapter.type.smb": "SMB Share",
   "adapter.type.alist": "AList",
   "adapter.type.openlist": "OpenList",
   "Automation Tasks": "Automation Tasks",

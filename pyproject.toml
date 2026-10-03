@@ -28,4 +28,5 @@ dependencies = [
     "tortoise-orm>=1.1.8",
     "uvicorn>=0.54.0",
     "websockets>=17.1",
+    "smbprotocol>=1.17.0",
 ]

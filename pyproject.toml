@@ -8,6 +8,7 @@ dependencies = [
     "aioboto3>=15.5.0",
     "bcrypt>=5.0.0",
     "croniter>=6.2.4",
+    "cryptography>=46.0.0",
     "fastapi>=0.142.2",
     "mcp>=2.2.0",
     "httpx>=0.28.1,<1",

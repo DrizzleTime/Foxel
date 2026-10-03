@@ -584,6 +584,7 @@
   "adapter.type.uc": "UC 网盘",
   "adapter.type.pan123": "123 网盘（账号）",
   "adapter.type.pan115": "115 网盘（Cookie）",
+  "adapter.type.cloud189": "天翼云盘",
   "adapter.type.alist": "AList",
   "adapter.type.openlist": "OpenList",
   "Automation Tasks": "自动化任务",

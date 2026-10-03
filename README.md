@@ -41,7 +41,9 @@ Utilizes an extensible adapter pattern to easily integrate various storage types
 |---|---|
 | **Standard Protocols** | Local, S3-compatible, WebDAV, SFTP, FTP, SMB |
 | **Cloud Drives** | Google Drive, OneDrive, Dropbox, Quark, UC, 123Pan, 115, 189 |
-| **Special** | Telegram, AList, Foxel-to-Foxel, Seafile |
+| **Special** | Telegram, AList, Foxel-to-Foxel, Seafile, Cloudreve V4 |
+
+The UC, 123Pan, 115, 189, SMB, Seafile, and Cloudreve V4 adapters use account or server credentials rather than developer SDK keys. See [configuration notes](docs/storage-adapters.md).
 
 ### 🔍 AI-Powered Semantic Search
 

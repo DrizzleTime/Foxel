@@ -587,6 +587,7 @@
   "adapter.type.cloud189": "天翼云盘",
   "adapter.type.smb": "SMB 共享",
   "adapter.type.seafile": "Seafile",
+  "adapter.type.cloudreve": "Cloudreve V4",
   "adapter.type.alist": "AList",
   "adapter.type.openlist": "OpenList",
   "Automation Tasks": "自动化任务",

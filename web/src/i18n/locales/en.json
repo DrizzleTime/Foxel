@@ -596,6 +596,7 @@
   "adapter.type.cloud189": "189 Cloud",
   "adapter.type.smb": "SMB Share",
   "adapter.type.seafile": "Seafile",
+  "adapter.type.cloudreve": "Cloudreve V4",
   "adapter.type.alist": "AList",
   "adapter.type.openlist": "OpenList",
   "Automation Tasks": "Automation Tasks",

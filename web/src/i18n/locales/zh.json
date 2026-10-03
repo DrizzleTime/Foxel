@@ -581,6 +581,7 @@
   "adapter.type.foxel": "Foxel 节点",
   "adapter.type.dropbox": "Dropbox",
   "adapter.type.quark": "夸克网盘",
+  "adapter.type.uc": "UC 网盘",
   "adapter.type.alist": "AList",
   "adapter.type.openlist": "OpenList",
   "Automation Tasks": "自动化任务",

@@ -28,6 +28,12 @@ class QuarkAdapter:
     - 根 FID 固定为 "0"；路径解析通过名称遍历
     """
 
+    api_base = API_BASE
+    referer = REFERER
+    pr = PR
+    product_name = "Quark"
+    client_name = "quark-cloud-drive"
+
     def __init__(self, record: StorageAdapter):
         self.record = record
         cfg = record.config or {}
@@ -53,7 +59,7 @@ class QuarkAdapter:
         # UA 与超时
         self._ua = (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) quark-cloud-drive/2.5.20 Chrome/100.0.4896.160 "
+            f"(KHTML, like Gecko) {self.client_name}/2.5.20 Chrome/100.0.4896.160 "
             "Electron/18.3.5.4-b478491100 Safari/537.36 Channel/pckk_other_ch"
         )
         self._timeout = 30.0
@@ -75,13 +81,13 @@ class QuarkAdapter:
         headers = {
             "Cookie": self._safe_cookie(self.cookie),
             "Accept": "application/json, text/plain, */*",
-            "Referer": REFERER,
+            "Referer": self.referer,
             "User-Agent": self._ua,
         }
-        query = {"pr": PR, "fr": "pc"}
+        query = {"pr": self.pr, "fr": "pc"}
         if params:
             query.update(params)
-        url = f"{API_BASE}{pathname}"
+        url = f"{self.api_base}{pathname}"
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.request(method, url, headers=headers, params=query, json=json)
@@ -300,7 +306,7 @@ class QuarkAdapter:
         return bool(mime and mime.startswith("video/"))
 
     def _download_headers(self) -> Dict[str, str]:
-        return {"Cookie": self._safe_cookie(self.cookie), "User-Agent": self._ua, "Referer": REFERER}
+        return {"Cookie": self._safe_cookie(self.cookie), "User-Agent": self._ua, "Referer": self.referer}
 
     async def read_file(self, root: str, rel: str) -> bytes:
         if not rel or rel.endswith("/"):
@@ -563,7 +569,7 @@ class QuarkAdapter:
                 put_headers = {
                     "Authorization": auth_key,
                     "Content-Type": self._guess_mime(name),
-                    "Referer": REFERER + "/",
+                    "Referer": self.referer + "/",
                     "x-oss-date": now_str,
                     "x-oss-user-agent": oss_ua,
                 }
@@ -607,7 +613,7 @@ class QuarkAdapter:
                 "Authorization": auth_key_commit,
                 "Content-MD5": content_md5,
                 "Content-Type": "application/xml",
-                "Referer": REFERER + "/",
+                "Referer": self.referer + "/",
                 "x-oss-callback": callback_b64,
                 "x-oss-date": now_str,
                 "x-oss-user-agent": oss_ua,
@@ -722,7 +728,7 @@ class QuarkAdapter:
                     put_headers = {
                         "Authorization": auth_key,
                         "Content-Type": self._guess_mime(name),
-                        "Referer": REFERER + "/",
+                        "Referer": self.referer + "/",
                         "x-oss-date": now_str,
                         "x-oss-user-agent": oss_ua,
                     }
@@ -767,7 +773,7 @@ class QuarkAdapter:
                 "Authorization": auth_key_commit,
                 "Content-MD5": content_md5,
                 "Content-Type": "application/xml",
-                "Referer": REFERER + "/",
+                "Referer": self.referer + "/",
                 "x-oss-callback": callback_b64,
                 "x-oss-date": now_str,
                 "x-oss-user-agent": oss_ua,
@@ -872,7 +878,7 @@ class QuarkAdapter:
             "used_bytes": used_bytes,
             "total_bytes": total_bytes,
             "free_bytes": total_bytes - used_bytes if total_bytes is not None and used_bytes is not None else None,
-            "source": "quark",
+            "source": self.product_name.lower(),
             "scope": "account",
         }
 

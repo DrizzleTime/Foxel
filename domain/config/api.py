@@ -61,10 +61,7 @@ async def get_all_config(
 
 
 @router.get("/public")
-@audit(action=AuditAction.READ, description="获取公开配置")
-async def get_public_config(
-    request: Request,
-):
+async def get_public_config():
     data = {}
     for key in PUBLIC_CONFIG_KEYS:
         value = await ConfigService.get(key)
@@ -74,14 +71,12 @@ async def get_public_config(
 
 
 @router.get("/status")
-@audit(action=AuditAction.READ, description="获取系统状态")
-async def get_system_status(request: Request):
+async def get_system_status():
     status_data = await ConfigService.get_system_status()
     return success(status_data.model_dump())
 
 
 @router.get("/latest-version")
-@audit(action=AuditAction.READ, description="获取最新版本")
-async def get_latest_version(request: Request):
+async def get_latest_version():
     info = await ConfigService.get_latest_version()
     return success(info.model_dump())

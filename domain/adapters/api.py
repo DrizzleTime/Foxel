@@ -30,10 +30,8 @@ async def create_adapter(
 
 
 @router.get("")
-@audit(action=AuditAction.READ, description="获取适配器列表")
 @require_system_permission(AdapterPermission.LIST)
 async def list_adapters(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     adapters = await AdapterService.list_adapters()
@@ -41,10 +39,8 @@ async def list_adapters(
 
 
 @router.get("/available")
-@audit(action=AuditAction.READ, description="获取可用适配器类型")
 @require_system_permission(AdapterPermission.LIST)
 async def available_adapter_types(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     data = await AdapterService.available_adapter_types()
@@ -52,10 +48,8 @@ async def available_adapter_types(
 
 
 @router.get("/usage")
-@audit(action=AuditAction.READ, description="获取适配器容量使用情况")
 @require_system_permission(AdapterPermission.LIST)
 async def list_adapter_usages(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     usages = await AdapterService.list_adapter_usages()
@@ -63,10 +57,8 @@ async def list_adapter_usages(
 
 
 @router.get("/{adapter_id}/usage")
-@audit(action=AuditAction.READ, description="获取单个适配器容量使用情况")
 @require_system_permission(AdapterPermission.LIST)
 async def get_adapter_usage(
-    request: Request,
     adapter_id: int,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
@@ -75,10 +67,8 @@ async def get_adapter_usage(
 
 
 @router.get("/{adapter_id}")
-@audit(action=AuditAction.READ, description="获取适配器详情")
 @require_system_permission(AdapterPermission.LIST)
 async def get_adapter(
-    request: Request,
     adapter_id: int,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):

@@ -44,9 +44,7 @@ async def install_plugin(
 
 
 @router.get("", response_model=List[PluginOut])
-@audit(action=AuditAction.READ, description="获取插件列表")
 async def list_plugins(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     """获取已安装的插件列表"""
@@ -54,9 +52,7 @@ async def list_plugins(
 
 
 @router.get("/{key_or_id}", response_model=PluginOut)
-@audit(action=AuditAction.READ, description="获取插件详情")
 async def get_plugin(
-    request: Request,
     key_or_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):

@@ -34,9 +34,7 @@ async def trigger_test_email(
 
 
 @router.get("/templates")
-@audit(action=AuditAction.READ, description="获取邮件模板列表")
 async def list_email_templates(
-    request: Request,
     current_user: User = Depends(get_current_active_user),
 ):
     templates = await EmailTemplateRenderer.list_templates()
@@ -44,9 +42,7 @@ async def list_email_templates(
 
 
 @router.get("/templates/{name}")
-@audit(action=AuditAction.READ, description="查看邮件模板")
 async def get_email_template(
-    request: Request,
     name: str,
     current_user: User = Depends(get_current_active_user),
 ):
@@ -75,9 +71,7 @@ async def update_email_template(
 
 
 @router.post("/templates/{name}/preview")
-@audit(action=AuditAction.READ, description="预览邮件模板")
 async def preview_email_template(
-    request: Request,
     name: str,
     payload: EmailTemplatePreviewPayload,
     current_user: User = Depends(get_current_active_user),

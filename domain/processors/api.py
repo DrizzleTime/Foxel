@@ -22,9 +22,7 @@ router = APIRouter(prefix="/api/processors", tags=["processors"])
 
 
 @router.get("")
-@audit(action=AuditAction.READ, description="获取处理器列表")
 async def list_processors(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     data = ProcessorService.list_processors()
@@ -73,10 +71,8 @@ async def process_directory_with_processor(
 
 
 @router.get("/source/{processor_type}")
-@audit(action=AuditAction.READ, description="获取处理器源码")
 @require_system_permission(SystemPermission.ROLE_MANAGE)
 async def get_processor_source(
-    request: Request,
     processor_type: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):

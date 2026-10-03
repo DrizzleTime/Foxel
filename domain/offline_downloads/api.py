@@ -31,14 +31,12 @@ async def create_offline_download(request: Request, payload: OfflineDownloadCrea
 
 
 @router.get("/")
-@audit(action=AuditAction.READ, description="获取离线下载列表")
-async def list_offline_downloads(request: Request, current_user: CurrentUser):
+async def list_offline_downloads(current_user: CurrentUser):
     data = OfflineDownloadService.list_downloads()
     return success(data)
 
 
 @router.get("/{task_id}")
-@audit(action=AuditAction.READ, description="获取离线下载详情")
-async def get_offline_download(task_id: str, request: Request, current_user: CurrentUser):
+async def get_offline_download(task_id: str, current_user: CurrentUser):
     data = OfflineDownloadService.get_download(task_id)
     return success(data)

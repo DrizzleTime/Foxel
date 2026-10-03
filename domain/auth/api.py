@@ -40,9 +40,8 @@ async def login_for_access_token(
 
 
 @router.get("/me", summary="获取当前登录用户信息")
-@audit(action=AuditAction.READ, description="获取当前用户信息")
 async def get_me(
-    request: Request, current_user: Annotated[User, Depends(get_current_active_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     profile = AuthService.get_profile(current_user)
     return success(profile)

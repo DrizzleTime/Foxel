@@ -48,9 +48,8 @@ async def create_share(
 
 
 @router.get("", response_model=List[ShareInfo])
-@audit(action=AuditAction.READ, description="获取我的分享列表")
 async def get_my_shares(
-    request: Request, current_user: Annotated[User, Depends(get_current_active_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     user_account = await UserAccount.get(id=current_user.id)
     shares = await ShareService.get_user_shares(user=user_account)

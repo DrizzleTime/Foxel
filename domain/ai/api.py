@@ -21,10 +21,8 @@ router_ai = APIRouter(prefix="/api/ai", tags=["ai"])
 router_vector_db = APIRouter(prefix="/api/vector-db", tags=["vector-db"])
 
 
-@audit(action=AuditAction.READ, description="获取 AI 提供商列表")
 @router_ai.get("/providers")
 async def list_providers_endpoint(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     providers = await AIProviderService.list_providers()
@@ -47,10 +45,8 @@ async def create_provider(
     return success(provider)
 
 
-@audit(action=AuditAction.READ, description="获取 AI 提供商详情")
 @router_ai.get("/providers/{provider_id}")
 async def get_provider(
-    request: Request,
     provider_id: Annotated[int, Path(..., gt=0)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
@@ -106,10 +102,8 @@ async def sync_models(
     return success(result)
 
 
-@audit(action=AuditAction.READ, description="获取远程模型列表")
 @router_ai.get("/providers/{provider_id}/remote-models")
 async def fetch_remote_models(
-    request: Request,
     provider_id: Annotated[int, Path(..., gt=0)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
@@ -123,10 +117,8 @@ async def fetch_remote_models(
     return success({"models": models})
 
 
-@audit(action=AuditAction.READ, description="获取模型列表")
 @router_ai.get("/providers/{provider_id}/models")
 async def list_models(
-    request: Request,
     provider_id: Annotated[int, Path(..., gt=0)],
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
@@ -187,10 +179,8 @@ def _get_embedding_dimension(entry: Optional[Dict]) -> Optional[int]:
     return int(value) if value is not None else None
 
 
-@audit(action=AuditAction.READ, description="获取默认模型")
 @router_ai.get("/defaults")
 async def get_defaults(
-    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     defaults = await AIProviderService.get_default_models()
@@ -237,9 +227,8 @@ async def clear_vector_db(request: Request, user: User = Depends(get_current_act
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@audit(action=AuditAction.READ, description="获取向量数据库统计")
 @router_vector_db.get("/stats", summary="获取向量数据库统计")
-async def get_vector_db_stats(request: Request, user: User = Depends(get_current_active_user)):
+async def get_vector_db_stats(user: User = Depends(get_current_active_user)):
     try:
         service = VectorDBService()
         data = await service.get_all_stats()
@@ -248,15 +237,13 @@ async def get_vector_db_stats(request: Request, user: User = Depends(get_current
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@audit(action=AuditAction.READ, description="获取向量数据库提供者列表")
 @router_vector_db.get("/providers", summary="列出可用向量数据库提供者")
-async def list_vector_providers(request: Request):
+async def list_vector_providers():
     return success(list_providers())
 
 
-@audit(action=AuditAction.READ, description="获取向量数据库配置")
 @router_vector_db.get("/config", summary="获取当前向量数据库配置")
-async def get_vector_db_config(request: Request, user: User = Depends(get_current_active_user)):
+async def get_vector_db_config(user: User = Depends(get_current_active_user)):
     service = VectorDBService()
     data = await service.current_provider()
     return success(data)

@@ -21,15 +21,13 @@ router = APIRouter(
 
 
 @router.get("/queue")
-@audit(action=AuditAction.READ, description="获取任务队列状态")
-async def get_task_queue_status(request: Request, current_user: CurrentUser):
+async def get_task_queue_status(current_user: CurrentUser):
     payload = TaskService.get_queue_tasks()
     return success(payload)
 
 
 @router.get("/queue/settings")
-@audit(action=AuditAction.READ, description="获取任务队列设置")
-async def get_task_queue_settings(request: Request, current_user: CurrentUser):
+async def get_task_queue_settings(current_user: CurrentUser):
     payload = TaskService.get_queue_settings()
     return success(payload.model_dump())
 
@@ -46,8 +44,7 @@ async def update_task_queue_settings(request: Request, settings: TaskQueueSettin
 
 
 @router.get("/queue/{task_id}")
-@audit(action=AuditAction.READ, description="获取队列任务状态")
-async def get_task_status(task_id: str, request: Request, current_user: CurrentUser):
+async def get_task_status(task_id: str, current_user: CurrentUser):
     payload = TaskService.get_queue_task(task_id)
     return success(payload)
 
@@ -72,15 +69,13 @@ async def create_task(request: Request, task_in: AutomationTaskCreate, user: Cur
 
 
 @router.get("/{task_id}")
-@audit(action=AuditAction.READ, description="获取自动化任务详情")
-async def get_task(task_id: int, request: Request, current_user: CurrentUser):
+async def get_task(task_id: int, current_user: CurrentUser):
     task = await TaskService.get_task(task_id)
     return success(task)
 
 
 @router.get("/")
-@audit(action=AuditAction.READ, description="获取自动化任务列表")
-async def list_tasks(request: Request, current_user: CurrentUser):
+async def list_tasks(current_user: CurrentUser):
     tasks = await TaskService.list_tasks()
     return success(tasks)
 

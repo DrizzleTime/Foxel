@@ -591,6 +591,7 @@
   "adapter.type.telegram": "Telegram",
   "adapter.type.quark": "Quark Drive",
   "adapter.type.uc": "UC Drive",
+  "adapter.type.pan123": "123Pan (Account)",
   "adapter.type.alist": "AList",
   "adapter.type.openlist": "OpenList",
   "Automation Tasks": "Automation Tasks",

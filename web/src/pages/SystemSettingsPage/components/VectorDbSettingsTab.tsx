@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Form, Button, Card, Space, Spin, Empty, Alert, Select, Input, Modal, message } from 'antd';
 import { vectorDBApi, type VectorDBStats, type VectorDBProviderMeta, type VectorDBCurrentConfig } from '../../../api/vectorDB';
 import { useI18n } from '../../../i18n';
@@ -55,19 +55,26 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
   const [vectorConfigSaving, setVectorConfigSaving] = useState(false);
   const [vectorMetaError, setVectorMetaError] = useState<string | null>(null);
   const [selectedProviderType, setSelectedProviderType] = useState<string | null>(null);
+  const initialLoadStarted = useRef(false);
+  const statsRequestId = useRef(0);
 
   const fetchVectorStats = useCallback(async () => {
+    const requestId = ++statsRequestId.current;
     setVectorStatsLoading(true);
     setVectorStatsError(null);
     try {
       const data = await vectorDBApi.getStats();
-      setVectorStats(data);
+      if (requestId === statsRequestId.current) {
+        setVectorStats(data);
+      }
     } catch (e: any) {
-      const msg = e?.message || t('Load failed');
-      setVectorStatsError(msg);
-      message.error(msg);
+      if (requestId === statsRequestId.current) {
+        setVectorStatsError(e?.message || t('Load failed'));
+      }
     } finally {
-      setVectorStatsLoading(false);
+      if (requestId === statsRequestId.current) {
+        setVectorStatsLoading(false);
+      }
     }
   }, [t]);
 
@@ -101,7 +108,6 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
     } catch (e: any) {
       const msg = e?.message || t('Load failed');
       setVectorMetaError(msg);
-      message.error(msg);
     } finally {
       setVectorConfigLoading(false);
     }
@@ -127,8 +133,11 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
           .map(([key, val]) => [key, String(val)]),
       );
       const response = await vectorDBApi.updateConfig({ type: values.type, config: configPayload });
+      // Ignore statistics from the previous provider if its request is still pending.
+      statsRequestId.current += 1;
       setVectorConfig(response.config);
       setVectorStats(response.stats);
+      setVectorStatsLoading(false);
       setVectorStatsError(null);
       setSelectedProviderType(response.config.type);
       const provider = vectorProviders.find((item) => item.type === response.config.type);
@@ -163,26 +172,14 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
   }, [fetchVectorMeta, fetchVectorStats, t]);
 
   useEffect(() => {
-    if (!isActive) {
+    if (!isActive || initialLoadStarted.current) {
       return;
     }
-    if (!vectorProviders.length && !vectorConfigLoading) {
-      fetchVectorMeta();
-    }
-    if (!vectorStats && !vectorStatsLoading) {
-      fetchVectorStats();
-    }
-  }, [
-    isActive,
-    fetchVectorMeta,
-    fetchVectorStats,
-    vectorProviders.length,
-    vectorConfigLoading,
-    vectorStats,
-    vectorStatsLoading,
-  ]);
+    initialLoadStarted.current = true;
+    void fetchVectorMeta();
+    void fetchVectorStats();
+  }, [isActive, fetchVectorMeta, fetchVectorStats]);
 
-  const vectorSectionLoading = vectorStatsLoading || vectorConfigLoading;
   const selectedProvider = vectorProviders.find(
     (item) => item.type === selectedProviderType || (!selectedProviderType && item.enabled),
   );
@@ -197,15 +194,18 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
               {t('Refresh')}
             </Button>
           </div>
-          {vectorSectionLoading ? (
+          {vectorMetaError ? (
+            <Alert type="error" showIcon message={vectorMetaError} />
+          ) : null}
+          {vectorStatsError ? (
+            <Alert type="error" showIcon message={vectorStatsError} />
+          ) : null}
+          {vectorStatsLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
               <Spin />
             </div>
           ) : (
             <>
-              {vectorMetaError ? (
-                <Alert type="error" showIcon message={vectorMetaError} />
-              ) : null}
               {vectorStats ? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
@@ -271,87 +271,87 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
                     {t('Estimated memory is calculated as vectors x dimension x 4 bytes (float32).')}
                   </div>
                 </Space>
-              ) : vectorStatsError ? (
-                <div style={{ color: '#ff4d4f' }}>{vectorStatsError}</div>
-              ) : (
+              ) : !vectorStatsError ? (
                 <Empty description={t('No collections')} />
-              )}
-              <Form
-                layout="vertical"
-                form={form}
-                onFinish={handleVectorConfigSave}
-                initialValues={{ type: selectedProviderType || undefined, config: {} }}
-              >
-                <Form.Item
-                  name="type"
-                  label={t('Database Provider')}
-                  rules={[{ required: true, message: t('Please select a provider') }]}
-                >
-                  <Select
-                    size="large"
-                    options={vectorProviders.map((provider) => ({
-                      value: provider.type,
-                      label: provider.enabled ? provider.label : `${provider.label} (${t('Coming soon')})`,
-                      disabled: !provider.enabled,
-                    }))}
-                    onChange={handleProviderChange}
-                    loading={vectorConfigLoading && !vectorProviders.length}
-                  />
-                </Form.Item>
-                {selectedProvider?.description ? (
-                  <Alert
-                    type="info"
-                    showIcon
-                    message={t(selectedProvider.description)}
-                    style={{ marginBottom: 16 }}
-                  />
-                ) : null}
-                {selectedProvider?.config_schema?.map((field) => (
-                  <Form.Item
-                    key={field.key}
-                    name={['config', field.key]}
-                    label={t(field.label)}
-                    rules={field.required ? [{ required: true, message: t('Please input {label}', { label: t(field.label) }) }] : []}
-                  >
-                    {field.type === 'password' ? (
-                      <Input.Password size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
-                    ) : (
-                      <Input size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
-                    )}
-                  </Form.Item>
-                ))}
-                {selectedProvider && !selectedProvider.enabled ? (
-                  <Alert
-                    type="warning"
-                    showIcon
-                    message={t('This provider is not available yet')}
-                    style={{ marginBottom: 16 }}
-                  />
-                ) : null}
-                <Form.Item>
-                  <Space orientation="vertical" style={{ width: '100%' }}>
-                    <Button
-                      type="primary"
-                      htmlType="submit"
-                      loading={vectorConfigSaving}
-                      block
-                      disabled={!selectedProvider?.enabled}
-                    >
-                      {t('Save')}
-                    </Button>
-                    <Button
-                      danger
-                      htmlType="button"
-                      block
-                      onClick={handleClearVectorDb}
-                    >
-                      {t('Clear Vector DB')}
-                    </Button>
-                  </Space>
-                </Form.Item>
-              </Form>
+              ) : null}
             </>
           )}
+          <Form
+            layout="vertical"
+            form={form}
+            onFinish={handleVectorConfigSave}
+            initialValues={{ type: selectedProviderType || undefined, config: {} }}
+          >
+            <Form.Item
+              name="type"
+              label={t('Database Provider')}
+              rules={[{ required: true, message: t('Please select a provider') }]}
+            >
+              <Select
+                size="large"
+                options={vectorProviders.map((provider) => ({
+                  value: provider.type,
+                  label: provider.enabled ? provider.label : `${provider.label} (${t('Coming soon')})`,
+                  disabled: !provider.enabled,
+                }))}
+                onChange={handleProviderChange}
+                loading={vectorConfigLoading && !vectorProviders.length}
+                disabled={vectorConfigLoading || vectorConfigSaving}
+              />
+            </Form.Item>
+            {selectedProvider?.description ? (
+              <Alert
+                type="info"
+                showIcon
+                message={t(selectedProvider.description)}
+                style={{ marginBottom: 16 }}
+              />
+            ) : null}
+            {selectedProvider?.config_schema?.map((field) => (
+              <Form.Item
+                key={field.key}
+                name={['config', field.key]}
+                label={t(field.label)}
+                rules={field.required ? [{ required: true, message: t('Please input {label}', { label: t(field.label) }) }] : []}
+              >
+                {field.type === 'password' ? (
+                  <Input.Password size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+                ) : (
+                  <Input size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+                )}
+              </Form.Item>
+            ))}
+            {selectedProvider && !selectedProvider.enabled ? (
+              <Alert
+                type="warning"
+                showIcon
+                message={t('This provider is not available yet')}
+                style={{ marginBottom: 16 }}
+              />
+            ) : null}
+            <Form.Item>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={vectorConfigSaving}
+                  block
+                  disabled={vectorConfigLoading || !selectedProvider?.enabled}
+                >
+                  {t('Save')}
+                </Button>
+                <Button
+                  danger
+                  htmlType="button"
+                  block
+                  onClick={handleClearVectorDb}
+                  disabled={vectorStatsLoading || vectorConfigSaving || !!vectorStatsError}
+                >
+                  {t('Clear Vector DB')}
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
         </Space>
       </Space>
     </Card>

@@ -354,19 +354,22 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                 </Space>
                 <Tag color={selected ? token.colorPrimary : token.colorBorderSecondary}>{item.type}</Tag>
               </Flex>
-              <Space orientation="vertical" size={6} style={{ marginTop: 8 }}>
-                <div>
-                  <Text type="secondary" style={{ marginRight: 8 }}>{t('Supported Extensions')}:</Text>
+              <Space orientation="vertical" size={6} style={{ marginTop: 8, width: '100%' }}>
+                <Flex align="center" gap={8} style={{ minWidth: 0 }}>
+                  <Text type="secondary" style={{ flexShrink: 0 }}>{t('Supported Extensions')}:</Text>
                   {item.supported_exts?.length ? (
-                    <Space wrap size={[4, 4]}>
+                    <Text
+                      ellipsis={{ tooltip: item.supported_exts.join(', ') }}
+                      style={{ flex: 1, minWidth: 0 }}
+                    >
                       {item.supported_exts.map(ext => (
-                        <Tag key={ext}>{ext}</Tag>
+                        <Tag key={ext} style={{ marginInlineEnd: 4 }}>{ext}</Tag>
                       ))}
-                    </Space>
+                    </Text>
                   ) : (
                     <Tag>{t('All')}</Tag>
                   )}
-                </div>
+                </Flex>
                 <Text type="secondary">
                   {t('Produces File')}: {item.produces_file ? t('Yes') : t('No')}
                 </Text>

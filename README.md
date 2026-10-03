@@ -41,7 +41,7 @@ Utilizes an extensible adapter pattern to easily integrate various storage types
 |---|---|
 | **Standard Protocols** | Local, S3-compatible, WebDAV, SFTP, FTP, SMB |
 | **Cloud Drives** | Google Drive, OneDrive, Dropbox, Quark, UC, 123Pan, 115, 189 |
-| **Special** | Telegram, AList, Foxel-to-Foxel |
+| **Special** | Telegram, AList, Foxel-to-Foxel, Seafile |
 
 ### 🔍 AI-Powered Semantic Search
 

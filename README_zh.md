@@ -41,7 +41,7 @@
 |---|---|
 | **标准协议** | 本地存储、S3 兼容存储、WebDAV、SFTP、FTP、SMB |
 | **网盘服务** | Google Drive、OneDrive、Dropbox、夸克网盘、UC 网盘、123 网盘、115 网盘、天翼云盘 |
-| **特殊类型** | Telegram、AList、Foxel 互联 |
+| **特殊类型** | Telegram、AList、Foxel 互联、Seafile |
 
 ### 🔍 AI 语义搜索
 

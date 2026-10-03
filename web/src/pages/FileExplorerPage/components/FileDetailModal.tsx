@@ -56,8 +56,10 @@ function renderExif(exif: Record<string, any>, t: (k: string)=>string) {
         label: <span style={{ fontWeight: 500, color: 'var(--ant-color-text-secondary, #595959)' }}>{item.label}</span>,
         children: <span style={{ color: 'var(--ant-color-text, #262626)' }}>{item.value}</span>
       }))}
-      contentStyle={{ padding: '8px 12px' }}
-      labelStyle={{ padding: '8px 12px', backgroundColor: 'var(--ant-color-fill-tertiary, #fafafa)', width: '30%' }}
+      styles={{
+        content: { padding: '8px 12px' },
+        label: { padding: '8px 12px', backgroundColor: 'var(--ant-color-fill-tertiary, #fafafa)', width: '30%' },
+      }}
     />
   );
 }
@@ -261,14 +263,16 @@ export const FileDetailModal: React.FC<Props> = ({ entry, loading, data, onClose
                       )
                     }
                   ]}
-                  contentStyle={{ 
-                    fontSize: 14,
-                    color: token.colorText
-                  }}
-                  labelStyle={{ 
-                    fontWeight: 500,
-                    color: token.colorTextSecondary,
-                    width: '30%'
+                  styles={{
+                    content: {
+                      fontSize: 14,
+                      color: token.colorText,
+                    },
+                    label: {
+                      fontWeight: 500,
+                      color: token.colorTextSecondary,
+                      width: '30%',
+                    },
                   }}
                 />
                 {data.mode !== undefined && (
@@ -316,8 +320,10 @@ export const FileDetailModal: React.FC<Props> = ({ entry, loading, data, onClose
                         ),
                       },
                     ]}
-                    contentStyle={{ fontSize: 14 }}
-                    labelStyle={{ fontWeight: 500, color: token.colorTextSecondary, width: '30%' }}
+                    styles={{
+                      content: { fontSize: 14 },
+                      label: { fontWeight: 500, color: token.colorTextSecondary, width: '30%' },
+                    }}
                   />
 
                   {vectorIndex.total ? (

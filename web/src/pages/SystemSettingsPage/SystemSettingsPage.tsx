@@ -179,7 +179,7 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate, onClose }: S
       }}
     >
       {loadError ? (
-        <div className="fx-settings-modal-message"><Alert type="error" showIcon message={loadError} /></div>
+        <div className="fx-settings-modal-message"><Alert type="error" showIcon title={loadError} /></div>
       ) : !config ? (
         <div className="fx-settings-modal-message">{t('Loading...')}</div>
       ) : (

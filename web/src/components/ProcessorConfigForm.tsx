@@ -33,13 +33,10 @@ export const ProcessorConfigForm: React.FC<ProcessorConfigFormProps> = ({ proces
             break;
           case 'select':
             inputNode = (
-              <Select placeholder={field.placeholder || t('Please select')}>
-                {field.options?.map((opt: any) => (
-                  <Select.Option key={String(opt.value)} value={opt.value}>
-                    {opt.label}
-                  </Select.Option>
-                ))}
-              </Select>
+              <Select
+                placeholder={field.placeholder || t('Please select')}
+                options={field.options?.map((opt: any) => ({ value: opt.value, label: opt.label }))}
+              />
             );
             break;
           default:

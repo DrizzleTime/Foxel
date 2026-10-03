@@ -261,22 +261,21 @@ body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe
   flex-direction: column;
   min-height: 0;
 }
-.plugins-tabs .ant-tabs-content-holder,
-.plugins-tabs .ant-tabs-content {
+.plugins-tabs > .ant-tabs-body-holder,
+.plugins-tabs .plugins-tabs-body {
   flex: 1;
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-.plugins-tabs .ant-tabs-tabpane {
+.plugins-tabs .plugins-tabs-pane {
   flex: 1;
   height: 100%;
   min-height: 0;
-  display: none;
   flex-direction: column;
 }
-.plugins-tabs .ant-tabs-tabpane-active {
+.plugins-tabs .plugins-tabs-pane:not(.ant-tabs-content-hidden) {
   display: flex;
 }
 
@@ -320,13 +319,13 @@ body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe
     width: 100vw !important;
   }
 
-  .ant-modal-root .ant-modal {
+  .ant-modal-root .ant-modal:not(.fx-settings-modal) {
     max-width: calc(100vw - 16px) !important;
     width: calc(100vw - 16px) !important;
     margin: 8px auto;
   }
 
-  .ant-modal-root .ant-modal .ant-modal-content {
+  .ant-modal-root .ant-modal:not(.fx-settings-modal) .ant-modal-container {
     padding: 16px;
   }
 }

@@ -329,7 +329,7 @@ const SideNav = memo(function SideNav({
 
               {hasUpdate && (
                 <Alert
-                  message={<span style={{ color: token.colorText }}>{t('New version found: {version}', { version: latestVersion.version })}</span>}
+                  title={<span style={{ color: token.colorText }}>{t('New version found: {version}', { version: latestVersion.version })}</span>}
                   description={<span style={{ color: token.colorTextSecondary }}>{t('Please update to the latest for features and fixes')}</span>}
                   type="info"
                   showIcon

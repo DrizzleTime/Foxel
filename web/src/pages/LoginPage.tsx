@@ -96,7 +96,7 @@ export default function LoginPage() {
                 </Text>
               </div>
 
-              {err && <Alert message={err} type="error" showIcon style={{ marginBottom: 8 }} />}
+              {err && <Alert title={err} type="error" showIcon style={{ marginBottom: 8 }} />}
 
               <Form onFinish={handleSubmit} layout="vertical" size="large">
                 <Form.Item>

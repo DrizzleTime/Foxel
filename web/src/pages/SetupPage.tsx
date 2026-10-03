@@ -215,7 +215,7 @@ const SetupPage = () => {
             <Alert
               type="info"
               showIcon
-              message={t(selectedVectorProvider.description)}
+              title={t(selectedVectorProvider.description)}
               style={{ marginBottom: 16 }}
             />
           ) : null}
@@ -379,8 +379,8 @@ const SetupPage = () => {
         </div>
         <Steps
           current={currentStep}
-          direction={isMobile ? 'vertical' : 'horizontal'}
-          size={isMobile ? 'small' : 'default'}
+          orientation={isMobile ? 'vertical' : 'horizontal'}
+          size={isMobile ? 'small' : 'medium'}
           style={{ marginBottom: isMobile ? 20 : 32 }}
           items={steps.map((item) => ({ title: item.title }))}
         />

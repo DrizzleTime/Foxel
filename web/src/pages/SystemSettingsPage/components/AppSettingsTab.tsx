@@ -123,7 +123,7 @@ export default function AppSettingsTab({
       <Alert
         type="info"
         showIcon
-        message={t('Enabling registration allows new users to sign up and assigns them the default role')}
+        title={t('Enabling registration allows new users to sign up and assigns them the default role')}
         style={{ marginBottom: 16 }}
       />
 

@@ -241,7 +241,7 @@ export const RoleEditorDrawer = memo(function RoleEditorDrawer({
         <Tabs
           activeKey={activeTab}
           onChange={(k) => onTabChange(k as RoleDrawerTab)}
-          destroyInactiveTabPane={false}
+          destroyOnHidden={false}
           items={tabItems}
         />
       </Form>

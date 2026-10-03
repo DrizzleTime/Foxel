@@ -64,7 +64,7 @@ export default function RegisterPage() {
             <Text type="secondary">{t('Sign up to your Foxel account')}</Text>
           </div>
 
-          {err && <Alert message={err} type="error" showIcon />}
+          {err && <Alert title={err} type="error" showIcon />}
 
           <Form layout="vertical" size="large" onFinish={onFinish}>
             <Form.Item label={t('Username')} name="username" rules={[{ required: true, message: t('Please input username!') }]}>

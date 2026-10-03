@@ -121,7 +121,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
       title={t('Upload File')}
       width={600}
       closable={!isUploading}
-      maskClosable={!isUploading}
+      mask={{ closable: !isUploading }}
       onCancel={onClose}
       footer={[
         isUploading && <Button key="cancel" onClick={onCancelUpload}>{t('Cancel')}</Button>,

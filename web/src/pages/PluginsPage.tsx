@@ -548,6 +548,7 @@ const PluginsPage = memo(function PluginsPage() {
         activeKey={tab}
         onChange={(k) => setTab(k as any)}
         className="plugins-tabs"
+        classNames={{ body: 'plugins-tabs-body', content: 'plugins-tabs-pane' }}
         items={[
           {
             key: 'installed',
@@ -854,7 +855,7 @@ const PluginsPage = memo(function PluginsPage() {
         title={t('Confirm Install')}
         open={installModalOpen}
         onCancel={closeInstallModal}
-        maskClosable={!installing}
+        mask={{ closable: !installing }}
         closable={!installing}
         width={640}
         footer={(() => {
@@ -887,7 +888,7 @@ const PluginsPage = memo(function PluginsPage() {
             </div>
 
             {installStopReason ? (
-              <Alert type="error" showIcon message={installStopReason} />
+              <Alert type="error" showIcon title={installStopReason} />
             ) : null}
 
             <Progress

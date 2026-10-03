@@ -195,10 +195,10 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
             </Button>
           </div>
           {vectorMetaError ? (
-            <Alert type="error" showIcon message={vectorMetaError} />
+            <Alert type="error" showIcon title={vectorMetaError} />
           ) : null}
           {vectorStatsError ? (
-            <Alert type="error" showIcon message={vectorStatsError} />
+            <Alert type="error" showIcon title={vectorStatsError} />
           ) : null}
           {vectorStatsLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
@@ -303,7 +303,7 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
               <Alert
                 type="info"
                 showIcon
-                message={t(selectedProvider.description)}
+                title={t(selectedProvider.description)}
                 style={{ marginBottom: 16 }}
               />
             ) : null}
@@ -325,7 +325,7 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
               <Alert
                 type="warning"
                 showIcon
-                message={t('This provider is not available yet')}
+                title={t('This provider is not available yet')}
                 style={{ marginBottom: 16 }}
               />
             ) : null}

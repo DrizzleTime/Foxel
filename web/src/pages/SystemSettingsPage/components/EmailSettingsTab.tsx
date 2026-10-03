@@ -213,7 +213,7 @@ export default function EmailSettingsTab({ config, loading, onSave }: EmailSetti
           <Card
             title={t('SMTP Settings')}
             extra={<InfoCircleOutlined style={{ color: 'var(--ant-color-primary)' }} />}
-            bodyStyle={{ paddingBottom: 12 }}
+            styles={{ body: { paddingBottom: 12 } }}
           >
             <Form<EmailFormValues>
               layout="vertical"
@@ -297,7 +297,7 @@ export default function EmailSettingsTab({ config, loading, onSave }: EmailSetti
         </Col>
         <Col xs={24} lg={9}>
           <Space orientation="vertical" size={24} style={{ width: '100%' }}>
-            <Card title={t('Current Configuration')} bodyStyle={{ paddingBottom: 12 }}>
+            <Card title={t('Current Configuration')} styles={{ body: { paddingBottom: 12 } }}>
               <Descriptions column={1} size="small" colon={false}>
                 {summary.map(item => (
                   <Descriptions.Item key={item.label} label={<TextLabel text={item.label} />}>

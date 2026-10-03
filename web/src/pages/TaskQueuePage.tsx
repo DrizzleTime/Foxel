@@ -232,7 +232,7 @@ const TaskQueuePage = memo(function TaskQueuePage() {
             label: t('Active Workers'), value: settings.active_workers, color: '#722ed1'
           }].map((item) => (
             <Col key={item.label} xs={24} sm={12} md={8} lg={6} xl={4}>
-              <Card size="small" bodyStyle={{ padding: '12px 16px' }}>
+              <Card size="small" styles={{ body: { padding: '12px 16px' } }}>
                 <Typography.Text type="secondary">{item.label}</Typography.Text>
                 <Typography.Title level={4} style={{ margin: '4px 0 0', color: item.color }}>{item.value}</Typography.Title>
               </Card>

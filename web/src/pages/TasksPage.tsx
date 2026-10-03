@@ -203,24 +203,27 @@ const TasksPage = memo(function TasksPage() {
                 <Input placeholder="*/5 * * * * *" />
               </Form.Item>
               <Form.Item
-                name={['trigger_config', 'path']}
                 label={t('Target Path')}
-                rules={[{ required: true }]}
+                required
               >
-                <Input
-                  placeholder="/images"
-                  addonAfter={<Button size="small" onClick={() => setPathPickerField('cron_path')}>{t('Select')}</Button>}
-                />
+                <Space.Compact style={{ width: '100%' }}>
+                  <Form.Item name={['trigger_config', 'path']} rules={[{ required: true }]} noStyle>
+                    <Input placeholder="/images" />
+                  </Form.Item>
+                  <Button onClick={() => setPathPickerField('cron_path')}>{t('Select')}</Button>
+                </Space.Compact>
               </Form.Item>
             </>
           ) : (
             <>
               <Typography.Title level={5} style={{ marginTop: 8, fontSize: 14 }}>{t('Matching Rules')}</Typography.Title>
-              <Form.Item name={['trigger_config', 'path_prefix']} label={t('Path Prefix (optional)')}>
-                <Input
-                  placeholder="/images/screenshots"
-                  addonAfter={<Button size="small" onClick={() => setPathPickerField('path_prefix')}>{t('Select')}</Button>}
-                />
+              <Form.Item label={t('Path Prefix (optional)')}>
+                <Space.Compact style={{ width: '100%' }}>
+                  <Form.Item name={['trigger_config', 'path_prefix']} noStyle>
+                    <Input placeholder="/images/screenshots" />
+                  </Form.Item>
+                  <Button onClick={() => setPathPickerField('path_prefix')}>{t('Select')}</Button>
+                </Space.Compact>
               </Form.Item>
               <Form.Item name={['trigger_config', 'filename_regex']} label={t('Filename Regex (optional)')}>
                 <Input placeholder=".*\\.png$" />

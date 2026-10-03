@@ -682,10 +682,10 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                         <div className="fx-agent-tool-block">
                           <div className="fx-agent-tool-bar">
                             <Space size={6} wrap className="fx-agent-tool-pills">
-                              <Tag className="fx-agent-pill" bordered={false} icon={<ToolOutlined />}>
+                              <Tag className="fx-agent-pill" variant="filled" icon={<ToolOutlined />}>
                                 {t('MCP Tool')}
                               </Tag>
-                              <Tag className="fx-agent-pill fx-agent-pill-strong" bordered={false} icon={<CodeOutlined />}>
+                              <Tag className="fx-agent-pill fx-agent-pill-strong" variant="filled" icon={<CodeOutlined />}>
                                 {toolName || t('Tool')}
                               </Tag>
                             </Space>
@@ -752,7 +752,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                     <Text type="secondary">{t('Calling tools')}</Text>
                     <Space size={6} wrap>
                       {runningToolEntries.slice(0, 2).map(([id, name]) => (
-                        <Tag key={id} bordered={false} color="blue">
+                        <Tag key={id} variant="filled" color="blue">
                           {(name || t('Tool'))} #{shortId(id, 4)}
                         </Tag>
                       ))}
@@ -766,7 +766,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                   <div className="fx-agent-pending-group">
                     <div className="fx-agent-pending-head">
                       <Space size={8} wrap>
-                        <Tag className="fx-agent-pill fx-agent-pill-warn" bordered={false}>
+                        <Tag className="fx-agent-pill fx-agent-pill-warn" variant="filled">
                           {t('Pending actions')}
                         </Tag>
                         <Text type="secondary">{pending.length}</Text>
@@ -792,10 +792,10 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
                           <div key={p.id} className="fx-agent-tool-block fx-agent-pending-item">
                             <div className="fx-agent-tool-bar">
                               <Space size={6} wrap className="fx-agent-tool-pills">
-                                <Tag className="fx-agent-pill" bordered={false} icon={<ToolOutlined />}>
+                                <Tag className="fx-agent-pill" variant="filled" icon={<ToolOutlined />}>
                                   {t('MCP Tool')}
                                 </Tag>
-                                <Tag className="fx-agent-pill fx-agent-pill-strong" bordered={false} icon={<CodeOutlined />}>
+                                <Tag className="fx-agent-pill fx-agent-pill-strong" variant="filled" icon={<CodeOutlined />}>
                                   {p.name}
                                 </Tag>
                                 {running ? <LoadingOutlined spin style={{ color: token.colorPrimary }} /> : null}
@@ -852,7 +852,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
             <Flex vertical gap={8}>
               <Space wrap>
                 {effectivePath && (
-                  <Tag bordered={false} color="blue">{t('Current')}: {effectivePath}</Tag>
+                  <Tag variant="filled" color="blue">{t('Current')}: {effectivePath}</Tag>
                 )}
               </Space>
 

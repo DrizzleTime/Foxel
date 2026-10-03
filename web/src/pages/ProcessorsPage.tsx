@@ -453,7 +453,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                   <Alert
                     type="info"
                     showIcon
-                    message={t('Directory execution will enqueue one task for the directory itself')}
+                    title={t('Directory execution will enqueue one task for the directory itself')}
                   />
                 </Space>
               )}
@@ -462,7 +462,7 @@ const ProcessorsPage = memo(function ProcessorsPage() {
                   <Alert
                     type="info"
                     showIcon
-                    message={t('Directory execution will enqueue one task per file')}
+                    title={t('Directory execution will enqueue one task per file')}
                   />
                   <Form.Item name="directory_scope" label={t('Directory scope')} initialValue="current">
                     <Segmented

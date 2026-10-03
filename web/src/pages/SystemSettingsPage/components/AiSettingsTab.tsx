@@ -638,7 +638,7 @@ export default function AiSettingsTab() {
             onChange={(event) => setRemoteSearchKeyword(event.target.value)}
           />
           <div className="fx-ai-remote-models">
-            <Alert type="info" message={t('Select models from the list to add them automatically')} showIcon />
+            <Alert type="info" title={t('Select models from the list to add them automatically')} showIcon />
             <List
               size="small"
               dataSource={filteredRemoteModels}
@@ -1220,7 +1220,7 @@ export default function AiSettingsTab() {
             <Tabs
               activeKey={modelModalTab}
               onChange={(key) => setModelModalTab(key as 'remote' | 'manual')}
-              destroyInactiveTabPane={false}
+              destroyOnHidden={false}
               style={{ width: '100%' }}
               items={[
                 {

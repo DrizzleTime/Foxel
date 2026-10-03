@@ -195,7 +195,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
           {!hasS3Credentials && (
             <Alert
               type="warning"
-              message={t('Configure Access Key and Secret to enable S3 mapping.')}
+              title={t('Configure Access Key and Secret to enable S3 mapping.')}
               showIcon
             />
           )}

@@ -38,7 +38,7 @@ const renderHttpMethodTag = (method: string) => {
   const color = HTTP_METHOD_COLOR_MAP[upper] || 'default';
   return (
     <Tag
-      bordered={false}
+      variant="filled"
       color={color}
       style={{ margin: 0, paddingInline: 8, minWidth: 56, textAlign: 'center', fontWeight: 500 }}
     >
@@ -269,8 +269,10 @@ const AuditLogsPage = memo(function AuditLogsPage() {
               column={isMobile ? 1 : 2}
               bordered
               size="small"
-              labelStyle={{ minWidth: 120, whiteSpace: 'nowrap', fontWeight: 500 }}
-              contentStyle={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}
+              styles={{
+                label: { minWidth: 120, whiteSpace: 'nowrap', fontWeight: 500 },
+                content: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' },
+              }}
             >
               <Descriptions.Item label={t('Time')}>
                 {format(new Date(selectedLog.created_at), 'yyyy-MM-dd HH:mm:ss')}
@@ -284,7 +286,7 @@ const AuditLogsPage = memo(function AuditLogsPage() {
               <Descriptions.Item label={t('Client IP')}>
                 {selectedLog.client_ip || '-'}
               </Descriptions.Item>
-              <Descriptions.Item label={t('Path')} span={2}>
+              <Descriptions.Item label={t('Path')} span="filled">
                 <Space size={6} wrap style={{ wordBreak: 'break-all' }}>
                   {renderHttpMethodTag(selectedLog.method)}
                   <Typography.Text copyable style={{ wordBreak: 'break-all' }}>{selectedLog.path}</Typography.Text>
@@ -301,10 +303,10 @@ const AuditLogsPage = memo(function AuditLogsPage() {
                   {selectedLog.success ? t('Success') : t('Failure')}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label={t('Description')} span={2}>
+              <Descriptions.Item label={t('Description')} span="filled">
                 {selectedLog.description || '-'}
               </Descriptions.Item>
-              <Descriptions.Item label={t('Error')} span={2}>
+              <Descriptions.Item label={t('Error')} span="filled">
                 {selectedLog.error || '-'}
               </Descriptions.Item>
             </Descriptions>

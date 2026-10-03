@@ -94,7 +94,7 @@ export function MoveCopyModal({ mode, entries, open, defaultPath, onOk, onCancel
       onCancel={onCancel}
       confirmLoading={loading}
       okText={okText}
-      destroyOnClose
+      destroyOnHidden
     >
       <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
         <Input

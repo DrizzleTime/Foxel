@@ -209,7 +209,7 @@ export const Header: React.FC<HeaderProps> = ({
       <Flex align="center" gap={8} style={{ minWidth: 0 }}>
         <Button size="small" icon={<ArrowUpOutlined />} onClick={onGoUp} disabled={path === '/'} />
         <Typography.Text strong>{t('File Manager')}</Typography.Text>
-        <Divider type="vertical" />
+        <Divider orientation="vertical" />
         {renderBreadcrumb()}
       </Flex>
 
@@ -221,14 +221,12 @@ export const Header: React.FC<HeaderProps> = ({
           <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir} aria-label={t('New Folder')}>
             {t('New Folder')}
           </Button>
-          <Dropdown.Button
-            size="small"
-            icon={<UploadOutlined />}
-            onClick={onUploadFile}
-            menu={uploadMenu}
-          >
-            {t('Upload')}
-          </Dropdown.Button>
+          <Space.Compact size="small">
+            <Button onClick={onUploadFile}>{t('Upload')}</Button>
+            <Dropdown menu={uploadMenu}>
+              <Button icon={<UploadOutlined />} aria-label={t('Upload')} />
+            </Dropdown>
+          </Space.Compact>
         </Space>
 
         <Space size={8} wrap>

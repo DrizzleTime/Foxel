@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from datetime import timedelta
 from typing import Annotated, Any, Literal
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlsplit
 
 import httpx2
 from mcp.client import Client
@@ -13,6 +13,7 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.mcpserver import Context, MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from starlette.responses import JSONResponse
@@ -294,7 +295,34 @@ def fetch_web_page_prompt(url: Annotated[str, Field(description="目标网址")]
     return [{"role": "user", "content": f"请抓取网页 `{url}`，并总结标题、正文与关键链接。必要时调用 web_fetch。"}]
 
 
-MCP_HTTP_APP = MCP_SERVER.streamable_http_app(streamable_http_path="/")
+_LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
+MCP_TRANSPORT_SECURITY = TransportSecuritySettings(
+    allowed_hosts=[value for host in _LOOPBACK_HOSTS for value in (host, f"{host}:*")],
+    allowed_origins=[value for host in _LOOPBACK_HOSTS for value in (f"http://{host}", f"http://{host}:*")],
+)
+MCP_HTTP_APP = MCP_SERVER.streamable_http_app(
+    streamable_http_path="/", transport_security=MCP_TRANSPORT_SECURITY,
+)
+
+
+def _configure_mcp_domain(domain: str | None) -> None:
+    hosts = [value for host in _LOOPBACK_HOSTS for value in (host, f"{host}:*")]
+    origins = [value for host in _LOOPBACK_HOSTS for value in (f"http://{host}", f"http://{host}:*")]
+    try:
+        url = urlsplit((domain or "").strip())
+        if url.scheme in {"http", "https"} and url.hostname and not url.username and not url.password:
+            port = url.port
+            host = url.netloc.lower()
+            hosts.append(host)
+            origins.append(f"{url.scheme}://{host}")
+            if port == {"http": 80, "https": 443}[url.scheme]:
+                hosts.append(host.rsplit(":", 1)[0])
+                origins.append(f"{url.scheme}://{hosts[-1]}")
+    except ValueError:
+        pass
+    # Existing SDK sessions share this policy, so domain changes apply immediately.
+    MCP_TRANSPORT_SECURITY.allowed_hosts = hosts
+    MCP_TRANSPORT_SECURITY.allowed_origins = origins
 
 
 class RemoteMcpApp:
@@ -310,6 +338,7 @@ class RemoteMcpApp:
                 response = JSONResponse({"detail": "Remote MCP is disabled"}, status_code=503)
                 await response(scope, receive, send)
                 return
+            _configure_mcp_domain(await ConfigService.get("APP_DOMAIN"))
         await self.app(scope, receive, send)
 
 

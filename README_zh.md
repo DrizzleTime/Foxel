@@ -78,6 +78,7 @@
 #### MCP 与 Agent 边界
 
 - MCP 服务地址为 `/api/mcp/`，外部客户端使用 Foxel Bearer Token；直接调用由客户端负责确认，服务端始终执行当前用户的路径权限。
+- 将 `APP_DOMAIN` 设置为 Foxel 的公开访问地址（例如 `https://my.foxel.cc`），以允许对应的 Host 和 Origin 通过 MCP 传输校验。本机回环访问仍然可用。
 - `time`、目录浏览、元信息、文本读取、搜索、处理器列表及 `web_fetch` 可直接调用。`web_fetch` 支持 GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS，包含外部写请求但不在 Foxel 内额外审批。
 - Agent 对文件写入、创建、删除、移动、复制、重命名和 `processors_run` 创建数据库审批批次。审批请求必须携带返回的 `approval_batch_id`；参数以服务端保存的原始调用为准，过期或跨用户请求会拒绝，重复确认不会再次执行。
 - 目录变更和目录处理在执行前检查全部可见子项，任一项缺少权限或无法完整枚举则整批拒绝。后台任务会重新检查权限，权限变化后停止后续操作。

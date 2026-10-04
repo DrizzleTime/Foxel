@@ -39,11 +39,12 @@ export const UsersTable = memo(function UsersTable({
     {
       title: t('Status'),
       dataIndex: 'disabled',
-      width: 100,
+      width: 120,
       render: (disabled: boolean, rec: UserInfo) => (
         <Switch
           checked={!disabled}
-          size="small"
+          size="default"
+          style={{ minWidth: 80 }}
           loading={loading}
           onChange={(checked) => onToggleDisabled(rec, !checked)}
           checkedChildren={t('Active')}

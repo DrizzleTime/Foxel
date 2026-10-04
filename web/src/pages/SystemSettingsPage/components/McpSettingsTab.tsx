@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ApiOutlined, CopyOutlined } from '@ant-design/icons';
+import { CopyOutlined } from '@ant-design/icons';
 import { Button, Input, message, Switch, Tag, Tooltip, Typography } from 'antd';
 import { API_BASE_URL } from '../../../api/client';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useI18n } from '../../../i18n';
+import SettingsSection from './SettingsSection';
 
 interface McpSettingsTabProps {
   config: Record<string, string>;
@@ -47,16 +48,13 @@ export default function McpSettingsTab({ config, loading, onSave }: McpSettingsT
 
   return (
     <div className="fx-mcp-settings">
-      <section className="fx-mcp-overview">
-        <div className="fx-mcp-heading">
-          <div className="fx-mcp-icon"><ApiOutlined /></div>
+      <SettingsSection title={t('Foxel MCP')} action={<Tag>{t(enabled ? 'Enabled' : 'Disabled')}</Tag>}>
+        <div className="fx-settings-detail-row">
           <div>
-            <div className="fx-mcp-title">
-              <Typography.Title level={4}>{t('Foxel MCP')}</Typography.Title>
-              <Tag color={enabled ? 'success' : 'default'}>{t(enabled ? 'Enabled' : 'Disabled')}</Tag>
-            </div>
-            <Typography.Paragraph type="secondary">{t('Connect MCP clients to your Foxel files, search, and processors.')}</Typography.Paragraph>
+            <Typography.Text strong>{t('Enable MCP')}</Typography.Text>
+            <Typography.Paragraph type="secondary" className="fx-settings-note">{t('Allow external MCP clients to connect. Disabling this does not affect the built-in AI agent.')}</Typography.Paragraph>
           </div>
+          <Switch checked={enabled} loading={saving} disabled={loading} onChange={toggle} aria-label={t('Enable MCP')} />
         </div>
         <div className="fx-mcp-endpoint">
           <Typography.Text type="secondary">{t('Remote MCP Endpoint')}</Typography.Text>
@@ -68,44 +66,27 @@ export default function McpSettingsTab({ config, loading, onSave }: McpSettingsT
           </div>
           <Typography.Text type="secondary">{t('Streamable HTTP with Foxel Bearer Token authentication.')}</Typography.Text>
         </div>
-      </section>
+      </SettingsSection>
 
-      <section className="fx-settings-section">
-        <h3>{t('Permissions')}</h3>
-        <div className="fx-mcp-permission-row">
-          <div>
-            <Typography.Text strong>{t('Enable MCP')}</Typography.Text>
-            <Typography.Paragraph type="secondary">{t('Allow external MCP clients to connect. Disabling this does not affect the built-in AI agent.')}</Typography.Paragraph>
-          </div>
-          <Switch checked={enabled} loading={saving} disabled={loading} onChange={toggle} aria-label={t('Enable MCP')} />
-        </div>
-        <div className="fx-mcp-permission-info">
-          <Typography.Text strong>{t('Account permissions')}</Typography.Text>
-          <Typography.Paragraph type="secondary">{t('MCP follows the authenticated account’s read, write, and delete permissions. External clients handle confirmation for write operations.')}</Typography.Paragraph>
-        </div>
-      </section>
-
-      <section className="fx-settings-section">
-        <h3>{t('Access Token')}</h3>
-        <Typography.Paragraph type="secondary">{t('This token belongs to your current account and grants its existing permissions. Keep it private.')}</Typography.Paragraph>
+      <SettingsSection title={t('Access Token')}>
+        {user && <div className="fx-settings-detail-row"><Typography.Text strong>{t('Account')}</Typography.Text><Typography.Text>{user.username}</Typography.Text></div>}
         <div className="fx-mcp-token-row">
           <Input.Password value={token ?? ''} readOnly autoComplete="off" aria-label={t('Access Token')} />
           <Tooltip title={t('Copy token')}>
             <Button icon={<CopyOutlined />} disabled={!token} aria-label={t('Copy token')} onClick={() => token && copy(token)} />
           </Tooltip>
         </div>
-        {user && <Typography.Text type="secondary">{t('Account')}: {user.username}</Typography.Text>}
-      </section>
+        <Typography.Paragraph type="secondary" className="fx-settings-note">{t('This token belongs to your current account and grants its existing permissions. Keep it private.')}</Typography.Paragraph>
+        <Typography.Paragraph type="secondary" className="fx-settings-note">{t('MCP follows the authenticated account’s read, write, and delete permissions. External clients handle confirmation for write operations.')}</Typography.Paragraph>
+      </SettingsSection>
 
-      <section className="fx-settings-section">
-        <div className="fx-mcp-config-heading">
-          <h3>{t('Connection configuration')}</h3>
+      <SettingsSection title={t('Connection configuration')} action={
           <Tooltip title={t('Copy configuration including your token')}>
             <Button icon={<CopyOutlined />} disabled={!token} aria-label={t('Copy configuration including your token')} onClick={() => token && copy(connectionConfig(token))} />
           </Tooltip>
-        </div>
+      }>
         <pre className="fx-mcp-config"><code>{connectionConfig('YOUR_FOXEL_TOKEN')}</code></pre>
-      </section>
+      </SettingsSection>
     </div>
   );
 }

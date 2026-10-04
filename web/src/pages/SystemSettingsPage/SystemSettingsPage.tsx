@@ -31,9 +31,7 @@ const TAB_TITLES: Record<TabKey, string> = {
 const isValidTab = (key?: string): key is TabKey => !!key && (TAB_KEYS as string[]).includes(key);
 
 interface SystemSettingsPageProps {
-  tabKey?: string;
-  onTabNavigate?: (key: TabKey, options?: { replace?: boolean }) => void;
-  onClose?: () => void;
+  onClose: () => void;
 }
 
 const APP_CONFIG_KEYS: { key: string, label: string, default?: string }[] = [
@@ -78,13 +76,11 @@ const CONFIG_DEFAULTS: Record<string, string> = {
 
 const stringifyConfigValue = (value: unknown) => String(value ?? '');
 
-export default function SystemSettingsPage({ tabKey, onTabNavigate, onClose }: SystemSettingsPageProps) {
+export default function SystemSettingsPage({ onClose }: SystemSettingsPageProps) {
   const [loading, setLoading] = useState(false);
   const [config, setConfigState] = useState<Record<string, string> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>(() =>
-    isValidTab(tabKey) ? tabKey : DEFAULT_TAB
-  );
+  const [activeTab, setActiveTab] = useState<TabKey>(DEFAULT_TAB);
   const { refreshTheme } = useTheme();
   const { t } = useI18n();
   const { isMobile } = useResponsive();
@@ -130,18 +126,6 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate, onClose }: S
     }
   };
 
-  // 离开“外观设置”时，恢复后端持久化配置（取消未保存的预览）
-  useEffect(() => {
-    if (!isValidTab(tabKey)) {
-      setActiveTab((prev) => (prev === DEFAULT_TAB ? prev : DEFAULT_TAB));
-      if (tabKey !== DEFAULT_TAB) {
-        onTabNavigate?.(DEFAULT_TAB, { replace: true });
-      }
-      return;
-    }
-    setActiveTab((prev) => (prev === tabKey ? prev : tabKey));
-  }, [tabKey, onTabNavigate]);
-
   useEffect(() => {
     if (activeTab !== 'appearance') {
       refreshTheme();
@@ -153,7 +137,6 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate, onClose }: S
     if (nextKey !== activeTab) {
       setActiveTab(nextKey);
     }
-    onTabNavigate?.(nextKey);
   };
 
   return (
@@ -164,7 +147,6 @@ export default function SystemSettingsPage({ tabKey, onTabNavigate, onClose }: S
       title={
         <div className="fx-settings-modal-heading">
           <span className="fx-settings-modal-title">{t('System Settings')}</span>
-          <span className="fx-settings-modal-section-title">{t(TAB_TITLES[activeTab])}</span>
         </div>
       }
       footer={null}

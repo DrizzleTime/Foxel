@@ -1,7 +1,6 @@
 import { Layout, Flex } from 'antd';
 import { memo, useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router';
-import type { Location } from 'react-router';
+import { useParams, useNavigate } from 'react-router';
 import SideNav from '../layout/SideNav.tsx';
 import TopHeader from '../layout/TopHeader.tsx';
 import FileExplorerPage from '../pages/FileExplorerPage/FileExplorerPage.tsx';
@@ -21,19 +20,17 @@ import { AppWindowsLayer } from '../apps/AppWindowsLayer';
 import AiAgentWidget from '../components/AiAgentWidget';
 import useResponsive from '../hooks/useResponsive';
 
-const ShellBody = memo(function ShellBody({ navigationLocation }: { navigationLocation?: Location }) {
+const ShellBody = memo(function ShellBody() {
   const params = useParams<{ navKey?: string; '*': string }>();
   const navKey = params.navKey ?? 'files';
   const subPath = params['*'] ?? '';
   const navigate = useNavigate();
-  const pageLocation = useLocation();
-  const location = navigationLocation ?? pageLocation;
-  const settingsOpen = /^\/settings(?:\/|$)/.test(location.pathname);
   const { isMobile } = useResponsive();
   const COLLAPSED_KEY = 'layout.siderCollapsed';
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
@@ -44,27 +41,14 @@ const ShellBody = memo(function ShellBody({ navigationLocation }: { navigationLo
   }, [isMobile, navKey, subPath]);
 
   const { windows, closeWindow, toggleMax, bringToFront, updateWindow } = useAppWindows();
-  const settingsTab = settingsOpen ? location.pathname.split('/')[2] : undefined;
   const handleNavChange = useCallback((key: string) => {
     setMobileNavOpen(false);
     if (key === 'settings') {
-      navigate('/settings/appearance', {
-        state: { settingsBackground: location },
-      });
+      setSettingsOpen(true);
     } else {
       navigate(`/${key}`);
     }
-  }, [location, navigate]);
-  const handleSettingsTabNavigate = useCallback((key: string) => {
-    navigate(`/settings/${key}`, { replace: true, state: location.state });
-  }, [location.state, navigate]);
-  const handleCloseSettings = () => {
-    const background = location.state?.settingsBackground;
-    const target = background && !/^\/settings(?:\/|$)/.test(background.pathname)
-      ? background
-      : { pathname: '/files' };
-    navigate(target, { replace: true, state: background?.state });
-  };
+  }, [navigate]);
   const agentCurrentPath = navKey === 'files' ? ('/' + subPath).replace(/\/+/g, '/').replace(/\/+$/, '') || '/' : null;
   const handleToggleNav = () => {
     if (isMobile) {
@@ -134,11 +118,7 @@ const ShellBody = memo(function ShellBody({ navigationLocation }: { navigationLo
       </Layout>
 
       {settingsOpen && (
-        <SystemSettingsPage
-          tabKey={settingsTab}
-          onTabNavigate={handleSettingsTabNavigate}
-          onClose={handleCloseSettings}
-        />
+        <SystemSettingsPage onClose={() => setSettingsOpen(false)} />
       )}
       <AppWindowsLayer
         windows={windows}
@@ -152,10 +132,10 @@ const ShellBody = memo(function ShellBody({ navigationLocation }: { navigationLo
   );
 });
 
-const LayoutShell = memo(function LayoutShell({ navigationLocation }: { navigationLocation?: Location }) {
+const LayoutShell = memo(function LayoutShell() {
   return (
     <AppWindowsProvider>
-      <ShellBody navigationLocation={navigationLocation} />
+      <ShellBody />
     </AppWindowsProvider>
   );
 });

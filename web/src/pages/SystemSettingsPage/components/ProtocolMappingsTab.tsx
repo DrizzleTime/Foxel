@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Descriptions, Form, Input, Space, Switch, Typography } from 'antd';
+import { Alert, Button, Descriptions, Form, Input, Space, Switch, Typography } from 'antd';
+import { SaveOutlined } from '@ant-design/icons';
 import { useI18n } from '../../../i18n';
+import SettingsSection from './SettingsSection';
 
 interface ProtocolMappingsTabProps {
   config: Record<string, string>;
@@ -29,8 +31,6 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
   const [s3FormSaving, setS3FormSaving] = useState(false);
   const [s3Form] = Form.useForm();
   const watchBucket = Form.useWatch('bucket', s3Form);
-  const watchRegion = Form.useWatch('region', s3Form);
-  const watchBasePath = Form.useWatch('basePath', s3Form);
   const watchAccessKey = Form.useWatch('accessKey', s3Form);
   const watchSecretKey = Form.useWatch('secretKey', s3Form);
 
@@ -81,8 +81,9 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
   const handleToggleS3 = async (checked: boolean) => {
     setS3ToggleSaving(true);
     try {
-      await onSave({ [S3_KEYS.ENABLED]: checked ? '1' : '0' });
-      setS3Enabled(checked);
+      if (await onSave({ [S3_KEYS.ENABLED]: checked ? '1' : '0' })) {
+        setS3Enabled(checked);
+      }
     } finally {
       setS3ToggleSaving(false);
     }
@@ -97,8 +98,6 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
     return trimmed.replace(/\/+$/, '') || '/';
   };
 
-  const regionValue = (watchRegion ?? config[S3_KEYS.REGION] ?? '').trim();
-  const basePathValue = normalizeBasePath(watchBasePath ?? config[S3_KEYS.BASE_PATH] ?? '/');
   const accessKeyValue = (watchAccessKey ?? config[S3_KEYS.ACCESS_KEY] ?? '').trim();
   const secretValue = (watchSecretKey ?? config[S3_KEYS.SECRET_KEY] ?? '').trim();
   const exampleCommand = `aws --endpoint-url ${s3Endpoint} s3 ls s3://${bucketValue}/`;
@@ -123,29 +122,32 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
   const handleToggleWebdav = async (checked: boolean) => {
     setWebdavSaving(true);
     try {
-      await onSave({ [WEBDAV_KEY]: checked ? '1' : '0' });
-      setWebdavEnabled(checked);
+      if (await onSave({ [WEBDAV_KEY]: checked ? '1' : '0' })) {
+        setWebdavEnabled(checked);
+      }
     } finally {
       setWebdavSaving(false);
     }
   };
 
   return (
-    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-      <Card
+    <div className="fx-mapping-settings">
+      <SettingsSection
         title={t('WebDAV Mapping')}
-        extra={(
+        action={(
           <Space size={12} align="center">
             <Switch
               checked={webdavEnabled}
               loading={webdavSaving}
               disabled={loading}
               onChange={handleToggleWebdav}
+              aria-label={t('WebDAV Mapping')}
             />
           </Space>
         )}
       >
         <Descriptions
+          className="fx-settings-descriptions"
           column={1}
           size="small"
           items={[
@@ -178,16 +180,17 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
         <Typography.Text type="secondary">
           {t('Toggle the switch to expose the virtual file system via WebDAV.')}
         </Typography.Text>
-      </Card>
+      </SettingsSection>
 
-      <Card
+      <SettingsSection
         title={t('S3 Mapping')}
-        extra={(
+        action={(
           <Switch
             checked={s3Enabled}
             loading={s3ToggleSaving}
             disabled={loading}
             onChange={handleToggleS3}
+            aria-label={t('S3 Mapping')}
           />
         )}
       >
@@ -200,6 +203,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
             />
           )}
           <Descriptions
+            className="fx-settings-descriptions"
             column={1}
             size="small"
             items={[
@@ -213,11 +217,6 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
                 ),
               },
               {
-                key: 'bucket',
-                label: t('Bucket Name'),
-                children: bucketValue,
-              },
-              {
                 key: 'bucket-path',
                 label: t('Bucket API Path'),
                 children: (
@@ -226,23 +225,6 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
                   </Typography.Text>
                 ),
               },
-              {
-                key: 'region',
-                label: t('Region'),
-                children: regionValue || t('Not set'),
-              },
-              {
-                key: 'base-path',
-                label: t('Base Path'),
-                children: basePathValue,
-              },
-              {
-                key: 'access',
-                label: t('Access Key'),
-                children: accessKeyValue ? (
-                  <Typography.Text copyable={{ text: accessKeyValue }}>{accessKeyValue}</Typography.Text>
-                ) : t('Not set'),
-              },
             ]}
           />
           <Form
@@ -250,7 +232,7 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
             layout="vertical"
             onFinish={handleSaveS3}
             disabled={!s3Enabled || loading}
-            style={{ width: '100%' }}
+            className="fx-settings-form"
           >
             <Form.Item
               name="bucket"
@@ -287,20 +269,20 @@ export default function ProtocolMappingsTab({ config, loading, onSave }: Protoco
             >
               <Input.Password disabled={!s3Enabled || loading} />
             </Form.Item>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" loading={s3FormSaving} disabled={!s3Enabled} block>
+            <Form.Item className="fx-settings-save">
+              <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={s3FormSaving} disabled={!s3Enabled}>
                 {t('Save S3 Settings')}
               </Button>
             </Form.Item>
           </Form>
           <Typography.Paragraph type="secondary">
             {t('Example CLI command')}
-            <Typography.Text code style={{ display: 'block', marginTop: 8 }} copyable={{ text: exampleCommand }}>
+            <Typography.Text className="fx-settings-command" copyable={{ text: exampleCommand }}>
               {exampleCommand}
             </Typography.Text>
           </Typography.Paragraph>
         </Space>
-      </Card>
-    </Space>
+      </SettingsSection>
+    </div>
   );
 }

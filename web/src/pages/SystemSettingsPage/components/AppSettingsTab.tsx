@@ -1,4 +1,6 @@
-import { Alert, Button, Divider, Form, Input, Select, Switch, message } from 'antd';
+import { Button, Form, Input, Segmented, Select, Switch, Typography, message } from 'antd';
+import { AppstoreOutlined, BarsOutlined, SaveOutlined } from '@ant-design/icons';
+import SettingsSection from './SettingsSection';
 import { useEffect, useMemo, useState } from 'react';
 import { rolesApi, type RoleInfo } from '../../../api/roles';
 import { useI18n } from '../../../i18n';
@@ -82,82 +84,83 @@ export default function AppSettingsTab({
           setLang(defaultLanguage, { persist: false });
         }
       }}
-      style={{ marginTop: 24 }}
+      className="fx-settings-form"
       key={JSON.stringify(config)}
     >
-      {configKeys.map(({ key, label }) => (
-        <Form.Item key={key} name={key} label={t(label)}>
-          <Input size="large" />
+      <SettingsSection title={t('System')}>
+        {configKeys.map(({ key, label }) => (
+          <Form.Item key={key} name={key} label={t(label)}>
+            <Input size="large" />
+          </Form.Item>
+        ))}
+      </SettingsSection>
+
+      <SettingsSection title={t('Defaults')}>
+        <Form.Item
+          name="APP_DEFAULT_LANGUAGE"
+          label={t('Default Language')}
+          extra={t('Used when the user has not selected a language')}
+        >
+          <Select
+            size="large"
+            options={[
+              { value: 'zh', label: t('Chinese') },
+              { value: 'en', label: t('English') },
+            ]}
+          />
         </Form.Item>
-      ))}
 
-      <Form.Item
-        name="APP_DEFAULT_LANGUAGE"
-        label={t('Default Language')}
-        extra={t('Used when the user has not selected a language')}
-      >
-        <Select
-          size="large"
-          options={[
-            { value: 'zh', label: t('Chinese') },
-            { value: 'en', label: t('English') },
-          ]}
-        />
-      </Form.Item>
+        <Form.Item
+          name="DEFAULT_FILE_VIEW_MODE"
+          label={t('Default File View Mode')}
+        >
+          <Segmented
+            options={[
+              { value: 'grid', label: t('Grid'), icon: <AppstoreOutlined /> },
+              { value: 'list', label: t('List'), icon: <BarsOutlined /> },
+            ]}
+          />
+        </Form.Item>
+      </SettingsSection>
 
-      <Form.Item
-        name="DEFAULT_FILE_VIEW_MODE"
-        label={t('Default File View Mode')}
-      >
-        <Select
-          size="large"
-          options={[
-            { value: 'grid', label: t('Grid') },
-            { value: 'list', label: t('List') },
-          ]}
-        />
-      </Form.Item>
+      <SettingsSection title={t('Registration Settings')}>
+        <Typography.Paragraph type="secondary" className="fx-settings-note">
+          {t('Enabling registration allows new users to sign up and assigns them the default role')}
+        </Typography.Paragraph>
 
-      <Divider titlePlacement="left">{t('Registration Settings')}</Divider>
+        <Form.Item
+          name="AUTH_ALLOW_REGISTER"
+          label={t('Enable Registration')}
+          valuePropName="checked"
+          className="fx-settings-toggle"
+        >
+          <Switch />
+        </Form.Item>
 
-      <Alert
-        type="info"
-        showIcon
-        title={t('Enabling registration allows new users to sign up and assigns them the default role')}
-        style={{ marginBottom: 16 }}
-      />
+        <Form.Item dependencies={['AUTH_ALLOW_REGISTER']} noStyle>
+          {({ getFieldValue }) => {
+            const enabled = !!getFieldValue('AUTH_ALLOW_REGISTER');
+            return (
+              <Form.Item
+                name="AUTH_DEFAULT_REGISTER_ROLE_ID"
+                label={t('Default Role for New Registrations')}
+                rules={enabled ? [{ required: true, message: t('Please select default role') }] : []}
+              >
+                <Select
+                  size="large"
+                  loading={rolesLoading}
+                  disabled={!enabled || rolesLoading}
+                  placeholder={t('Select roles')}
+                  options={roles.map((r) => ({ value: r.id, label: r.name }))}
+                />
+              </Form.Item>
+            );
+          }}
+        </Form.Item>
+      </SettingsSection>
 
-      <Form.Item
-        name="AUTH_ALLOW_REGISTER"
-        label={t('Enable Registration')}
-        valuePropName="checked"
-      >
-        <Switch />
-      </Form.Item>
-
-      <Form.Item dependencies={['AUTH_ALLOW_REGISTER']} noStyle>
-        {({ getFieldValue }) => {
-          const enabled = !!getFieldValue('AUTH_ALLOW_REGISTER');
-          return (
-            <Form.Item
-              name="AUTH_DEFAULT_REGISTER_ROLE_ID"
-              label={t('Default Role for New Registrations')}
-              rules={enabled ? [{ required: true, message: t('Please select default role') }] : []}
-            >
-              <Select
-                size="large"
-                loading={rolesLoading}
-                disabled={!enabled || rolesLoading}
-                placeholder={t('Select roles')}
-                options={roles.map((r) => ({ value: r.id, label: r.name }))}
-              />
-            </Form.Item>
-          );
-        }}
-      </Form.Item>
-
-      <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading} block>
+      <Form.Item className="fx-settings-save">
+        <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />}>
           {t('Save')}
         </Button>
       </Form.Item>

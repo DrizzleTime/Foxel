@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Form, Button, Card, Space, Spin, Empty, Alert, Select, Input, Modal, message } from 'antd';
+import { Form, Button, Space, Spin, Empty, Alert, Select, Input, Modal, Tooltip, message } from 'antd';
+import { DeleteOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
 import { vectorDBApi, type VectorDBStats, type VectorDBProviderMeta, type VectorDBCurrentConfig } from '../../../api/vectorDB';
 import { useI18n } from '../../../i18n';
+import SettingsSection from './SettingsSection';
 
 interface VectorDbSettingsTabProps {
   isActive: boolean;
@@ -185,175 +187,168 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
   );
 
   return (
-    <Card title={t('Vector Database Settings')} style={{ marginTop: 24 }}>
-      <Space orientation="vertical" size={24} style={{ width: '100%' }}>
-        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-            <strong>{t('Current Statistics')}</strong>
-            <Button onClick={() => { fetchVectorMeta(); fetchVectorStats(); }} loading={vectorStatsLoading || vectorConfigLoading} disabled={(vectorStatsLoading || vectorConfigLoading) && !vectorStats}>
-              {t('Refresh')}
-            </Button>
+    <div className="fx-vector-settings">
+      <SettingsSection title={t('Current Statistics')} action={
+        <Tooltip title={t('Refresh')}>
+          <Button icon={<ReloadOutlined />} aria-label={t('Refresh')} onClick={() => { fetchVectorMeta(); fetchVectorStats(); }} loading={vectorStatsLoading || vectorConfigLoading} disabled={(vectorStatsLoading || vectorConfigLoading) && !vectorStats}>
+          </Button>
+        </Tooltip>
+      }>
+        {vectorMetaError ? (
+          <Alert type="error" showIcon title={vectorMetaError} />
+        ) : null}
+        {vectorStatsError ? (
+          <Alert type="error" showIcon title={vectorStatsError} />
+        ) : null}
+        {vectorStatsLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+            <Spin />
           </div>
-          {vectorMetaError ? (
-            <Alert type="error" showIcon title={vectorMetaError} />
-          ) : null}
-          {vectorStatsError ? (
-            <Alert type="error" showIcon title={vectorStatsError} />
-          ) : null}
-          {vectorStatsLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
-              <Spin />
-            </div>
-          ) : (
-            <>
-              {vectorStats ? (
-                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
-                    <div>
-                      <div style={{ color: '#888' }}>{t('Collections')}</div>
-                      <div style={{ fontSize: 20, fontWeight: 600 }}>{vectorStats.collection_count}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#888' }}>{t('Vectors')}</div>
-                      <div style={{ fontSize: 20, fontWeight: 600 }}>{vectorStats.total_vectors}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#888' }}>{t('Database Size')}</div>
-                      <div style={{ fontSize: 20, fontWeight: 600 }}>{formatBytes(vectorStats.db_file_size_bytes)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#888' }}>{t('Estimated Memory')}</div>
-                      <div style={{ fontSize: 20, fontWeight: 600 }}>{formatBytes(vectorStats.estimated_total_memory_bytes)}</div>
-                    </div>
+        ) : (
+          <>
+            {vectorStats ? (
+              <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                <div className="fx-settings-stats">
+                  <div>
+                    <div className="fx-settings-muted">{t('Collections')}</div>
+                    <div style={{ fontSize: 20, fontWeight: 600 }}>{vectorStats.collection_count}</div>
                   </div>
-                  {vectorStats.collections.length ? (
-                    <Space orientation="vertical" style={{ width: '100%' }} size={16}>
-                      {vectorStats.collections.map((collection) => (
-                        <div key={collection.name} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16 }}>
-                          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                              <strong>{collection.name}</strong>
-                              <span style={{ color: '#888' }}>
-                                {collection.is_vector_collection && collection.dimension
-                                  ? `${t('Dimension')}: ${collection.dimension}`
-                                  : t('Non-vector collection')}
-                              </span>
-                            </div>
-                            <div>{t('Vectors')}: {collection.row_count}</div>
-                            {collection.is_vector_collection ? (
-                              <div>{t('Estimated memory')}: {formatBytes(collection.estimated_memory_bytes)}</div>
-                            ) : null}
-                            {collection.indexes.length ? (
-                              <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-                                <span>{t('Indexes')}:</span>
-                                <ul style={{ paddingLeft: 20, margin: 0 }}>
-                                  {collection.indexes.map((index) => (
-                                    <li key={`${collection.name}-${index.index_name || 'default'}`}>
-                                      <span>{index.index_name || t('Unnamed index')}</span>
-                                      <span>{' · '}{index.index_type || '-'}</span>
-                                      <span>{' · '}{index.metric_type || '-'}</span>
-                                      <span>{' · '}{t('Indexed rows')}: {index.indexed_rows}</span>
-                                      <span>{' · '}{t('Pending rows')}: {index.pending_index_rows}</span>
-                                      <span>{' · '}{t('Status')}: {index.state || '-'}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </Space>
-                            ) : null}
-                          </Space>
-                        </div>
-                      ))}
-                    </Space>
-                  ) : (
-                    <Empty description={t('No collections')} />
-                  )}
-                  <div style={{ color: '#888' }}>
-                    {t('Estimated memory is calculated as vectors x dimension x 4 bytes (float32).')}
+                  <div>
+                    <div className="fx-settings-muted">{t('Vectors')}</div>
+                    <div style={{ fontSize: 20, fontWeight: 600 }}>{vectorStats.total_vectors}</div>
                   </div>
-                </Space>
-              ) : !vectorStatsError ? (
-                <Empty description={t('No collections')} />
-              ) : null}
-            </>
-          )}
-          <Form
-            layout="vertical"
-            form={form}
-            onFinish={handleVectorConfigSave}
-            initialValues={{ type: selectedProviderType || undefined, config: {} }}
-          >
-            <Form.Item
-              name="type"
-              label={t('Database Provider')}
-              rules={[{ required: true, message: t('Please select a provider') }]}
-            >
-              <Select
-                size="large"
-                options={vectorProviders.map((provider) => ({
-                  value: provider.type,
-                  label: provider.enabled ? provider.label : `${provider.label} (${t('Coming soon')})`,
-                  disabled: !provider.enabled,
-                }))}
-                onChange={handleProviderChange}
-                loading={vectorConfigLoading && !vectorProviders.length}
-                disabled={vectorConfigLoading || vectorConfigSaving}
-              />
-            </Form.Item>
-            {selectedProvider?.description ? (
-              <Alert
-                type="info"
-                showIcon
-                title={t(selectedProvider.description)}
-                style={{ marginBottom: 16 }}
-              />
-            ) : null}
-            {selectedProvider?.config_schema?.map((field) => (
-              <Form.Item
-                key={field.key}
-                name={['config', field.key]}
-                label={t(field.label)}
-                rules={field.required ? [{ required: true, message: t('Please input {label}', { label: t(field.label) }) }] : []}
-              >
-                {field.type === 'password' ? (
-                  <Input.Password size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+                  <div>
+                    <div className="fx-settings-muted">{t('Database Size')}</div>
+                    <div style={{ fontSize: 20, fontWeight: 600 }}>{formatBytes(vectorStats.db_file_size_bytes)}</div>
+                  </div>
+                  <div>
+                    <div className="fx-settings-muted">{t('Estimated Memory')}</div>
+                    <div style={{ fontSize: 20, fontWeight: 600 }}>{formatBytes(vectorStats.estimated_total_memory_bytes)}</div>
+                  </div>
+                </div>
+                {vectorStats.collections.length ? (
+                  <Space orientation="vertical" style={{ width: '100%' }} size={16}>
+                    {vectorStats.collections.map((collection) => (
+                      <div key={collection.name} className="fx-settings-collection">
+                        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                            <strong>{collection.name}</strong>
+                            <span className="fx-settings-muted">
+                              {collection.is_vector_collection && collection.dimension
+                                ? `${t('Dimension')}: ${collection.dimension}`
+                                : t('Non-vector collection')}
+                            </span>
+                          </div>
+                          <div>{t('Vectors')}: {collection.row_count}</div>
+                          {collection.is_vector_collection ? (
+                            <div>{t('Estimated memory')}: {formatBytes(collection.estimated_memory_bytes)}</div>
+                          ) : null}
+                          {collection.indexes.length ? (
+                            <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                              <span>{t('Indexes')}:</span>
+                              <ul style={{ paddingLeft: 20, margin: 0 }}>
+                                {collection.indexes.map((index) => (
+                                  <li key={`${collection.name}-${index.index_name || 'default'}`}>
+                                    <span>{index.index_name || t('Unnamed index')}</span>
+                                    <span>{' · '}{index.index_type || '-'}</span>
+                                    <span>{' · '}{index.metric_type || '-'}</span>
+                                    <span>{' · '}{t('Indexed rows')}: {index.indexed_rows}</span>
+                                    <span>{' · '}{t('Pending rows')}: {index.pending_index_rows}</span>
+                                    <span>{' · '}{t('Status')}: {index.state || '-'}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </Space>
+                          ) : null}
+                        </Space>
+                      </div>
+                    ))}
+                  </Space>
                 ) : (
-                  <Input size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('No collections')} />
                 )}
-              </Form.Item>
-            ))}
-            {selectedProvider && !selectedProvider.enabled ? (
-              <Alert
-                type="warning"
-                showIcon
-                title={t('This provider is not available yet')}
-                style={{ marginBottom: 16 }}
-              />
-            ) : null}
-            <Form.Item>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={vectorConfigSaving}
-                  block
-                  disabled={vectorConfigLoading || !selectedProvider?.enabled}
-                >
-                  {t('Save')}
-                </Button>
-                <Button
-                  danger
-                  htmlType="button"
-                  block
-                  onClick={handleClearVectorDb}
-                  disabled={vectorStatsLoading || vectorConfigSaving || !!vectorStatsError}
-                >
-                  {t('Clear Vector DB')}
-                </Button>
+                <div className="fx-settings-muted fx-settings-note">
+                  {t('Estimated memory is calculated as vectors x dimension x 4 bytes (float32).')}
+                </div>
               </Space>
+            ) : !vectorStatsError ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('No collections')} />
+            ) : null}
+          </>
+        )}
+      </SettingsSection>
+      <SettingsSection title={t('Vector Database Settings')}>
+        <Form
+          className="fx-settings-form"
+          layout="vertical"
+          form={form}
+          onFinish={handleVectorConfigSave}
+          initialValues={{ type: selectedProviderType || undefined, config: {} }}
+        >
+          <Form.Item
+            name="type"
+            label={t('Database Provider')}
+            extra={selectedProvider?.description ? t(selectedProvider.description) : undefined}
+            rules={[{ required: true, message: t('Please select a provider') }]}
+          >
+            <Select
+              size="large"
+              options={vectorProviders.map((provider) => ({
+                value: provider.type,
+                label: provider.enabled ? provider.label : `${provider.label} (${t('Coming soon')})`,
+                disabled: !provider.enabled,
+              }))}
+              onChange={handleProviderChange}
+              loading={vectorConfigLoading && !vectorProviders.length}
+              disabled={vectorConfigLoading || vectorConfigSaving}
+            />
+          </Form.Item>
+          {selectedProvider?.config_schema?.map((field) => (
+            <Form.Item
+              key={field.key}
+              name={['config', field.key]}
+              label={t(field.label)}
+              rules={field.required ? [{ required: true, message: t('Please input {label}', { label: t(field.label) }) }] : []}
+            >
+              {field.type === 'password' ? (
+                <Input.Password size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+              ) : (
+                <Input size="large" placeholder={field.placeholder ? t(field.placeholder) : undefined} />
+              )}
             </Form.Item>
-          </Form>
-        </Space>
-      </Space>
-    </Card>
+          ))}
+          {selectedProvider && !selectedProvider.enabled ? (
+            <Alert
+              type="warning"
+              showIcon
+              title={t('This provider is not available yet')}
+              style={{ marginBottom: 16 }}
+            />
+          ) : null}
+          <Form.Item className="fx-settings-save">
+            <div className="fx-settings-actions">
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                htmlType="button"
+                onClick={handleClearVectorDb}
+                disabled={vectorStatsLoading || vectorConfigSaving || !!vectorStatsError}
+              >
+                {t('Clear Vector DB')}
+              </Button>
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                htmlType="submit"
+                loading={vectorConfigSaving}
+                disabled={vectorConfigLoading || !selectedProvider?.enabled}
+              >
+                {t('Save')}
+              </Button>
+            </div>
+          </Form.Item>
+        </Form>
+      </SettingsSection>
+    </div>
   );
 }

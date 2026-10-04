@@ -13,6 +13,7 @@ import type { JSX } from 'react';
 
 export const routes: RouteObject[] = [
   { path: '/', element: <Navigate to="/files" replace /> },
+  { path: '/settings/*', element: <Navigate to="/files" replace /> },
   { path: '/:navKey/*', element: <LayoutShell /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
@@ -35,23 +36,14 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 }
 
 export function AppRouter() {
-  const location = useLocation();
-  const settingsOpen = /^\/settings(?:\/|$)/.test(location.pathname);
-  const background = location.state?.settingsBackground;
-  const pageLocation = settingsOpen
-    ? background && !/^\/settings(?:\/|$)/.test(background.pathname)
-      ? background
-      : { ...location, pathname: '/files', search: '', hash: '' }
-    : location;
-
   return (
     <RequireAuth>
-      <Routes location={pageLocation}>
+      <Routes>
         {routes.map(r => (
           <Route
             key={r.path}
             path={r.path}
-            element={r.path === '/:navKey/*' ? <LayoutShell navigationLocation={location} /> : r.element}
+            element={r.element}
           />
         ))}
       </Routes>

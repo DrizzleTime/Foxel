@@ -36,6 +36,7 @@ import {
   RobotOutlined,
   SoundOutlined,
   SortAscendingOutlined,
+  SaveOutlined,
   ToolOutlined,
 } from '@ant-design/icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -64,6 +65,7 @@ import {
 } from '../../../api/aiProviders';
 import { useI18n } from '../../../i18n';
 import '../../../styles/ai-settings.css';
+import SettingsSection from './SettingsSection';
 
 type ProviderModalState = {
   open: boolean;
@@ -97,41 +99,35 @@ function normalizeOpenAIProtocol(value: unknown): OpenAIProtocol {
   return value === 'responses' ? 'responses' : defaultOpenAIProtocol;
 }
 
-const abilityInfo: Record<AIAbility, { icon: ReactNode; label: string; color: string; description: string }> = {
+const abilityInfo: Record<AIAbility, { icon: ReactNode; label: string; description: string }> = {
   chat: {
     icon: <MessageOutlined />,
     label: 'Main Chat Model',
-    color: 'purple',
     description: 'Primary assistant for conversations, reasoning, and tool calls.',
   },
   vision: {
     icon: <EyeOutlined />,
     label: 'Vision Model',
-    color: 'geekblue',
     description: 'Handles multimodal perception such as image understanding.',
   },
   embedding: {
     icon: <AppstoreOutlined />,
     label: 'Embedding Model',
-    color: 'gold',
     description: 'Transforms content into dense vectors for search and retrieval.',
   },
   rerank: {
     icon: <SortAscendingOutlined />,
     label: 'Rerank Model',
-    color: 'cyan',
     description: 'Optimises ranking quality for search candidates.',
   },
   voice: {
     icon: <SoundOutlined />,
     label: 'Voice Model',
-    color: 'orange',
     description: 'Covers text-to-speech and speech understanding scenarios.',
   },
   tools: {
     icon: <ToolOutlined />,
     label: 'Tools Model',
-    color: 'magenta',
     description: 'Supports function calling, orchestration, and automation.',
   },
 };
@@ -852,7 +848,7 @@ export default function AiSettingsTab() {
               <div>
                 <Text className="fx-ai-provider-name">{provider.name}</Text>
                 <div className="fx-ai-provider-sub">
-                  <Tag color="blue">{provider.api_format.toUpperCase()} API</Tag>
+                  <Tag>{provider.api_format.toUpperCase()} API</Tag>
                   {provider.base_url && (
                     <Tooltip title={provider.base_url}>
                       <Text type="secondary" ellipsis style={{ maxWidth: 180 }}>
@@ -868,30 +864,31 @@ export default function AiSettingsTab() {
         extra={(
           <Space className="fx-ai-provider-actions" size={8} wrap>
             <Button
-              type="primary"
               icon={<PlusOutlined />}
               onClick={() => handleOpenModelModal(provider)}
             >
               {t('Add Model')}
             </Button>
-            <Button
-              icon={<EditOutlined />}
-              onClick={() => handleOpenProviderModal(provider)}
-              shape="circle"
-              aria-label={t('Edit Provider')}
-            />
-            <Button
-              icon={<DeleteOutlined />}
-              danger
-              onClick={() => handleDeleteProvider(provider)}
-              shape="circle"
-              aria-label={t('Delete Provider')}
-            />
+            <Tooltip title={t('Edit Provider')}>
+              <Button
+                icon={<EditOutlined />}
+                onClick={() => handleOpenProviderModal(provider)}
+                aria-label={t('Edit Provider')}
+              />
+            </Tooltip>
+            <Tooltip title={t('Delete Provider')}>
+              <Button
+                icon={<DeleteOutlined />}
+                danger
+                onClick={() => handleDeleteProvider(provider)}
+                aria-label={t('Delete Provider')}
+              />
+            </Tooltip>
           </Space>
         )}
       >
         {models.length === 0 ? (
-          <Empty description={t('No models yet')} />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('No models yet')} />
         ) : (
           <div className="fx-ai-model-list">
             {models.map((model) => (
@@ -920,8 +917,8 @@ export default function AiSettingsTab() {
                   </div>
                 </div>
                 <Space className="fx-ai-model-actions">
-                  <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModelModal(provider, model)} />
-                  <Button size="small" icon={<DeleteOutlined />} danger onClick={() => handleDeleteModel(model)} />
+                  <Tooltip title={t('Edit Model')}><Button size="small" aria-label={t('Edit Model')} icon={<EditOutlined />} onClick={() => handleOpenModelModal(provider, model)} /></Tooltip>
+                  <Tooltip title={t('Delete Model')}><Button size="small" aria-label={t('Delete Model')} icon={<DeleteOutlined />} danger onClick={() => handleDeleteModel(model)} /></Tooltip>
                 </Space>
               </div>
             ))}
@@ -977,46 +974,39 @@ export default function AiSettingsTab() {
     );
 
   return (
-    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
-      <div className="fx-ai-top-bar">
-        <div>
-          <Title level={3} style={{ marginBottom: 4 }}>{t('LLM Providers & Models')}</Title>
-          <Text type="secondary">
-            {t('Manage LLM providers, synchronize compatible models, and configure default capabilities across the system.')}
-          </Text>
-        </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenProviderModal()}>
+    <div className="fx-ai-settings">
+      <SettingsSection title={t('LLM Providers & Models')} action={
+        <Button icon={<PlusOutlined />} onClick={() => handleOpenProviderModal()}>
           {t('Add Provider')}
         </Button>
-      </div>
+      }>
 
-      <Row gutter={[24, 24]}>
-        {providers.map((provider) => (
-          <Col key={provider.id} xs={24}>
-            {renderProviderCard(provider)}
-          </Col>
-        ))}
-        {!providers.length && !loading ? (
-          <Col span={24}>
-            <Card className="fx-ai-empty-card">
-              <Empty description={t('Add your first LLM provider to get started')} />
-            </Card>
-          </Col>
-        ) : null}
-      </Row>
+        <Row gutter={[24, 24]}>
+          {providers.map((provider) => (
+            <Col key={provider.id} xs={24}>
+              {renderProviderCard(provider)}
+            </Col>
+          ))}
+          {!providers.length && !loading ? (
+            <Col span={24}>
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('Add your first LLM provider to get started')} />
+            </Col>
+          ) : null}
+        </Row>
+      </SettingsSection>
 
-      <Card className="fx-ai-defaults-card" title={t('Default Models Configuration')}>
-        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      <SettingsSection title={t('Default Models Configuration')}>
+        <div className="fx-ai-default-list">
           {abilityOrder.map((ability) => {
             const info = abilityInfo[ability];
             const options = collectionsByAbility(ability);
             return (
               <div key={ability} className="fx-ai-default-row">
                 <div className="fx-ai-default-meta">
-                  <div className={`fx-ai-default-icon fx-ai-${ability}`}>
+                  <div className="fx-ai-default-icon" aria-hidden="true">
                     {info.icon}
                   </div>
-                  <div>
+                  <div className="fx-ai-default-text">
                     <Text strong>{t(info.label)}</Text>
                     <div className="fx-ai-default-desc">{t(info.description)}</div>
                   </div>
@@ -1024,7 +1014,9 @@ export default function AiSettingsTab() {
                 <div className="fx-ai-default-control">
                   <Select
                     allowClear
+                    size="large"
                     className="fx-ai-default-select"
+                    aria-label={t(info.label)}
                     placeholder={t('Select a model')}
                     value={defaultSelections[ability] ?? undefined}
                     options={options}
@@ -1034,13 +1026,13 @@ export default function AiSettingsTab() {
               </div>
             );
           })}
-          <Space style={{ justifyContent: 'flex-end', width: '100%' }}>
-            <Button type="primary" loading={savingDefaults} onClick={handleSaveDefaults}>
-              {t('Save')}
-            </Button>
-          </Space>
-        </Space>
-      </Card>
+        </div>
+        <div className="fx-settings-footer">
+          <Button type="primary" icon={<SaveOutlined />} loading={savingDefaults} onClick={handleSaveDefaults}>
+            {t('Save')}
+          </Button>
+        </div>
+      </SettingsSection>
 
       <Drawer
         size={640}
@@ -1238,6 +1230,6 @@ export default function AiSettingsTab() {
           )}
         </Space>
       </Drawer>
-    </Space>
+    </div>
   );
 }

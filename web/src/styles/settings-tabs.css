@@ -198,6 +198,47 @@
   padding-bottom: 0;
 }
 
+.fx-s3-buckets {
+  padding: 20px 0;
+}
+
+.fx-s3-bucket {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+
+.fx-s3-bucket-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.fx-s3-buckets .fx-s3-bucket .ant-form-item {
+  padding: 8px 0;
+  border: 0;
+}
+
+.fx-s3-buckets .fx-s3-bucket .ant-form-item > .ant-form-item-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.fx-s3-bucket-endpoint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 8px 0;
+}
+
+.fx-s3-bucket-endpoint code {
+  overflow-wrap: anywhere;
+}
+
+.fx-s3-buckets > .ant-btn {
+  margin-top: 12px;
+}
+
 .fx-settings-form .ant-form-item:not(.fx-settings-save) {
   margin: 0;
   padding: 20px 0;

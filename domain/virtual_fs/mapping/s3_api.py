@@ -16,6 +16,7 @@ from fastapi import HTTPException
 
 from domain.audit import AuditAction, audit
 from domain.config import ConfigService
+from domain.config.s3 import normalize_s3_base_path, parse_s3_bucket_mappings
 from domain.virtual_fs import VirtualFSService
 
 
@@ -100,6 +101,28 @@ async def _get_settings() -> Tuple[Optional[S3Settings], Optional[Response]]:
         "secret_key": secret_key,
     }
     return settings, None
+
+
+async def _get_bucket_mappings() -> Tuple[List[Dict[str, str]], Optional[Response]]:
+    raw = (await ConfigService.get("S3_MAPPING_BUCKETS", "")) or ""
+    try:
+        if raw.strip():
+            return parse_s3_bucket_mappings(raw), None
+        return [{
+            "name": (await ConfigService.get("S3_MAPPING_BUCKET", "foxel")) or "foxel",
+            "base_path": normalize_s3_base_path((await ConfigService.get("S3_MAPPING_BASE_PATH", "/")) or "/"),
+        }], None
+    except ValueError:
+        return [], _s3_error("InternalError", "S3 bucket mappings are invalid.", status=500)
+
+
+def _invalid_key(key: str, allow_empty: bool = False) -> bool:
+    return (
+        (not allow_empty and not key.strip("/"))
+        or "\\" in key
+        or any(ord(char) < 32 for char in key)
+        or any(segment in (".", "..") for segment in key.split("/"))
+    )
 
 
 def _canonical_uri(path: str) -> str:
@@ -305,6 +328,8 @@ async def _authorize_sigv4(request: Request, settings: S3Settings) -> Optional[R
 
 
 def _virtual_path(settings: S3Settings, key: str) -> str:
+    if _invalid_key(key, allow_empty=True):
+        raise HTTPException(400, detail="Invalid S3 object key")
     key_norm = key.strip("/")
     base_norm = settings["base_path"].strip("/")
     segments = [seg for seg in [base_norm, key_norm] if seg]
@@ -431,7 +456,7 @@ def _safe_upload_id(upload_id: Optional[str]) -> Optional[str]:
     value = upload_id.strip()
     if not value:
         return None
-    if "/" in value or "\\" in value:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", value):
         return None
     return value
 
@@ -470,7 +495,7 @@ async def _write_json(path: str, data: Dict[str, Any]) -> None:
         await f.write(json.dumps(data, ensure_ascii=False))
 
 
-async def _load_mpu_meta(bucket: str, key: str, upload_id: Optional[str]) -> Tuple[Optional[Dict[str, Any]], Optional[Response]]:
+async def _load_mpu_meta(settings: S3Settings, bucket: str, key: str, upload_id: Optional[str]) -> Tuple[Optional[Dict[str, Any]], Optional[Response]]:
     safe_id = _safe_upload_id(upload_id)
     if not safe_id:
         return None, _s3_error(
@@ -480,7 +505,10 @@ async def _load_mpu_meta(bucket: str, key: str, upload_id: Optional[str]) -> Tup
             status=404,
         )
     meta = await _read_json(_mpu_meta_path(safe_id))
-    if not meta or meta.get("bucket") != bucket or meta.get("key") != key:
+    if (
+        not meta or meta.get("bucket") != bucket or meta.get("key") != key
+        or meta.get("virtual_path") != _virtual_path(settings, key)
+    ):
         return None, _s3_error(
             "NoSuchUpload",
             "The specified upload does not exist.",
@@ -532,12 +560,12 @@ async def _create_multipart_upload(request: Request, settings: S3Settings, bucke
     return Response(content=xml, media_type="application/xml", headers=headers)
 
 
-async def _upload_part(request: Request, bucket: str, key: str, upload_id: Optional[str], part_number_raw: Optional[str]) -> Response:
+async def _upload_part(request: Request, settings: S3Settings, bucket: str, key: str, upload_id: Optional[str], part_number_raw: Optional[str]) -> Response:
     part_number = _parse_int(part_number_raw, 0)
     if part_number <= 0:
         return _s3_error("InvalidArgument", "partNumber is invalid", _resource_path(bucket, key), status=400)
 
-    meta, err = await _load_mpu_meta(bucket, key, upload_id)
+    meta, err = await _load_mpu_meta(settings, bucket, key, upload_id)
     if err:
         return err
     assert meta
@@ -569,7 +597,7 @@ async def _upload_part(request: Request, bucket: str, key: str, upload_id: Optio
 
 
 async def _list_parts(request: Request, settings: S3Settings, bucket: str, key: str, upload_id: Optional[str]) -> Response:
-    meta, err = await _load_mpu_meta(bucket, key, upload_id)
+    meta, err = await _load_mpu_meta(settings, bucket, key, upload_id)
     if err:
         return err
     assert meta
@@ -632,8 +660,8 @@ async def _list_parts(request: Request, settings: S3Settings, bucket: str, key: 
     return Response(content=xml, media_type="application/xml", headers=headers)
 
 
-async def _abort_multipart_upload(bucket: str, key: str, upload_id: Optional[str]) -> Response:
-    _, err = await _load_mpu_meta(bucket, key, upload_id)
+async def _abort_multipart_upload(settings: S3Settings, bucket: str, key: str, upload_id: Optional[str]) -> Response:
+    _, err = await _load_mpu_meta(settings, bucket, key, upload_id)
     if err:
         return err
     safe_id = _safe_upload_id(upload_id)
@@ -663,7 +691,7 @@ def _parse_complete_parts(body_bytes: bytes) -> List[Tuple[int, str]]:
 
 
 async def _complete_multipart_upload(request: Request, settings: S3Settings, bucket: str, key: str, upload_id: Optional[str]) -> Response:
-    meta, err = await _load_mpu_meta(bucket, key, upload_id)
+    meta, err = await _load_mpu_meta(settings, bucket, key, upload_id)
     if err:
         return err
     assert meta
@@ -702,7 +730,7 @@ async def _complete_multipart_upload(request: Request, settings: S3Settings, buc
                         break
                     yield chunk
 
-    await VirtualFSService.write_file_stream(meta.get("virtual_path") or _virtual_path(settings, key), merged_iter(), overwrite=True)
+    await VirtualFSService.write_file_stream(_virtual_path(settings, key), merged_iter(), overwrite=True)
 
     etag = ""
     if len(part_metas) == 1:
@@ -758,6 +786,8 @@ async def _list_multipart_uploads(request: Request, settings: S3Settings, bucket
         if meta.get("bucket") != bucket:
             continue
         key = str(meta.get("key") or "")
+        if _invalid_key(key) or meta.get("virtual_path") != _virtual_path(settings, key):
+            continue
         if prefix and not key.startswith(prefix):
             continue
         initiated = str(meta.get("initiated") or _now_iso())
@@ -800,6 +830,7 @@ async def _list_multipart_uploads(request: Request, settings: S3Settings, bucket
 
 
 @router.get("")
+@router.get("/", include_in_schema=False)
 @audit(action=AuditAction.READ, description="S3: 列出桶")
 async def list_buckets(request: Request):
     if (resp := await _ensure_enabled()) is not None:
@@ -810,39 +841,53 @@ async def list_buckets(request: Request):
     assert settings
     if (auth := await _authorize_sigv4(request, settings)) is not None:
         return auth
+    mappings, err = await _get_bucket_mappings()
+    if err:
+        return err
     req_id, headers = _meta_headers()
+    buckets_xml = "".join(
+        f"<Bucket><Name>{mapping['name']}</Name><CreationDate>{_now_iso()}</CreationDate></Bucket>"
+        for mapping in mappings
+    )
     xml = (
         f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         f"<ListAllMyBucketsResult xmlns=\"{_XML_NS}\">"
         f"<Owner><ID>{settings['access_key']}</ID><DisplayName>Foxel</DisplayName></Owner>"
-        f"<Buckets><Bucket><Name>{settings['bucket']}</Name><CreationDate>{_now_iso()}</CreationDate></Bucket></Buckets>"
+        f"<Buckets>{buckets_xml}</Buckets>"
         f"</ListAllMyBucketsResult>"
     )
     headers.update({"Content-Type": "application/xml"})
     return Response(content=xml, media_type="application/xml", headers=headers)
 
 
-@router.get("/{bucket}")
-@audit(action=AuditAction.READ, description="S3: 列出对象")
-async def list_objects(request: Request, bucket: str):
-    if (resp := await _ensure_enabled()) is not None:
-        return resp
-    settings, err = await _get_settings()
+@router.head("/{bucket}")
+@router.head("/{bucket}/", include_in_schema=False)
+async def head_bucket(request: Request, bucket: str):
+    settings, err = await _ensure_bucket_and_auth(request, bucket)
     if err:
         return err
     assert settings
-    if bucket != settings["bucket"]:
-        return _s3_error("NoSuchBucket", "The specified bucket does not exist.", _resource_path(bucket), status=404)
-    if (auth := await _authorize_sigv4(request, settings)) is not None:
-        return auth
+    _, headers = _meta_headers()
+    headers["x-amz-bucket-region"] = settings["region"] or "us-east-1"
+    return Response(status_code=200, headers=headers)
 
+
+@router.get("/{bucket}")
+@audit(action=AuditAction.READ, description="S3: 列出对象")
+async def list_objects(request: Request, bucket: str):
+    settings, err = await _ensure_bucket_and_auth(request, bucket)
+    if err:
+        return err
+    assert settings
     params = request.query_params
+    prefix = (params.get("prefix") or "").lstrip("/")
+    if _invalid_key(prefix, allow_empty=True):
+        return _s3_error("InvalidArgument", "Invalid object prefix.", _resource_path(bucket), status=400)
     if "uploads" in params:
         return await _list_multipart_uploads(request, settings, bucket)
     if params.get("list-type", "2") != "2":
         return _s3_error("InvalidArgument", "Only ListObjectsV2 (list-type=2) is supported.", _resource_path(bucket), status=400)
 
-    prefix = (params.get("prefix") or "").lstrip("/")
     delimiter = params.get("delimiter")
     recursive = not delimiter
     max_keys_raw = params.get("max-keys", "1000")
@@ -918,17 +963,25 @@ def _build_list_result(
     return Response(content=xml, media_type="application/xml", headers=headers)
 
 
-async def _ensure_bucket_and_auth(request: Request, bucket: str) -> Tuple[Optional[S3Settings], Optional[Response]]:
+async def _ensure_bucket_and_auth(request: Request, bucket: str, key: Optional[str] = None) -> Tuple[Optional[S3Settings], Optional[Response]]:
     if (resp := await _ensure_enabled()) is not None:
         return None, resp
     settings, err = await _get_settings()
     if err:
         return None, err
     assert settings
-    if bucket != settings["bucket"]:
+    mappings, err = await _get_bucket_mappings()
+    if err:
+        return None, err
+    mapping = next((mapping for mapping in mappings if mapping["name"] == bucket), None)
+    if mapping is None:
         return None, _s3_error("NoSuchBucket", "The specified bucket does not exist.", _resource_path(bucket), status=404)
+    settings["bucket"] = bucket
+    settings["base_path"] = mapping["base_path"]
     if (auth := await _authorize_sigv4(request, settings)) is not None:
         return None, auth
+    if key is not None and _invalid_key(key):
+        return None, _s3_error("InvalidArgument", "Invalid object key.", _resource_path(bucket), status=400)
     return settings, None
 
 
@@ -968,7 +1021,7 @@ async def _stat_object(settings: S3Settings, key: str) -> Tuple[Optional[Dict], 
 @router.api_route("/{bucket}/{object_path:path}", methods=["GET", "HEAD"])
 @audit(action=AuditAction.DOWNLOAD, description="S3: 获取对象")
 async def object_get_head(request: Request, bucket: str, object_path: str):
-    settings, error = await _ensure_bucket_and_auth(request, bucket)
+    settings, error = await _ensure_bucket_and_auth(request, bucket, object_path)
     if error:
         return error
     assert settings
@@ -998,7 +1051,7 @@ async def object_get_head(request: Request, bucket: str, object_path: str):
 @router.put("/{bucket}/{object_path:path}")
 @audit(action=AuditAction.UPLOAD, description="S3: 上传对象")
 async def put_object(request: Request, bucket: str, object_path: str):
-    settings, error = await _ensure_bucket_and_auth(request, bucket)
+    settings, error = await _ensure_bucket_and_auth(request, bucket, object_path)
     if error:
         return error
     assert settings
@@ -1006,7 +1059,7 @@ async def put_object(request: Request, bucket: str, object_path: str):
     upload_id = request.query_params.get("uploadId") or request.query_params.get("uploadid")
     part_number = request.query_params.get("partNumber") or request.query_params.get("partnumber")
     if upload_id and part_number:
-        return await _upload_part(request, bucket, key, upload_id, part_number)
+        return await _upload_part(request, settings, bucket, key, upload_id, part_number)
     await VirtualFSService.write_file_stream(_virtual_path(settings, key), request.stream(), overwrite=True)
     meta, err = await _stat_object(settings, key)
     if err:
@@ -1023,7 +1076,7 @@ async def put_object(request: Request, bucket: str, object_path: str):
 @router.post("/{bucket}/{object_path:path}")
 @audit(action=AuditAction.UPLOAD, description="S3: Multipart 上传")
 async def post_object(request: Request, bucket: str, object_path: str):
-    settings, error = await _ensure_bucket_and_auth(request, bucket)
+    settings, error = await _ensure_bucket_and_auth(request, bucket, object_path)
     if error:
         return error
     assert settings
@@ -1041,14 +1094,14 @@ async def post_object(request: Request, bucket: str, object_path: str):
 @router.delete("/{bucket}/{object_path:path}")
 @audit(action=AuditAction.DELETE, description="S3: 删除对象")
 async def delete_object(request: Request, bucket: str, object_path: str):
-    settings, error = await _ensure_bucket_and_auth(request, bucket)
+    settings, error = await _ensure_bucket_and_auth(request, bucket, object_path)
     if error:
         return error
     assert settings
     key = object_path.lstrip("/")
     upload_id = request.query_params.get("uploadId") or request.query_params.get("uploadid")
     if upload_id:
-        return await _abort_multipart_upload(bucket, key, upload_id)
+        return await _abort_multipart_upload(settings, bucket, key, upload_id)
     try:
         await VirtualFSService.delete_path(_virtual_path(settings, key))
     except HTTPException as exc:

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 
 from api.response import success
 from domain.audit import AuditAction, audit
@@ -8,6 +8,7 @@ from domain.auth import User, get_current_active_user
 from domain.permission import require_system_permission
 from domain.permission.types import SystemPermission
 from .service import ConfigService
+from .s3 import parse_s3_bucket_mappings
 from .types import ConfigItem
 
 router = APIRouter(prefix="/api/config", tags=["config"])
@@ -44,6 +45,11 @@ async def set_config(
     key: str = Form(...),
     value: str = Form(""),
 ):
+    if key == "S3_MAPPING_BUCKETS" and value.strip():
+        try:
+            parse_s3_bucket_mappings(value)
+        except ValueError as exc:
+            raise HTTPException(400, detail=str(exc)) from exc
     await ConfigService.set(key, value)
     return success(ConfigItem(key=key, value=value).model_dump())
 
@@ -57,6 +63,7 @@ async def get_all_config(
 ):
     configs = await ConfigService.get_all()
     configs["MCP_ENABLED"] = await ConfigService.get("MCP_ENABLED", "1")
+    configs["S3_MAPPING_BUCKETS"] = await ConfigService.get("S3_MAPPING_BUCKETS", "")
     return success(configs)
 
 

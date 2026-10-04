@@ -92,7 +92,7 @@ An integrated AI agent with built-in tools for VFS operations, web fetching, and
 
 Access your files through familiar protocols:
 
-- **S3 API** — S3-compatible endpoint for programmatic access
+- **S3 API** — S3-compatible endpoint for programmatic access, with [multiple buckets mapped to virtual directories](docs/s3-mapping.md)
 - **WebDAV** — Mount as a network drive in your OS file manager
 - **Direct Links** — Temporary signed URLs for direct file access
 

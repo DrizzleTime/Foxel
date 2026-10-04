@@ -154,7 +154,17 @@ class FoxelMcpTokenVerifier:
 
 MCP_SERVER = FoxelMCPServer(
     name="Foxel MCP",
-    instructions="Foxel 内置 MCP 服务，提供文件系统、网页抓取、时间与处理器相关能力。",
+    instructions=(
+        "Foxel MCP provides private-cloud file browsing, search, text reading and writing, file organization, and processor tasks."
+        " All file paths are absolute paths in the Foxel virtual filesystem (e.g. /photos/a.jpg), not server-local paths."
+        " File operations enforce the authenticated account's path permissions."
+        " Use vfs_list_dir for known directories, vfs_search for unknown file locations, vfs_stat for metadata, and vfs_read_text for text."
+        " Read existing text and verify that it is complete before editing. Choose vfs_copy to preserve the source or vfs_move to relocate it."
+        " Before running a processor, use processors_list to discover available types, supported formats, and configuration."
+        " Tool results include ok; inspect error on failure. A task_id or queued=true indicates submission, not completion."
+        " Check progress in the Foxel task queue; this service does not provide a task-status tool."
+        " External MCP clients handle confirmation for file mutations. The built-in agent uses its own tool approval policy."
+    ),
     token_verifier=FoxelMcpTokenVerifier(),
     auth=AuthSettings(
         issuer_url="http://127.0.0.1:8000",
@@ -179,7 +189,7 @@ for descriptor in mcp_tool_descriptors():
     "foxel://context/current-path",
     name="current_path",
     title="Current Path",
-    description="返回当前请求上下文里的文件管理目录。",
+    description="Read when the user refers to the current directory. Returns the Foxel path from x-foxel-current-path, or null if no valid path was supplied.",
     mime_type="application/json",
 )
 def current_path_resource() -> dict[str, Any]:
@@ -190,7 +200,7 @@ def current_path_resource() -> dict[str, Any]:
     "foxel://policy/tool-confirmation",
     name="tool_confirmation_policy",
     title="Tool Confirmation Policy",
-    description="返回 Foxel agent 对工具审批的策略。",
+    description="Read to understand confirmation policies for exposed tools. Lists read-only, unconfirmed, and confirmation-required tools, and distinguishes client confirmation from built-in agent approval.",
     mime_type="application/json",
 )
 def tool_confirmation_policy_resource() -> dict[str, Any]:
@@ -198,8 +208,7 @@ def tool_confirmation_policy_resource() -> dict[str, Any]:
         "read_tools": [tool.name for tool in mcp_tool_descriptors() if tool.annotations.get("readOnlyHint")],
         "unconfirmed_tools": [tool.name for tool in mcp_tool_descriptors() if not tool.requires_confirmation],
         "write_tools": [tool.name for tool in mcp_tool_descriptors() if tool.requires_confirmation],
-        "rule": "直接调用 MCP tool 时不额外审批；通过 agent 代表用户执行写操作时需要审批。",
-        "web_fetch": "所有 HTTP 方法免审批，包含可能修改外部系统的请求；免审批不代表只读。",
+        "rule": "Direct MCP calls do not require additional server approval; external clients handle confirmation. The built-in agent requires approval for confirmation-required tools unless auto-execution is enabled.",
     }
 
 
@@ -207,7 +216,7 @@ def tool_confirmation_policy_resource() -> dict[str, Any]:
     "foxel://processors/index",
     name="processors_index",
     title="Processors Index",
-    description="返回当前可用处理器列表。",
+    description="Read to choose a processor and check supported formats and configuration schemas. Returns the same available processor list as processors_list.",
     mime_type="application/json",
 )
 def processors_index_resource() -> dict[str, Any]:
@@ -222,7 +231,7 @@ async def _tool_resource(tool_name: str, arguments: dict[str, Any], current_path
     "foxel://vfs/stat/{path}",
     name="vfs_stat_resource",
     title="VFS Stat",
-    description="读取指定路径的文件或目录元信息；path 需要 URL 编码。",
+    description="Read to inspect file or directory type, size, and modification time. URL-encode the Foxel path without its leading /. Uses the same permission checks as vfs_stat.",
     mime_type="application/json",
 )
 async def vfs_stat_resource(path: str, ctx: Context) -> dict[str, Any]:
@@ -233,7 +242,7 @@ async def vfs_stat_resource(path: str, ctx: Context) -> dict[str, Any]:
     "foxel://vfs/text/{path}",
     name="vfs_text_resource",
     title="VFS Text",
-    description="读取文本文件内容；path 需要 URL 编码。",
+    description="Read a known text file. URL-encode the Foxel path without its leading /. Defaults to UTF-8 and up to 8000 characters; use vfs_read_text to adjust encoding or length.",
     mime_type="application/json",
 )
 async def vfs_text_resource(path: str, ctx: Context) -> dict[str, Any]:
@@ -244,7 +253,7 @@ async def vfs_text_resource(path: str, ctx: Context) -> dict[str, Any]:
     "foxel://vfs/dir/{path}",
     name="vfs_dir_resource",
     title="VFS Directory",
-    description="列出目录内容；path 需要 URL 编码。",
+    description="Read the first page of a known directory. URL-encode the Foxel path without its leading /. Use vfs_list_dir for pagination or sorting.",
     mime_type="application/json",
 )
 async def vfs_dir_resource(path: str, ctx: Context) -> dict[str, Any]:
@@ -255,44 +264,39 @@ async def vfs_dir_resource(path: str, ctx: Context) -> dict[str, Any]:
     "foxel://vfs/search/{query}",
     name="vfs_search_resource",
     title="VFS Search",
-    description="搜索文件；query 需要 URL 编码。",
+    description="Read to run default semantic search using a natural-language content description. URL-encode query. Requires a content vector index; use vfs_search for filename search or custom limits.",
     mime_type="application/json",
 )
 async def vfs_search_resource(query: str, ctx: Context) -> dict[str, Any]:
     return await _tool_resource("vfs_search", {"q": unquote(query)}, _header_current_path(ctx))
 
 
-@MCP_SERVER.prompt(name="browse_path", title="Browse Path", description="生成浏览目录的推荐提示词。")
-def browse_path_prompt(path: Annotated[str, Field(description="目标目录路径")]) -> list[dict[str, Any]]:
-    return [{"role": "user", "content": f"请先浏览目录 `{path}`，总结结构与关键文件。必要时调用 vfs_list_dir 与 vfs_stat。"}]
+@MCP_SERVER.prompt(name="browse_path", title="Browse Path", description="Use to explore an unfamiliar directory and summarize its structure with vfs_list_dir and vfs_stat.")
+def browse_path_prompt(path: Annotated[str, Field(description="Absolute Foxel directory path to explore.")]) -> list[dict[str, Any]]:
+    return [{"role": "user", "content": f"Browse directory `{path}` and summarize its structure and key files. Use vfs_list_dir and vfs_stat as needed."}]
 
 
-@MCP_SERVER.prompt(name="inspect_file", title="Inspect File", description="生成查看文件的推荐提示词。")
-def inspect_file_prompt(path: Annotated[str, Field(description="目标文件路径")]) -> list[dict[str, Any]]:
-    return [{"role": "user", "content": f"请检查文件 `{path}` 的内容与用途。必要时调用 vfs_read_text。"}]
+@MCP_SERVER.prompt(name="inspect_file", title="Inspect File", description="Use to read a known text file and explain its contents and purpose with vfs_read_text.")
+def inspect_file_prompt(path: Annotated[str, Field(description="Absolute Foxel text file path to inspect.")]) -> list[dict[str, Any]]:
+    return [{"role": "user", "content": f"Inspect the contents and purpose of file `{path}`. Use vfs_read_text as needed and check whether the content is truncated."}]
 
 
-@MCP_SERVER.prompt(name="search_files", title="Search Files", description="生成搜索文件的推荐提示词。")
-def search_files_prompt(query: Annotated[str, Field(description="搜索关键词")]) -> list[dict[str, Any]]:
-    return [{"role": "user", "content": f"请搜索与 `{query}` 相关的文件，并按相关性总结。必要时调用 vfs_search。"}]
+@MCP_SERVER.prompt(name="search_files", title="Search Files", description="Use to find and summarize relevant files with vfs_search when their locations are unknown.")
+def search_files_prompt(query: Annotated[str, Field(description="Content description or filename keywords to search for.")]) -> list[dict[str, Any]]:
+    return [{"role": "user", "content": f"Search for files related to `{query}` and summarize them by relevance. Use vfs_search with the appropriate search mode."}]
 
 
-@MCP_SERVER.prompt(name="edit_file_safely", title="Edit File Safely", description="生成安全修改文件的推荐提示词。")
-def edit_file_safely_prompt(path: Annotated[str, Field(description="目标文件路径")]) -> list[dict[str, Any]]:
-    return [{"role": "user", "content": f"请先读取 `{path}`，解释拟修改点，再等待我确认后执行写入。"}]
+@MCP_SERVER.prompt(name="edit_file_safely", title="Edit File Safely", description="Use to review an edit plan before replacing existing text: read first, explain changes, and wait for confirmation before writing.")
+def edit_file_safely_prompt(path: Annotated[str, Field(description="Absolute Foxel text file path to edit.")]) -> list[dict[str, Any]]:
+    return [{"role": "user", "content": f"Read `{path}` and verify that the content is complete. Explain the proposed edits, then wait for my confirmation before writing."}]
 
 
-@MCP_SERVER.prompt(name="run_processor", title="Run Processor", description="生成运行处理器的推荐提示词。")
+@MCP_SERVER.prompt(name="run_processor", title="Run Processor", description="Use with a known input path and processor type to check compatibility and confirm settings before submitting a processing task.")
 def run_processor_prompt(
-    path: Annotated[str, Field(description="目标文件或目录路径")],
-    processor_type: Annotated[str, Field(description="处理器类型")],
+    path: Annotated[str, Field(description="Absolute Foxel file or directory path to process.")],
+    processor_type: Annotated[str, Field(description="Processor type from processors_list.")],
 ) -> list[dict[str, Any]]:
-    return [{"role": "user", "content": f"请检查 `{path}` 是否适合运行处理器 `{processor_type}`，确认参数后再执行 processors_run。"}]
-
-
-@MCP_SERVER.prompt(name="fetch_web_page", title="Fetch Web Page", description="生成抓取网页的推荐提示词。")
-def fetch_web_page_prompt(url: Annotated[str, Field(description="目标网址")]) -> list[dict[str, Any]]:
-    return [{"role": "user", "content": f"请抓取网页 `{url}`，并总结标题、正文与关键链接。必要时调用 web_fetch。"}]
+    return [{"role": "user", "content": f"Check processors_list and verify that `{path}` is suitable for processor `{processor_type}`. Confirm settings before calling processors_run. A task_id indicates submission, not completion."}]
 
 
 _LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"]

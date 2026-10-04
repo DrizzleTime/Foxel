@@ -14,6 +14,8 @@ from models.database import AgentApprovalBatch, AgentApprovalCall
 
 from .approvals import create_batch, execute_call, load_batch, pending_call, result_message
 from .mcp import mcp_client_session, mcp_content_to_text
+from .execution import execute_tool
+from .tools import AGENT_ONLY_TOOL_NAMES, mcp_tool_descriptors
 from .tools.base import tool_error, tool_result_to_content
 from .types import AgentChatRequest
 
@@ -75,9 +77,15 @@ def _sse(event: str, data: Any) -> bytes:
 
 async def _list_mcp_tools(session) -> list[dict[str, Any]]:
     result = await session.list_tools()
-    return [{"name": item.name, "description": item.description or "", "input_schema": item.input_schema or {},
-             "annotations": item.annotations.model_dump(exclude_none=True) if item.annotations else {},
-             "meta": item.meta or {}} for item in result.tools]
+    tools = [{"name": item.name, "description": item.description or "", "input_schema": item.input_schema or {},
+              "annotations": item.annotations.model_dump(exclude_none=True) if item.annotations else {},
+              "meta": item.meta or {}} for item in result.tools]
+    tools.extend(
+        {"name": item.name, "description": item.description, "input_schema": item.input_schema,
+         "annotations": item.annotations, "meta": item.meta}
+        for item in mcp_tool_descriptors(include_agent_only=True) if item.name in AGENT_ONLY_TOOL_NAMES
+    )
+    return tools
 
 
 async def _execute_mcp_call(session, name: str, arguments: dict[str, Any]) -> str:
@@ -141,6 +149,8 @@ class AgentService:
                 index = {tool["name"]: tool for tool in tools}
 
                 async def execute(name, arguments):
+                    if name in AGENT_ONLY_TOOL_NAMES:
+                        return tool_result_to_content(await execute_tool(name, arguments, user, path))
                     return await _execute_mcp_call(session, name, arguments)
 
                 if validated:

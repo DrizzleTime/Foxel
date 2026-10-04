@@ -17,7 +17,7 @@ from domain.agent.api import router
 from domain.agent.approvals import create_batch, execute_call, load_batch, now
 from domain.agent.execution import execute_tool, snapshot_tree, validate_arguments
 from domain.agent.mcp import MCP_HTTP_APP, mcp_client_session
-from domain.agent.service import AgentService, _choose_chat_ability
+from domain.agent.service import AgentService, _choose_chat_ability, _list_mcp_tools
 from domain.agent.tools import mcp_tool_descriptors
 from domain.agent.tools.base import tool_error, tool_result_to_content
 from domain.agent.types import AgentChatRequest
@@ -261,7 +261,7 @@ class BoundaryTests(DatabaseTests):
         processed.assert_not_awaited()
 
     async def test_web_methods_remain_unconfirmed_with_accurate_annotations(self):
-        descriptor = next(d for d in mcp_tool_descriptors() if d.name == "web_fetch")
+        descriptor = next(d for d in mcp_tool_descriptors(include_agent_only=True) if d.name == "web_fetch")
         self.assertFalse(descriptor.requires_confirmation)
         self.assertFalse(descriptor.annotations["readOnlyHint"])
         self.assertTrue(descriptor.annotations["destructiveHint"])
@@ -292,7 +292,23 @@ class BoundaryTests(DatabaseTests):
             async with MCP_HTTP_APP.router.lifespan_context(MCP_HTTP_APP):
                 async with mcp_client_session(self.user, "//allowed//docs") as session:
                     tools = await session.list_tools()
-                    self.assertEqual(len(tools.tools), 14)
+                    self.assertEqual(len(tools.tools), 12)
+                    self.assertFalse({"time", "web_fetch"} & {tool.name for tool in tools.tools})
+                    agent_tools = await _list_mcp_tools(session)
+                    self.assertEqual(len(agent_tools), 14)
+                    self.assertTrue({"time", "web_fetch"} <= {tool["name"] for tool in agent_tools})
+                    for name, arguments in (("time", {}), ("web_fetch", {"url": "https://example.com"})):
+                        with self.subTest(tool=name), patch("domain.agent.mcp.execute_tool", AsyncMock()) as executed:
+                            blocked = await session.call_tool(name, arguments)
+                            self.assertTrue(blocked.is_error)
+                            executed.assert_not_awaited()
+                    prompts = await session.list_prompts()
+                    self.assertNotIn("fetch_web_page", {prompt.name for prompt in prompts.prompts})
+                    policy = await session.read_resource("foxel://policy/tool-confirmation")
+                    policy_data = json.loads(policy.contents[0].text)
+                    self.assertNotIn("web_fetch", policy_data)
+                    for key in ("read_tools", "unconfirmed_tools", "write_tools"):
+                        self.assertFalse({"time", "web_fetch"} & set(policy_data[key]))
                     read_tool = next(tool for tool in tools.tools if tool.name == "vfs_read_text")
                     bounds = read_tool.input_schema["properties"]["max_chars"]
                     self.assertIn("100000", json.dumps(bounds))
@@ -313,7 +329,7 @@ class ApprovalTests(DatabaseTests):
             {"id": "one", "name": "vfs_write_text", "arguments": {"path": "/allowed/one", "content": "original"}},
             {"id": "two", "name": "vfs_mkdir", "arguments": {"path": "/allowed/two"}},
         ]}
-        self.index = {d.name: {"meta": d.meta} for d in mcp_tool_descriptors()}
+        self.index = {d.name: {"meta": d.meta} for d in mcp_tool_descriptors(include_agent_only=True)}
         self.executed = []
 
         async def call_tool(name, arguments):
@@ -473,6 +489,30 @@ class ApprovalTests(DatabaseTests):
         self.assertEqual(result["finish_reason"], "iteration_limit")
         self.assertEqual(self.model.await_count, 8)
         self.assertEqual(len([m for m in result["messages"] if m["role"] == "tool"]), 8)
+
+    async def test_agent_only_tools_execute_locally_without_approval(self):
+        self.model.side_effect = [
+            {"role": "assistant", "content": "", "mcp_calls": [
+                {"id": "clock", "name": "time", "arguments": {}},
+                {"id": "page", "name": "web_fetch", "arguments": {"url": "https://example.com"}},
+                {"id": "invalid", "name": "web_fetch", "arguments": {"url": "file:///etc/passwd"}},
+            ]},
+            {"role": "assistant", "content": "done"},
+        ]
+        original_client = httpx.AsyncClient
+        transport = httpx.MockTransport(lambda req: httpx.Response(200, text="test page", request=req))
+        with patch("domain.agent.tools.web_fetch.httpx.AsyncClient", lambda **kw: original_client(transport=transport, **kw)):
+            result = await AgentService.chat(AgentChatRequest(messages=[{"role": "user", "content": "check time and page"}]), self.user)
+        self.assertEqual(result["finish_reason"], "completed")
+        self.assertEqual(result["pending_mcp_calls"], [])
+        self.assertEqual(self.executed, [])
+        outputs = {message["mcp_call_id"]: json.loads(message["content"])
+                   for message in result["messages"] if message["role"] == "tool"}
+        self.assertTrue(outputs["clock"]["ok"])
+        self.assertIn("datetime", outputs["clock"]["data"])
+        self.assertTrue(outputs["page"]["ok"])
+        self.assertEqual(outputs["page"]["data"]["text"], "test page")
+        self.assert_error(outputs["invalid"], "invalid_arguments")
 
     async def test_missing_model_and_unsupported_provider_are_explicit(self):
         self.patches[-1].stop()

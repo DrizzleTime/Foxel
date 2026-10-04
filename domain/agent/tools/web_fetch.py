@@ -170,18 +170,22 @@ TOOLS: Dict[str, ToolSpec] = {
     "web_fetch": ToolSpec(
         name="web_fetch",
         description=(
-            "抓取网页内容，返回状态、标题、正文、HTML、链接等信息。"
-            " 支持 GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS。"
+            "Use to read a known webpage URL, extract text and links, or call an HTTP API. Defaults to GET and follows redirects."
+            " HTML responses include title/text/html/links; other responses include decoded text."
+            " Check status_code to determine HTTP success; content_type and final_url are also returned."
+            " Does not execute JavaScript, render browser-dependent content, or search the web."
+            " Supports GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS without tool approval; write methods may change external systems."
+            " HTTP timeout: 20 seconds. Response body limit: 2 MiB; larger responses return an error."
         ),
         parameters={
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "目标 URL"},
-                "method": {"type": "string", "description": "请求方法（默认 GET，所有方法免审批）"},
-                "headers": {"type": "object", "description": "请求头", "additionalProperties": {"type": "string"}},
-                "params": {"type": "object", "description": "查询参数", "additionalProperties": {"type": "string"}},
-                "json": {"type": "object", "description": "JSON 请求体"},
-                "body": {"type": "string", "description": "原始请求体"},
+                "url": {"type": "string", "description": "Full http:// or https:// URL, e.g. https://example.com/article. Must not be search keywords."},
+                "method": {"type": "string", "description": "HTTP method: GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS. Default: GET. All methods bypass tool approval."},
+                "headers": {"type": "object", "description": "Request headers with string values, e.g. Accept or Content-Type, as required by the target API.", "additionalProperties": {"type": "string"}},
+                "params": {"type": "object", "description": "URL query parameters with string values, e.g. {\"page\": \"1\"}.", "additionalProperties": {"type": "string"}},
+                "json": {"type": "object", "description": "JSON object request body. Takes precedence when body is also provided."},
+                "body": {"type": "string", "description": "Raw text request body, used only when json is omitted. Set Content-Type in headers if needed."},
             },
             "required": ["url"],
             "additionalProperties": False,

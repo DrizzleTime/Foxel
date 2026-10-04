@@ -71,18 +71,22 @@ TOOLS: Dict[str, ToolSpec] = {
     "time": ToolSpec(
         name="time",
         description=(
-            "获取服务器当前时间（精确到秒，含英文星期）。"
-            " 支持 year/month/day/hour/minute/second 偏移（可为负数）。"
+            "Use to get the current date, time, or weekday, or resolve relative dates such as tomorrow or last month."
+            " Returns server-local time to the second and the weekday in English; omit all arguments for the current time."
+            " year/month/day/hour/minute/second are signed offsets from now and can be combined;"
+            " day=1 means this time tomorrow and month=-1 means this time last month."
+            " Year and month offsets apply first, clamping the day to the target month's last day,"
+            " followed by day/hour/minute/second offsets. Does not convert time zones."
         ),
         parameters={
             "type": "object",
             "properties": {
-                "year": {"type": "integer", "description": "年偏移（可为负数）"},
-                "month": {"type": "integer", "description": "月偏移（可为负数）"},
-                "day": {"type": "integer", "description": "日偏移（可为负数）"},
-                "hour": {"type": "integer", "description": "时偏移（可为负数）"},
-                "minute": {"type": "integer", "description": "分偏移（可为负数）"},
-                "second": {"type": "integer", "description": "秒偏移（可为负数）"},
+                "year": {"type": "integer", "description": "Year offset from now; may be negative. Default: 0."},
+                "month": {"type": "integer", "description": "Month offset from now; may be negative. Default: 0."},
+                "day": {"type": "integer", "description": "Day offset from now; may be negative. Default: 0."},
+                "hour": {"type": "integer", "description": "Hour offset from now; may be negative. Default: 0."},
+                "minute": {"type": "integer", "description": "Minute offset from now; may be negative. Default: 0."},
+                "second": {"type": "integer", "description": "Second offset from now; may be negative. Default: 0."},
             },
             "additionalProperties": False,
         },

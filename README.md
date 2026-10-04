@@ -81,7 +81,8 @@ An integrated AI agent with built-in tools for VFS operations, web fetching, and
 
 - The MCP endpoint is `/api/mcp/`. External clients authenticate with a Foxel Bearer Token and own their confirmation UI; the server always enforces the authenticated user's path permissions.
 - Set `APP_DOMAIN` to the public Foxel URL (for example, `https://my.foxel.cc`) to allow its Host and Origin headers through MCP transport validation. Loopback access remains available.
-- `time`, directory listing, metadata, text reads, search, processor listing, and `web_fetch` can run directly. `web_fetch` supports GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS, including external write requests, without an additional Foxel approval step.
+- External MCP clients can access file-system and processor tools. `time` and `web_fetch` are available only to the built-in AI agent and are not exposed through MCP.
+- Directory listing, metadata, text reads, search, and processor listing can run directly. In the built-in agent, `time` and `web_fetch` also run without approval. `web_fetch` supports GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS, including external write requests, without an additional Foxel approval step.
 - Agent writes, creates, deletes, moves, copies, renames, and `processors_run` calls create database-backed approval batches. Approval requests must include the returned `approval_batch_id`; execution uses the server-stored arguments, rejects expired or cross-user requests, and does not re-execute repeated confirmations.
 - Recursive changes and directory processing validate all enumerated children before starting. Any denied or unverifiable path rejects the batch; queued work rechecks permissions and stops after a scope change.
 - Tools return structured error codes such as `permission_denied`, `invalid_arguments`, `permission_scope_unverifiable`, `approval_expired`, `request_timeout`, and `execution_failed` without exposing internal exceptions or credentials.

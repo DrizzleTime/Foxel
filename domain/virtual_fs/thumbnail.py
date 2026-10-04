@@ -8,7 +8,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Tuple
 
-from PIL import Image
+from PIL import Image, ImageOps
 from fastapi import HTTPException
 
 ALLOWED_EXT = {"jpg", "jpeg", "png", "webp", "gif", "bmp",
@@ -20,10 +20,10 @@ VIDEO_TAIL_LIMIT = 2 * 1024 * 1024  # 2MB
 VIDEO_TAIL_FALLBACK_LIMIT = 4 * 1024 * 1024  # 4MB
 VIDEO_HEAD_LIMIT = 2 * 1024 * 1024  # 2MB
 VIDEO_HEAD_FALLBACK_LIMIT = 4 * 1024 * 1024  # 4MB
-VIDEO_THUMB_SEEK_SECONDS = (15, 10, 5, 3, 1, 0)
+VIDEO_THUMB_SEEK_SECONDS = (1, 3, 5, 10, 15, 0)
 VIDEO_BLACK_FRAME_MEAN_THRESHOLD = 12.0
 CACHE_ROOT = Path('data/.thumb_cache')
-THUMB_CACHE_VERSION = "v2"
+THUMB_CACHE_VERSION = "v3"
 
 
 def is_image_filename(name: str) -> bool:
@@ -65,22 +65,11 @@ def _image_to_webp(im, w: int, h: int, fit: str) -> Tuple[bytes, str]:
     if im.mode not in ("RGB", "RGBA"):
         im = im.convert("RGBA" if im.mode in ("P", "LA") else "RGB")
     if fit == 'cover':
-        im_ratio = im.width / im.height
-        target_ratio = w / h
-        if im_ratio > target_ratio:
-            new_h = h
-            new_w = int(h * im_ratio)
-        else:
-            new_w = w
-            new_h = int(w / im_ratio)
-        im = im.resize((new_w, new_h))
-        left = max(0, (im.width - w)//2)
-        top = max(0, (im.height - h)//2)
-        im = im.crop((left, top, left + w, top + h))
+        im = ImageOps.fit(im, (w, h), method=Image.Resampling.LANCZOS)
     else:
-        im.thumbnail((w, h))
+        im.thumbnail((w, h), resample=Image.Resampling.LANCZOS)
     buf = io.BytesIO()
-    im.save(buf, 'WEBP', quality=80)
+    im.save(buf, 'WEBP', quality=90, method=6)
     return buf.getvalue(), 'image/webp'
 
 
@@ -287,6 +276,9 @@ async def _run_ffmpeg_extract_frame(src_path: str, dst_path: str, *, seek_second
         "-y",
         "-hide_banner",
         "-loglevel", "error",
+        # Sparse inputs can otherwise produce concealed, visibly corrupt frames.
+        "-xerror",
+        "-err_detect", "explode",
     ]
     is_http_input = src_path.startswith(("http://", "https://"))
     if is_http_input and seek_seconds is not None:
@@ -296,6 +288,9 @@ async def _run_ffmpeg_extract_frame(src_path: str, dst_path: str, *, seek_second
         if seek_seconds is not None:
             cmd += ["-ss", str(seek_seconds)]
     cmd += [
+        "-map", "0:v:0",
+        "-an", "-sn", "-dn",
+        "-vf", "scale=trunc(ih*dar):ih:flags=lanczos,setsar=1",
         "-frames:v", "1",
         dst_path,
     ]
@@ -476,6 +471,7 @@ async def get_or_create_thumb(adapter, adapter_id: int, root: str, rel: str, w: 
                         thumb_bytes, mime = got
                 if not thumb_bytes:
                     try:
+                        head_bytes = await _read_head(VIDEO_HEAD_FALLBACK_LIMIT)
                         tail_bytes, tail_offset = await _read_tail(VIDEO_TAIL_FALLBACK_LIMIT)
                         thumb_bytes, mime = await _generate_video_thumb_from_segments(
                             head_bytes, tail_bytes, tail_offset, rel, w, h, fit

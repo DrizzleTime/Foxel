@@ -27,6 +27,9 @@ def _normalize_result(raw: Dict[str, Any], source: str, fallback_score: float = 
     vector_id = entity.get("vector_id")
     if vector_id:
         metadata["vector_id"] = vector_id
+    heading = entity.get("heading")
+    if heading:
+        metadata["heading"] = heading
 
     return SearchResultItem(
         id=str(raw.get("id")),

@@ -131,6 +131,7 @@ class MilvusLiteProvider(BaseVectorProvider):
             "end_offset",
             "type",
             "name",
+            "heading",
         ]
         raw_results = self._get_client().search(
             collection_name,
@@ -173,6 +174,7 @@ class MilvusLiteProvider(BaseVectorProvider):
                 "end_offset",
                 "type",
                 "name",
+                "heading",
             ],
         )
         formatted = []

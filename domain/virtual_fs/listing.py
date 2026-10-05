@@ -245,6 +245,9 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
                         "end_offset": entity.get("end_offset"),
                         "vector_id": entity.get("vector_id"),
                     }
+                    heading = entity.get("heading")
+                    if heading:
+                        entry["heading"] = heading
                     text = entity.get("text") or entity.get("description")
                     if text:
                         preview_limit = 400

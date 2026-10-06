@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 import json
 import math
+import os.path
 from pathlib import Path
 import re
 import shutil
@@ -85,7 +86,7 @@ class ChunkUploadService:
     @classmethod
     def _cleanup_expired(cls):
         for directory in cls.root.iterdir():
-            if not directory.is_dir() or not re.fullmatch(r"[a-f0-9]{32}", directory.name):
+            if directory.is_symlink() or not directory.is_dir() or not re.fullmatch(r"[a-f0-9]{32}", directory.name):
                 continue
             try:
                 meta = json.loads((directory / "meta.json").read_text())
@@ -105,7 +106,13 @@ class ChunkUploadService:
     async def _load(cls, upload_id: str, user_id: int, authorize=True):
         if not re.fullmatch(r"[a-f0-9]{32}", upload_id):
             raise HTTPException(404, detail="Upload session not found")
-        directory = cls.root / upload_id
+        root = os.path.realpath(cls.root)
+        directory_path = os.path.realpath(os.path.join(root, upload_id))
+        # Resolve symlinks before checking the boundary; a string prefix would
+        # also accept sibling directories whose names start with the root.
+        if os.path.commonpath((root, directory_path)) != root or directory_path == root:
+            raise HTTPException(404, detail="Upload session not found")
+        directory = Path(directory_path)
         try:
             async with aiofiles.open(directory / "meta.json") as file:
                 meta = json.loads(await file.read())

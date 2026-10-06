@@ -202,9 +202,14 @@ class Cloud189Adapter(IDFileAdapter):
         plain = "&".join(f"{key}={fields[key]}" for key in sorted(fields)).encode()
         padder = padding.PKCS7(128).padder()
         padded = padder.update(plain) + padder.finalize()
+        # Cloud189's upload wire protocol requires AES-128-ECB with PKCS7
+        # padding. Keep this confined to provider requests over verified HTTPS;
+        # changing the mode would make the server unable to decode parameters.
         encryptor = Cipher(algorithms.AES(secret[:16].encode()), modes.ECB()).encryptor()
         encrypted = (encryptor.update(padded) + encryptor.finalize()).hex()
         uri, date = "/person/" + operation, str(int(time.time() * 1000))
+        # The provider requires HMAC-SHA1 (not a bare SHA1 credential hash),
+        # keyed with a fresh per-request secret wrapped by its RSA public key.
         signature = hmac.new(secret.encode(),
             f"SessionKey={session_key}&Operate=GET&RequestURI={uri}&Date={date}&params={encrypted}".encode(), hashlib.sha1).hexdigest()
         headers = {**self._headers(), "SessionKey": session_key, "Signature": signature,

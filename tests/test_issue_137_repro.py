@@ -61,3 +61,12 @@ def test_no_current_path_omits_the_header():
     """An absent current directory must not produce a header at all."""
     headers = asyncio.run(create_loopback_mcp_headers(None, None))
     assert CURRENT_PATH_HEADER not in headers
+
+
+def test_guard_trips_if_a_future_change_skips_the_codec(monkeypatch):
+    """The tripwire: a raw non-ASCII value must fail at the boundary."""
+    import domain.agent.mcp as mcp
+
+    monkeypatch.setattr(mcp, "encode_current_path", lambda path: path)
+    with pytest.raises(ValueError, match="must be ASCII"):
+        asyncio.run(create_loopback_mcp_headers(None, "/docs/示例目录"))

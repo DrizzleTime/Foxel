@@ -25,11 +25,16 @@ from domain.processors import ProcessorService
 
 from .tools import mcp_tool_descriptors
 from .tools.base import McpToolDescriptor, tool_result_to_content
+from .current_path import (
+    CURRENT_PATH_HEADER,
+    decode_current_path,
+    encode_current_path,
+    ensure_ascii_header_value,
+)
 from .execution import execute_tool
 from domain.permission.execution import ExecutionError, normalize_path
 
 INTERNAL_MCP_BASE_URL = "http://127.0.0.1:8000/"
-CURRENT_PATH_HEADER = "x-foxel-current-path"
 _resource_context: ContextVar[Context | None] = ContextVar("foxel_resource_context", default=None)
 
 
@@ -59,7 +64,7 @@ def _header_current_path(ctx: Context | None) -> str | None:
     if request is None:
         return None
     try:
-        return _normalize_path(request.headers.get(CURRENT_PATH_HEADER))
+        return _normalize_path(decode_current_path(request.headers.get(CURRENT_PATH_HEADER)))
     except ExecutionError:
         return None
 
@@ -189,7 +194,7 @@ for descriptor in mcp_tool_descriptors():
     "foxel://context/current-path",
     name="current_path",
     title="Current Path",
-    description="Read when the user refers to the current directory. Returns the Foxel path from x-foxel-current-path, or null if no valid path was supplied.",
+    description="Read when the user refers to the current directory. Returns the Foxel path from x-foxel-current-path, or null if no valid path was supplied. The header value must be ASCII: percent-encode the UTF-8 path and prefix it with 'foxel-cp1:'. Values without that prefix are read as raw paths for backward compatibility.",
     mime_type="application/json",
 )
 def current_path_resource() -> dict[str, Any]:
@@ -358,7 +363,9 @@ async def create_loopback_mcp_headers(user: User | None, current_path: str | Non
         )
         headers["Authorization"] = f"Bearer {token}"
     if current_path:
-        headers[CURRENT_PATH_HEADER] = current_path
+        headers[CURRENT_PATH_HEADER] = ensure_ascii_header_value(
+            CURRENT_PATH_HEADER, encode_current_path(current_path)
+        )
     return headers
 
 

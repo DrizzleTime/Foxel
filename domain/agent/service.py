@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import uuid
 from contextlib import aclosing
 from typing import Any
@@ -18,6 +19,8 @@ from .execution import execute_tool
 from .tools import AGENT_ONLY_TOOL_NAMES, mcp_tool_descriptors
 from .tools.base import tool_error, tool_result_to_content
 from .types import AgentChatRequest
+
+logger = logging.getLogger(__name__)
 
 
 def _build_system_prompt(current_path: str | None) -> str:
@@ -95,6 +98,9 @@ async def _execute_mcp_call(session, name: str, arguments: dict[str, Any]) -> st
             return tool_result_to_content(tool_error("invalid_arguments"))
         return mcp_content_to_text(result.content, result.structured_content)
     except Exception:
+        # Without the tool name an adapter-level failure is indistinguishable
+        # from a bad-arguments failure, because both return execution_failed.
+        logger.exception("MCP tool call failed (tool=%s)", name)
         return tool_result_to_content(tool_error("execution_failed"))
 
 
@@ -244,6 +250,11 @@ class AgentService:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            # The user only ever sees a generic message below, so the
+            # traceback has to reach the server log to stay diagnosable.
+            logger.exception(
+                "Agent chat failed (user=%s, error=%s)", user.username, type(exc).__name__
+            )
             if isinstance(exc, MissingModelError):
                 content, reason = str(exc), "model_unavailable"
             elif isinstance(exc, httpx.TimeoutException):

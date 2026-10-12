@@ -30,3 +30,12 @@ dependencies = [
     "websockets>=17.1",
     "smbprotocol>=1.17.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

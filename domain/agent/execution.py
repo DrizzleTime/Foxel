@@ -1,5 +1,6 @@
 import codecs
 import json
+import logging
 from pathlib import PurePosixPath
 from typing import Any
 from urllib.parse import urlsplit
@@ -16,6 +17,8 @@ from domain.virtual_fs import VirtualFSService
 
 from .tools import get_tool
 from .tools.base import normalize_tool_result, tool_error
+
+logger = logging.getLogger(__name__)
 
 
 def validate_arguments(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -239,6 +242,30 @@ def exception_result(exc: Exception) -> dict[str, Any]:
     return tool_error("execution_failed")
 
 
+_EXPECTED_ERRORS = (
+    ExecutionError,
+    ValueError, TypeError, LookupError, OverflowError,
+    FileNotFoundError, HTTPException,
+    httpx.TimeoutException,
+)
+
+# Subclasses of the above that are nonetheless real defects. UnicodeEncodeError
+# is a ValueError, and an unencodable value reaching a boundary is exactly the
+# class of bug these logs exist to surface.
+_DEFECT_ERRORS = (UnicodeError,)
+
+
+def is_expected_error(exc: Exception) -> bool:
+    """Whether exc is a normal outcome rather than a defect.
+
+    Mirrors the branches of :func:`exception_result`: everything it maps to a
+    specific error code is part of normal control flow and is already reported
+    to the model through the tool result. Only the fall-through
+    ``execution_failed`` case warrants a traceback.
+    """
+    return isinstance(exc, _EXPECTED_ERRORS) and not isinstance(exc, _DEFECT_ERRORS)
+
+
 async def execute_tool(name: str, arguments: dict[str, Any], user: User | None, current_path: str | None = None) -> dict[str, Any]:
     try:
         if user is None or user.disabled:
@@ -251,4 +278,8 @@ async def execute_tool(name: str, arguments: dict[str, Any], user: User | None, 
         # Pydantic search results must remain structured JSON rather than repr strings.
         return normalize_tool_result(json.loads(json.dumps(result, ensure_ascii=False, default=lambda value: value.model_dump(mode="json"))))
     except Exception as exc:
+        # The result only carries an error code, so the traceback is the only
+        # way to tell a provider crash apart from a rejected argument.
+        if not is_expected_error(exc):
+            logger.exception("Agent tool execution failed (tool=%s, error=%s)", name, type(exc).__name__)
         return exception_result(exc)

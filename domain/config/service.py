@@ -10,7 +10,7 @@ from models.database import Configuration, UserAccount
 
 load_dotenv(dotenv_path=".env")
 
-VERSION = "v2.2.7"
+VERSION = "v2.2.8"
 
 
 class ConfigService:

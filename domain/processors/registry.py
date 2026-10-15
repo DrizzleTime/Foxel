@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import inspect
 import pkgutil
 from importlib import import_module, reload
@@ -14,13 +16,50 @@ MODULE_MAP: Dict[str, ModuleType] = {}
 LAST_DISCOVERY_ERRORS: list[str] = []
 
 
+@dataclass(frozen=True)
+class ProcessorRegistration:
+    owner: str
+    version: str
+    factory: ProcessorFactory
+    metadata: dict
+    module: ModuleType
+
+
+REGISTRATIONS: dict[str, ProcessorRegistration] = {}
+
+
+def validate_registration(processor_type: str, owner: str):
+    existing = REGISTRATIONS.get(processor_type)
+    if existing and existing.owner != owner:
+        raise ValueError(f"处理器 {processor_type} 已由 {existing.owner} 注册")
+    if processor_type in TYPE_MAP and existing is None:
+        raise ValueError(f"处理器 {processor_type} 已注册且归属未知")
+
+
+def register(processor_type: str, *, owner: str, version: str, factory: ProcessorFactory,
+             metadata: dict, module: ModuleType):
+    validate_registration(processor_type, owner)
+    if not callable(factory):
+        raise ValueError(f"处理器 {processor_type} 缺少有效工厂")
+    REGISTRATIONS[processor_type] = ProcessorRegistration(owner, version, factory, metadata, module)
+    TYPE_MAP[processor_type] = factory
+    CONFIG_SCHEMAS[processor_type] = {**metadata, "owner": owner, "version": version}
+    MODULE_MAP[processor_type] = module
+
+
+def unregister_owner(owner: str):
+    for processor_type, registration in list(REGISTRATIONS.items()):
+        if registration.owner == owner:
+            REGISTRATIONS.pop(processor_type)
+            TYPE_MAP.pop(processor_type, None)
+            CONFIG_SCHEMAS.pop(processor_type, None)
+            MODULE_MAP.pop(processor_type, None)
+
+
 def discover_processors(force_reload: bool = False) -> list[str]:
     """扫描并缓存可用的处理器模块。"""
     from . import builtin as processors_pkg
 
-    TYPE_MAP.clear()
-    CONFIG_SCHEMAS.clear()
-    MODULE_MAP.clear()
 
     global LAST_DISCOVERY_ERRORS
     LAST_DISCOVERY_ERRORS = []
@@ -67,8 +106,6 @@ def discover_processors(force_reload: bool = False) -> list[str]:
             LAST_DISCOVERY_ERRORS.append(f"Failed to instantiate processor {processor_type}: {exc}")
             continue
 
-        TYPE_MAP[processor_type] = factory
-        MODULE_MAP[processor_type] = module
 
         produces_file = getattr(module, "produces_file", None)
         if produces_file is None and hasattr(sample, "produces_file"):
@@ -99,7 +136,7 @@ def discover_processors(force_reload: bool = False) -> list[str]:
                 normalized_exts = [str(ext) for ext in sample_exts]
 
         if isinstance(schema, list):
-            CONFIG_SCHEMAS[processor_type] = {
+            metadata = {
                 "type": processor_type,
                 "name": processor_name or processor_type,
                 "supported_exts": normalized_exts,
@@ -109,6 +146,31 @@ def discover_processors(force_reload: bool = False) -> list[str]:
                 "module_path": module_path,
             }
 
+            try:
+                register(processor_type, owner="builtin", version="host", factory=factory,
+                         metadata=metadata, module=module)
+            except ValueError as exc:
+                LAST_DISCOVERY_ERRORS.append(str(exc))
+
+    if force_reload:
+        from domain.plugins.loader import PluginLoader
+        from domain.plugins.types import ManifestProcessorConfig
+        for processor_type, registration in list(REGISTRATIONS.items()):
+            if registration.owner == "builtin":
+                continue
+            try:
+                metadata = registration.metadata
+                path = Path(metadata["module_path"])
+                prepared = PluginLoader.load_processor_module(
+                    registration.owner,
+                    ManifestProcessorConfig(module=path.name, type=processor_type, name=metadata.get("name")),
+                    path.parent, register=False,
+                )
+                _, factory, meta, module = prepared
+                register(processor_type, owner=registration.owner, version=registration.version,
+                         factory=factory, metadata=meta, module=module)
+            except Exception as exc:
+                LAST_DISCOVERY_ERRORS.append(f"Failed to reload {processor_type}: {exc}")
     return LAST_DISCOVERY_ERRORS
 
 

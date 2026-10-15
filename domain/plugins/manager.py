@@ -45,32 +45,26 @@ class PluginManager:
 
     def snapshot(self, key: str, manifest):
         from .loader import PluginLoader
-        from domain.processors.registry import TYPE_MAP, CONFIG_SCHEMAS
-        types = {t for t, meta in CONFIG_SCHEMAS.items() if meta.get("plugin") == key}
-        if manifest.backend:
-            types.update(p.type for p in manifest.backend.processors or [])
+        from domain.processors.registry import REGISTRATIONS
         return (
             self.routers.get(key),
             {k: v for k, v in PluginLoader._loaded_modules.items() if k.startswith(f"{key}:")},
-            {t: (TYPE_MAP.get(t), CONFIG_SCHEMAS.get(t)) for t in types},
+            {t: r for t, r in REGISTRATIONS.items() if r.owner == key},
         )
 
     def restore(self, key, snapshot):
         from .loader import PluginLoader
-        from domain.processors.registry import TYPE_MAP, CONFIG_SCHEMAS
+        from domain.processors.registry import register, unregister_owner
         router, modules, processors = snapshot
         self.remove(key)
         if router is not None:
             self.routers = {**self.routers, key: router}
         self.clean_modules(key, keep=modules.values())
         PluginLoader._loaded_modules.update(modules)
-        for t, (factory, metadata) in processors.items():
-            TYPE_MAP.pop(t, None)
-            CONFIG_SCHEMAS.pop(t, None)
-            if factory is not None:
-                TYPE_MAP[t] = factory
-            if metadata is not None:
-                CONFIG_SCHEMAS[t] = metadata
+        unregister_owner(key)
+        for t, registration in processors.items():
+            register(t, owner=key, version=registration.version, factory=registration.factory,
+                     metadata=registration.metadata, module=registration.module)
 
     def clean_modules(self, key, keep=()):
         from .loader import PluginLoader
@@ -87,18 +81,22 @@ class PluginManager:
             PluginLoader.load_processor_module(key, config, directory, register=False)
             for config in (manifest.backend.processors or [] if manifest.backend else [])
         ]
-        return routers, processors
+        from domain.processors.registry import validate_registration
+        types = [p[0] for p in processors]
+        if len(types) != len(set(types)):
+            raise ValueError("插件声明了重复的处理器类型")
+        for processor_type in types:
+            validate_registration(processor_type, key)
+        return routers, processors, manifest.version
 
     def activate(self, key, prepared):
-        from domain.processors.registry import TYPE_MAP, CONFIG_SCHEMAS
-        routers, processors = prepared
-        for t, meta in list(CONFIG_SCHEMAS.items()):
-            if meta.get("plugin") == key:
-                TYPE_MAP.pop(t, None)
-                CONFIG_SCHEMAS.pop(t, None)
+        from domain.processors.registry import register, unregister_owner, validate_registration
+        routers, processors, version = prepared
+        for t, *_ in processors:
+            validate_registration(t, key)
+        unregister_owner(key)
         for t, factory, metadata, module in processors:
-            TYPE_MAP[t] = factory
-            CONFIG_SCHEMAS[t] = metadata
+            register(t, owner=key, version=version, factory=factory, metadata=metadata, module=module)
         self.replace_routes(key, routers)
 
     def replace_routes(self, key: str, routers: list[APIRouter]):

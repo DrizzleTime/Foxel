@@ -328,7 +328,7 @@ class PluginLoader:
             supported_exts = getattr(module, "SUPPORTED_EXTS", [])
 
             # 注册到处理器注册表
-            from domain.processors import CONFIG_SCHEMAS, TYPE_MAP
+            from domain.processors.registry import register as register_processor
 
             processor_type = processor_config.type
             if not callable(factory):
@@ -355,8 +355,8 @@ class PluginLoader:
             }
 
             if register:
-                TYPE_MAP[processor_type] = factory
-                CONFIG_SCHEMAS[processor_type] = metadata
+                register_processor(processor_type, owner=plugin_key, version="unknown",
+                                   factory=factory, metadata=metadata, module=module)
             return processor_type, factory, metadata, module
 
         except PluginLoadError:
@@ -389,16 +389,8 @@ class PluginLoader:
             plugin_key: 插件标识
             manifest: 可选的 manifest，用于确定要卸载的组件
         """
-        # 卸载处理器
-        if manifest and manifest.backend and manifest.backend.processors:
-            from domain.processors import CONFIG_SCHEMAS, TYPE_MAP
-
-            for proc_config in manifest.backend.processors:
-                proc_type = proc_config.type
-                if proc_type in TYPE_MAP:
-                    del TYPE_MAP[proc_type]
-                if proc_type in CONFIG_SCHEMAS:
-                    del CONFIG_SCHEMAS[proc_type]
+        from domain.processors.registry import unregister_owner
+        unregister_owner(plugin_key)
 
         # 清理缓存的模块
         keys_to_remove = [k for k in cls._loaded_modules if k.startswith(f"{plugin_key}:")]

@@ -11,7 +11,7 @@ class ManifestFrontend(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
-    capabilities: List[Literal["monaco", "artplayer"]] = Field(default_factory=list)
+    capabilities: List[Literal["monaco", "artplayer", "react-markdown"]] = Field(default_factory=list)
     public_dir: str = Field(default="frontend", alias="publicDir", description="公开前端资源目录，不允许插件根目录")
     assets: List[str] = Field(default_factory=list, description="额外公开资源文件清单")
     entry: Optional[str] = Field(default=None, description="前端入口文件路径")

@@ -354,7 +354,7 @@ async function main() {
     const capabilities = (plugin.manifest?.frontend as { capabilities?: unknown } | undefined)?.capabilities;
     if (Array.isArray(capabilities)) {
       await Promise.all(capabilities.map(capability => {
-        if (capability !== 'monaco' && capability !== 'artplayer') throw new Error('Invalid capability');
+        if (capability !== 'monaco' && capability !== 'artplayer' && capability !== 'react-markdown') throw new Error('Invalid capability');
         return loadCapability(capability);
       }));
     }

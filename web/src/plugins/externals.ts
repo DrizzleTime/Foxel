@@ -13,6 +13,7 @@ import * as AntdIcons from '@ant-design/icons';
 // 宿主共享依赖（供插件复用）
 import type MonacoEditor from '@monaco-editor/react';
 import type Artplayer from 'artplayer';
+import type ReactMarkdown from 'react-markdown';
 
 // API 模块
 import request, { vfsApi, API_BASE_URL } from '../api/client';
@@ -67,6 +68,7 @@ export interface FoxelExternals {
   // 编辑器/播放器
   MonacoEditor?: typeof MonacoEditor;
   Artplayer?: typeof Artplayer;
+  ReactMarkdown?: typeof ReactMarkdown;
   loadCapability: (capability: PluginCapability) => Promise<void>;
 
   // i18n
@@ -182,6 +184,7 @@ export function loadCapability(capability: PluginCapability): Promise<void> {
     const externals = window.__FOXEL_EXTERNALS__!;
     if (capability === 'monaco') externals.MonacoEditor = (await import('@monaco-editor/react')).default;
     else if (capability === 'artplayer') externals.Artplayer = (await import('artplayer')).default;
+    else if (capability === 'react-markdown') externals.ReactMarkdown = (await import('react-markdown')).default;
     else throw new Error(`Unsupported plugin capability: ${capability}`);
   })();
   capabilityLoads.set(capability, load);

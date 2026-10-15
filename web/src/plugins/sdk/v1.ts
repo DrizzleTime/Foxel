@@ -3,7 +3,7 @@ import type { VfsEntry } from '../../api/client';
 export type { FoxelExternals } from '../externals';
 
 export const HOST_API_VERSION = '1.0.0';
-export type PluginCapability = 'monaco' | 'artplayer';
+export type PluginCapability = 'monaco' | 'artplayer' | 'react-markdown';
 export type PluginCleanup = () => void | Promise<void>;
 
 /**

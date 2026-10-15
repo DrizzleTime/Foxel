@@ -469,7 +469,7 @@ const PluginsPage = memo(function PluginsPage() {
     const name = texts.name || `${t('Plugin')} ${p.key}`;
     const appKey = `plugin:${p.key}`;
     const app = getAppByKey(appKey);
-    const canOpenApp = !!p.open_app;
+    const canOpenApp = !!p.open_app && (!p.status || p.status === 'active');
     return (
       <CenterCard
         key={p.key}
@@ -477,9 +477,9 @@ const PluginsPage = memo(function PluginsPage() {
         iconAlt={name}
         name={name}
         version={p.version || undefined}
-        description={texts.description || t('No description')}
+        description={[texts.description || t('No description'), p.last_error].filter(Boolean).join(' — ')}
         metaLeft={p.author || undefined}
-        metaRight={p.key}
+        metaRight={`${p.key}${p.status ? ` · ${p.status}` : ''}`}
         pills={buildCardPills(p.supported_exts, t('Any'))}
         footerLeft={(p.github || p.website) ? (
           <div className="fx-center-card-links">
@@ -511,6 +511,16 @@ const PluginsPage = memo(function PluginsPage() {
               }}
             >
               {t('Open App')}
+            </Button>
+            <Button type="text" size="small" disabled={p.status === 'loading' || !p.version}
+              onClick={async () => {
+                try {
+                  await pluginsApi.setEnabled(p.key, p.status !== 'active');
+                  await reload();
+                  await reloadPluginApps();
+                } catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
+              }}>
+              {t(p.status === 'active' ? 'Disable' : 'Enable')}
             </Button>
             <Popconfirm title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.key); await reload(); await reloadPluginApps(); }}>
               <Button type="text" danger size="small">{t('Uninstall')}</Button>

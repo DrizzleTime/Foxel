@@ -3,6 +3,9 @@ import request from './client';
 export interface PluginItem {
   id: number;
   key: string;
+  status?: 'disabled' | 'loading' | 'active' | 'failed';
+  last_error?: string | null;
+  active_directory?: string | null;
   open_app?: boolean | null;
   name?: string | null;
   version?: string | null;
@@ -53,6 +56,9 @@ export const pluginsApi = {
   /**
    * 删除/卸载插件
    */
+  setEnabled: (key: string, enabled: boolean) =>
+    request<PluginItem>(`/plugins/${key}/enabled`, { method: 'PATCH', json: { enabled } }),
+
   remove: (key: string) => request(`/plugins/${key}`, { method: 'DELETE' }),
 
   /**

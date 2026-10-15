@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.142.2",
     "mcp>=2.2.0",
     "httpx>=0.28.1,<1",
+    "packaging>=26.0",
     "paramiko>=5.0.0",
     "pillow>=12.3.0",
     "pydantic[email]>=2.13.5,<3",

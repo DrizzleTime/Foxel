@@ -83,7 +83,7 @@ function buildPluginApp(p: PluginItem): AppDescriptor {
 async function loadApps() {
   try {
     const items = await pluginsApi.list();
-    apps = items.map(buildPluginApp);
+    apps = items.filter(p => !p.status || p.status === 'active').map(buildPluginApp);
     listeners.forEach((listener) => listener());
   } catch {
     void 0;

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -88,6 +88,7 @@ class PluginManifest(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
+    host_api_version: str = Field(default=">=1.0,<2.0", alias="hostApiVersion")
     foxpkg: str = Field(default="1.0", description="foxpkg 格式版本")
     key: str = Field(..., min_length=1, description="插件唯一标识")
     name: str = Field(..., min_length=1, description="插件名称")
@@ -115,6 +116,9 @@ class PluginOut(BaseModel):
 
     id: int
     key: str
+    status: Literal["disabled", "loading", "active", "failed"] = "loading"
+    last_error: Optional[str] = None
+    active_directory: Optional[str] = None
     open_app: bool = False
     name: Optional[str] = None
     version: Optional[str] = None
@@ -143,3 +147,7 @@ class PluginInstallResult(BaseModel):
     plugin: Optional[PluginOut] = None
     message: Optional[str] = None
     errors: Optional[List[str]] = None
+
+
+class PluginEnabledRequest(BaseModel):
+    enabled: bool

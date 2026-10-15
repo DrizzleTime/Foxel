@@ -75,6 +75,8 @@ class PluginManager:
                 del PluginLoader._loaded_modules[name]
 
     def prepare(self, key, manifest, directory):
+        from .compatibility import check_compatibility
+        check_compatibility(manifest)
         from .loader import PluginLoader
         routers = PluginLoader.load_all_routes(key, manifest, directory)
         processors = [

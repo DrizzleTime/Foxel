@@ -15,6 +15,8 @@ TORTOISE_ORM = {
 async def init_db():
     await Tortoise.init(config=TORTOISE_ORM, _enable_global_fallback=True)
     await Tortoise.generate_schemas()
+    from .plugin_schema import migrate_plugin_state
+    await migrate_plugin_state()
     await runtime_registry.refresh()
 
 

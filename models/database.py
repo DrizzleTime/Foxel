@@ -314,6 +314,9 @@ class Notice(Model):
 
 
 class Plugin(Model):
+    status = fields.CharField(max_length=16, default="loading")
+    last_error = fields.TextField(null=True)
+    active_directory = fields.CharField(max_length=1024, null=True)
     id = fields.IntField(pk=True)
     key = fields.CharField(max_length=100, unique=True)  # 插件唯一标识
     name = fields.CharField(max_length=255, null=True)

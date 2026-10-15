@@ -8,7 +8,7 @@ import asyncio
 import logging
 import shutil
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Union
 
 from fastapi import HTTPException
 from tortoise.transactions import in_transaction
@@ -38,6 +38,13 @@ class PluginService:
         return cls._plugins_root / plugin_key
 
     @classmethod
+    def active_directory(cls, rec: Plugin) -> Path:
+        directory = cls._plugins_root / (rec.active_directory or rec.key)
+        if directory.parent.resolve() != cls._plugins_root.resolve():
+            raise ValueError("Invalid active plugin directory")
+        return directory.resolve()
+
+    @classmethod
     def _get_bundle_path(cls, rec: Plugin) -> Path:
         """获取前端 bundle 路径"""
         frontend = (rec.manifest or {}).get("frontend") or {}
@@ -46,7 +53,9 @@ class PluginService:
     @classmethod
     def _public_asset_path(cls, rec: Plugin, asset_path: str) -> Path:
         frontend = (rec.manifest or {}).get("frontend") or {}
-        root = cls._get_plugin_dir(rec.key).resolve()
+        if rec.status not in {"active", "loading"} or not rec.version:
+            raise HTTPException(status_code=409, detail="Plugin is not active")
+        root = cls.active_directory(rec)
         path = Path(asset_path)
         public_dir = frontend.get("public_dir", frontend.get("publicDir", "frontend"))
         public = Path(public_dir)
@@ -129,6 +138,11 @@ class PluginService:
         key = manifest.key
         target = cls._get_plugin_dir(key)
         backup = target.with_name(f".{key}.rollback")
+        previous = await Plugin.get_or_none(key=key)
+        previous_status = previous.status if previous else "failed"
+        if previous:
+            previous.status = "loading"
+            await previous.save(update_fields=["status"])
         snapshot = manager.snapshot(key, manifest)
         switched = False
         old_directory = target.resolve() if target.is_symlink() else None
@@ -150,6 +164,9 @@ class PluginService:
                 for field in ("name", "version", "description", "author", "website", "github", "license"):
                     setattr(rec, field, getattr(manifest, field))
                 rec.manifest = manifest.model_dump(mode="json")
+                rec.active_directory = directory.name
+                rec.status = "active"
+                rec.last_error = None
                 frontend = manifest.frontend
                 rec.open_app = bool(frontend and frontend.open_app)
                 for field in ("supported_exts", "default_bounds", "default_maximized", "icon"):
@@ -158,12 +175,19 @@ class PluginService:
                 rec.loaded_processors = [p[0] for p in prepared[1]]
                 await rec.save(using_db=connection)
                 manager.activate(key, prepared)
-        except BaseException:
+        except BaseException as exc:
             manager.restore(key, snapshot)
             if switched:
                 target.unlink()
                 if backup.exists() or backup.is_symlink():
                     backup.rename(target)
+            if isinstance(exc, Exception):
+                if previous:
+                    await Plugin.filter(key=key).update(status=previous_status, last_error=str(exc))
+                else:
+                    await Plugin.create(key=key, name=manifest.name, status="failed", last_error=str(exc))
+            elif previous:
+                await Plugin.filter(key=key).update(status=previous_status)
             raise
         for module in snapshot[1].values():
             import sys
@@ -182,25 +206,12 @@ class PluginService:
     async def list_plugins(cls) -> List[PluginOut]:
         """获取所有插件列表"""
         rows = await Plugin.all().order_by("-id")
-        for rec in rows:
-            try:
-                manifest = PluginLoader.read_manifest(rec.key)
-                if manifest:
-                    rec.manifest = manifest.model_dump(mode="json")
-            except Exception:
-                continue
         return [PluginOut.model_validate(r) for r in rows]
 
     @classmethod
     async def get_plugin(cls, key_or_id: Union[str, int]) -> PluginOut:
         """获取单个插件详情"""
         rec = await cls._get_by_key_or_id(key_or_id)
-        try:
-            manifest = PluginLoader.read_manifest(rec.key)
-            if manifest:
-                rec.manifest = manifest.model_dump(mode="json")
-        except Exception:
-            pass
         return PluginOut.model_validate(rec)
 
     @classmethod
@@ -221,6 +232,23 @@ class PluginService:
     # ========== 管理操作 ==========
 
     @classmethod
+    async def set_enabled(cls, key_or_id, enabled: bool, manager: PluginManager):
+        rec = await cls._get_by_key_or_id(key_or_id)
+        async with manager.lock(rec.key):
+            rec = await cls._get_by_key_or_id(rec.key)
+            if enabled:
+                from .startup import activate_record
+                await activate_record(rec, manager)
+            else:
+                rec.status = "disabled"
+                rec.loaded_routes = []
+                rec.loaded_processors = []
+                await rec.save()
+                manager.remove(rec.key)
+                PluginLoader.unload_plugin(rec.key)
+            return PluginOut.model_validate(rec)
+
+    @classmethod
     async def delete(cls, key_or_id: Union[str, int], manager: PluginManager) -> None:
         """删除/卸载插件"""
         rec = await cls._get_by_key_or_id(key_or_id)
@@ -228,7 +256,7 @@ class PluginService:
             rec = await cls._get_by_key_or_id(rec.key)
             target = cls._get_plugin_dir(rec.key)
             tombstone = target.with_name(f".{rec.key}.removed")
-            directory = target.resolve() if target.is_symlink() else None
+            directory = cls.active_directory(rec) if rec.active_directory else None
             moved = target.exists() or target.is_symlink()
             if moved:
                 target.rename(tombstone)
@@ -239,8 +267,7 @@ class PluginService:
                     tombstone.rename(target)
                 raise
             manager.remove(rec.key)
-            manifest = PluginManifest.model_validate(rec.manifest) if rec.manifest else None
-            PluginLoader.unload_plugin(rec.key, manifest)
+            PluginLoader.unload_plugin(rec.key)
             if tombstone.is_symlink():
                 tombstone.unlink()
             elif tombstone.exists():

@@ -14,6 +14,7 @@ from domain.permission.types import SystemPermission
 from .manager import PluginManager, get_plugin_manager
 from .service import PluginService
 from .types import (
+    PluginEnabledRequest,
     PluginInstallResult,
     PluginOut,
 )
@@ -76,6 +77,18 @@ async def delete_plugin(
     """卸载插件"""
     await PluginService.delete(key_or_id, get_plugin_manager(request))
     return {"code": 0, "msg": "ok"}
+
+
+@router.patch("/{key_or_id}/enabled", response_model=PluginOut)
+@audit(action=AuditAction.UPDATE, description="启用或禁用插件")
+@require_system_permission(SystemPermission.ROLE_MANAGE)
+async def set_plugin_enabled(
+    request: Request,
+    key_or_id: str,
+    body: PluginEnabledRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    return await PluginService.set_enabled(key_or_id, body.enabled, get_plugin_manager(request))
 
 
 # ========== 插件资源 ==========

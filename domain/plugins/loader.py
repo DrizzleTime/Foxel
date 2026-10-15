@@ -12,6 +12,8 @@ import io
 import json
 import shutil
 import sys
+import tempfile
+import uuid
 import zipfile
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -176,37 +178,16 @@ class PluginLoader:
                 except Exception as e:
                     raise PluginLoadError(f"manifest 解析失败: {e}")
 
-                # 确定插件 key
-                plugin_key = target_key or manifest.key
-
-                # 验证包内文件
+                if target_key and target_key != manifest.key:
+                    raise PluginLoadError("插件 key 与目标不一致")
                 cls._validate_package_files(zf, manifest)
-
-                # 部署文件
-                target_dir = cls.PLUGINS_ROOT / plugin_key
-                if target_dir.exists():
-                    # 备份旧版本
-                    backup_dir = cls.PLUGINS_ROOT / f"{plugin_key}.backup"
-                    if backup_dir.exists():
-                        shutil.rmtree(backup_dir)
-                    shutil.move(str(target_dir), str(backup_dir))
-
-                target_dir.mkdir(parents=True, exist_ok=True)
-
+                cls.PLUGINS_ROOT.mkdir(parents=True, exist_ok=True)
+                target_dir = Path(tempfile.mkdtemp(prefix=".staging-", dir=cls.PLUGINS_ROOT))
                 try:
                     zf.extractall(target_dir)
-                except Exception as e:
-                    # 恢复备份
-                    if (cls.PLUGINS_ROOT / f"{plugin_key}.backup").exists():
-                        shutil.rmtree(target_dir, ignore_errors=True)
-                        shutil.move(str(cls.PLUGINS_ROOT / f"{plugin_key}.backup"), str(target_dir))
-                    raise PluginLoadError(f"文件解压失败: {e}")
-
-                # 清理备份
-                backup_dir = cls.PLUGINS_ROOT / f"{plugin_key}.backup"
-                if backup_dir.exists():
-                    shutil.rmtree(backup_dir, ignore_errors=True)
-
+                except BaseException:
+                    shutil.rmtree(target_dir, ignore_errors=True)
+                    raise
                 return manifest, target_dir
 
         except zipfile.BadZipFile:
@@ -216,6 +197,12 @@ class PluginLoader:
     def _validate_package_files(cls, zf: zipfile.ZipFile, manifest: PluginManifest) -> None:
         """验证包内文件是否完整"""
         file_list = zf.namelist()
+        for info in zf.infolist():
+            path = Path(info.filename)
+            if path.is_absolute() or ".." in path.parts or "\\" in info.filename:
+                raise PluginLoadError(f"非法包路径: {info.filename}")
+            if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                raise PluginLoadError("插件包不允许符号链接")
 
         # 检查前端入口
         if manifest.frontend and manifest.frontend.entry:
@@ -237,7 +224,7 @@ class PluginLoader:
     # ========== 路由动态加载 ==========
 
     @classmethod
-    def load_route_module(cls, plugin_key: str, route_config: ManifestRouteConfig) -> APIRouter:
+    def load_route_module(cls, plugin_key: str, route_config: ManifestRouteConfig, plugin_dir: Optional[Path] = None) -> APIRouter:
         """
         动态加载插件路由模块
 
@@ -248,12 +235,12 @@ class PluginLoader:
         Returns:
             加载的 APIRouter
         """
-        module_path = cls.get_plugin_dir(plugin_key) / route_config.module
+        module_path = (plugin_dir or cls.get_plugin_dir(plugin_key)) / route_config.module
 
         if not module_path.exists():
             raise PluginLoadError(f"路由模块不存在: {module_path}")
 
-        module_name = f"foxel_plugin_{plugin_key}_route_{module_path.stem}"
+        module_name = f"foxel_plugin_{plugin_key}_route_{module_path.stem}_{uuid.uuid4().hex}"
 
         try:
             spec = spec_from_file_location(module_name, module_path)
@@ -262,10 +249,8 @@ class PluginLoader:
 
             module = module_from_spec(spec)
             sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-
-            # 缓存模块
             cls._loaded_modules[f"{plugin_key}:route:{route_config.module}"] = module
+            spec.loader.exec_module(module)
 
             # 获取 router
             router = getattr(module, "router", None)
@@ -287,7 +272,7 @@ class PluginLoader:
             raise PluginLoadError(f"加载路由模块失败 [{module_path}]: {e}")
 
     @classmethod
-    def load_all_routes(cls, plugin_key: str, manifest: PluginManifest) -> List[APIRouter]:
+    def load_all_routes(cls, plugin_key: str, manifest: PluginManifest, plugin_dir: Optional[Path] = None) -> List[APIRouter]:
         """加载插件的所有路由"""
         routers: List[APIRouter] = []
 
@@ -295,7 +280,7 @@ class PluginLoader:
             return routers
 
         for route_config in manifest.backend.routes:
-            router = cls.load_route_module(plugin_key, route_config)
+            router = cls.load_route_module(plugin_key, route_config, plugin_dir)
             routers.append(router)
 
         cls._mounted_routers[plugin_key] = routers
@@ -305,8 +290,9 @@ class PluginLoader:
 
     @classmethod
     def load_processor_module(
-        cls, plugin_key: str, processor_config: ManifestProcessorConfig
-    ) -> None:
+        cls, plugin_key: str, processor_config: ManifestProcessorConfig,
+        plugin_dir: Optional[Path] = None, register: bool = True,
+    ):
         """
         动态加载并注册处理器模块
 
@@ -314,12 +300,12 @@ class PluginLoader:
             plugin_key: 插件标识
             processor_config: 处理器配置
         """
-        module_path = cls.get_plugin_dir(plugin_key) / processor_config.module
+        module_path = (plugin_dir or cls.get_plugin_dir(plugin_key)) / processor_config.module
 
         if not module_path.exists():
             raise PluginLoadError(f"处理器模块不存在: {module_path}")
 
-        module_name = f"foxel_plugin_{plugin_key}_processor_{module_path.stem}"
+        module_name = f"foxel_plugin_{plugin_key}_processor_{module_path.stem}_{uuid.uuid4().hex}"
 
         try:
             spec = spec_from_file_location(module_name, module_path)
@@ -328,10 +314,8 @@ class PluginLoader:
 
             module = module_from_spec(spec)
             sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-
-            # 缓存模块
             cls._loaded_modules[f"{plugin_key}:processor:{processor_config.module}"] = module
+            spec.loader.exec_module(module)
 
             # 获取处理器工厂
             factory = getattr(module, "PROCESSOR_FACTORY", None)
@@ -347,7 +331,8 @@ class PluginLoader:
             from domain.processors import CONFIG_SCHEMAS, TYPE_MAP
 
             processor_type = processor_config.type
-            TYPE_MAP[processor_type] = factory
+            if not callable(factory):
+                raise PluginLoadError("PROCESSOR_FACTORY 必须可调用")
 
             # 获取实例以读取属性
             try:
@@ -358,7 +343,7 @@ class PluginLoader:
                 produces_file = False
                 supports_directory = False
 
-            CONFIG_SCHEMAS[processor_type] = {
+            metadata = {
                 "type": processor_type,
                 "name": processor_name,
                 "supported_exts": supported_exts,
@@ -368,6 +353,11 @@ class PluginLoader:
                 "plugin": plugin_key,  # 标记来源插件
                 "module_path": str(module_path),
             }
+
+            if register:
+                TYPE_MAP[processor_type] = factory
+                CONFIG_SCHEMAS[processor_type] = metadata
+            return processor_type, factory, metadata, module
 
         except PluginLoadError:
             raise

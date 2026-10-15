@@ -4,16 +4,17 @@
 负责插件的安装、卸载等管理操作
 """
 
-import contextlib
+import asyncio
 import logging
 import shutil
 from pathlib import Path
 from typing import List, Optional, Union
 
 from fastapi import HTTPException
+from tortoise.transactions import in_transaction
 
 from .manager import PluginManager
-from .loader import PluginLoadError, PluginLoader
+from .loader import PluginLoader
 from .types import (
     PluginInstallResult,
     PluginManifest,
@@ -87,100 +88,73 @@ class PluginService:
         Returns:
             安装结果
         """
-        errors: List[str] = []
-
+        directory = None
         try:
-            # 解包
-            manifest, plugin_dir = PluginLoader.unpack_foxpkg(file_content)
-            plugin_key = manifest.key
+            manifest, directory = PluginLoader.unpack_foxpkg(file_content)
+            async with manager.lock(manifest.key):
+                return await cls._install_staged(manifest, directory, manager)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.exception("插件安装失败")
+            return PluginInstallResult(success=False, message=f"安装失败: {exc}", errors=[str(exc)])
+        finally:
+            if directory is not None:
+                target = cls._get_plugin_dir(manifest.key)
+                if not target.is_symlink() or target.resolve() != directory.resolve():
+                    shutil.rmtree(directory, ignore_errors=True)
 
-            # 检查是否已存在
-            existing = await Plugin.get_or_none(key=plugin_key)
-            if existing:
-                # 更新现有插件
-                logger.info(f"更新插件: {plugin_key}")
-                rec = existing
-            else:
-                # 创建新插件
-                logger.info(f"安装新插件: {plugin_key}")
-                rec = Plugin(key=plugin_key)
-
-            # 更新字段
-            rec.name = manifest.name
-            rec.version = manifest.version
-            rec.description = manifest.description
-            rec.author = manifest.author
-            rec.website = manifest.website
-            rec.github = manifest.github
-            rec.license = manifest.license
-            rec.manifest = manifest.model_dump(mode="json")
-
-            # 从 manifest.frontend 提取前端配置
-            if manifest.frontend:
-                rec.open_app = manifest.frontend.open_app or False
-                rec.supported_exts = manifest.frontend.supported_exts
-                rec.default_bounds = manifest.frontend.default_bounds
-                rec.default_maximized = manifest.frontend.default_maximized
-                rec.icon = manifest.frontend.icon
-
-            await rec.save()
-
-            # 加载后端组件（如果有）
-            loaded_routes: List[str] = []
-            loaded_processors: List[str] = []
-
-            if manifest.backend:
-                # 加载路由
-                if manifest.backend.routes:
-                    try:
-                        routers = PluginLoader.load_all_routes(plugin_key, manifest)
-                        manager.replace_routes(plugin_key, routers)
-                        loaded_routes = [router.prefix for router in routers]
-                    except PluginLoadError as e:
-                        errors.append(f"路由加载失败: {e}")
-                        logger.error(f"插件 {plugin_key} 路由加载失败: {e}")
-                    except Exception as e:
-                        errors.append(f"路由加载失败: {e}")
-                        logger.exception(f"插件 {plugin_key} 路由加载异常")
-
-                # 加载处理器
-                if manifest.backend.processors:
-                    try:
-                        processor_types = PluginLoader.load_all_processors(plugin_key, manifest)
-                        loaded_processors = processor_types
-                    except PluginLoadError as e:
-                        errors.append(f"处理器加载失败: {e}")
-                        logger.error(f"插件 {plugin_key} 处理器加载失败: {e}")
-                    except Exception as e:
-                        errors.append(f"处理器加载失败: {e}")
-                        logger.exception(f"插件 {plugin_key} 处理器加载异常")
-
-            # 更新加载状态
-            rec.loaded_routes = loaded_routes if loaded_routes else None
-            rec.loaded_processors = loaded_processors if loaded_processors else None
-            await rec.save()
-
-            return PluginInstallResult(
-                success=True,
-                plugin=PluginOut.model_validate(rec),
-                message="安装成功" if not errors else "安装完成，但有部分组件加载失败",
-                errors=errors if errors else None,
-            )
-
-        except PluginLoadError as e:
-            logger.error(f"插件安装失败: {e}")
-            return PluginInstallResult(
-                success=False,
-                message=str(e),
-                errors=[str(e)],
-            )
-        except Exception as e:
-            logger.exception("插件安装异常")
-            return PluginInstallResult(
-                success=False,
-                message=f"安装失败: {e}",
-                errors=[str(e)],
-            )
+    @classmethod
+    async def _install_staged(cls, manifest, directory, manager):
+        key = manifest.key
+        target = cls._get_plugin_dir(key)
+        backup = target.with_name(f".{key}.rollback")
+        snapshot = manager.snapshot(key, manifest)
+        switched = False
+        old_directory = target.resolve() if target.is_symlink() else None
+        try:
+            prepared = manager.prepare(key, manifest, directory)
+            if target.exists() or target.is_symlink():
+                target.rename(backup)
+            try:
+                target.symlink_to(directory.resolve(), target_is_directory=True)
+            except BaseException:
+                if backup.exists() or backup.is_symlink():
+                    backup.rename(target)
+                raise
+            switched = True
+            async with in_transaction() as connection:
+                rec = await Plugin.get_or_none(key=key).using_db(connection)
+                if rec is None:
+                    rec = Plugin(key=key)
+                for field in ("name", "version", "description", "author", "website", "github", "license"):
+                    setattr(rec, field, getattr(manifest, field))
+                rec.manifest = manifest.model_dump(mode="json")
+                frontend = manifest.frontend
+                rec.open_app = bool(frontend and frontend.open_app)
+                for field in ("supported_exts", "default_bounds", "default_maximized", "icon"):
+                    setattr(rec, field, getattr(frontend, field) if frontend else None)
+                rec.loaded_routes = [router.prefix for router in prepared[0]]
+                rec.loaded_processors = [p[0] for p in prepared[1]]
+                await rec.save(using_db=connection)
+                manager.activate(key, prepared)
+        except BaseException:
+            manager.restore(key, snapshot)
+            if switched:
+                target.unlink()
+                if backup.exists() or backup.is_symlink():
+                    backup.rename(target)
+            raise
+        for module in snapshot[1].values():
+            import sys
+            sys.modules.pop(module.__name__, None)
+        if backup.is_symlink():
+            backup.unlink()
+        elif backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
+        if old_directory is not None:
+            shutil.rmtree(old_directory, ignore_errors=True)
+        return PluginInstallResult(success=True, plugin=PluginOut.model_validate(rec), message="安装成功")
 
     # ========== 查询 ==========
 
@@ -247,28 +221,27 @@ class PluginService:
     async def delete(cls, key_or_id: Union[str, int], manager: PluginManager) -> None:
         """删除/卸载插件"""
         rec = await cls._get_by_key_or_id(key_or_id)
-
-        # 获取 manifest 用于卸载组件
-        manifest: Optional[PluginManifest] = None
-        if rec.manifest:
+        async with manager.lock(rec.key):
+            rec = await cls._get_by_key_or_id(rec.key)
+            target = cls._get_plugin_dir(rec.key)
+            tombstone = target.with_name(f".{rec.key}.removed")
+            directory = target.resolve() if target.is_symlink() else None
+            moved = target.exists() or target.is_symlink()
+            if moved:
+                target.rename(tombstone)
             try:
-                manifest = PluginManifest.model_validate(rec.manifest)
-            except Exception:
-                pass
-
-        manager.remove(rec.key)
-
-        # 卸载后端组件
-        if manifest:
+                await rec.delete()
+            except BaseException:
+                if moved:
+                    tombstone.rename(target)
+                raise
+            manager.remove(rec.key)
+            manifest = PluginManifest.model_validate(rec.manifest) if rec.manifest else None
             PluginLoader.unload_plugin(rec.key, manifest)
-
-        # 删除数据库记录
-        await rec.delete()
-
-        # 删除文件
-        with contextlib.suppress(Exception):
-            plugin_dir = cls._get_plugin_dir(rec.key)
-            if plugin_dir.exists():
-                shutil.rmtree(plugin_dir)
-
-        logger.info(f"插件 {rec.key} 已卸载")
+            if tombstone.is_symlink():
+                tombstone.unlink()
+            elif tombstone.exists():
+                shutil.rmtree(tombstone, ignore_errors=True)
+            if directory is not None:
+                shutil.rmtree(directory, ignore_errors=True)
+            logger.info("插件 %s 已卸载", rec.key)

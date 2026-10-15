@@ -57,28 +57,16 @@ async def load_installed_plugins(app: "FastAPI") -> Tuple[int, List[str]]:
                 logger.warning(f"插件 {plugin.key} 缺少 manifest，跳过加载")
                 continue
 
-            # 加载后端路由
-            loaded_routes: List[str] = []
-            if manifest.backend and manifest.backend.routes:
-                try:
-                    routers = PluginLoader.load_all_routes(plugin.key, manifest)
-                    app.state.plugin_manager.replace_routes(plugin.key, routers)
-                    loaded_routes = [router.prefix for router in routers]
-                    logger.info(f"插件 {plugin.key} 加载了 {len(routers)} 个路由")
-                except PluginLoadError as e:
-                    errors.append(f"插件 {plugin.key} 路由加载失败: {e}")
-                    logger.error(f"插件 {plugin.key} 路由加载失败: {e}")
-
-            # 加载处理器
-            loaded_processors: List[str] = []
-            if manifest.backend and manifest.backend.processors:
-                try:
-                    processor_types = PluginLoader.load_all_processors(plugin.key, manifest)
-                    loaded_processors = processor_types
-                    logger.info(f"插件 {plugin.key} 注册了 {len(processor_types)} 个处理器")
-                except PluginLoadError as e:
-                    errors.append(f"插件 {plugin.key} 处理器加载失败: {e}")
-                    logger.error(f"插件 {plugin.key} 处理器加载失败: {e}")
+            manager = app.state.plugin_manager
+            snapshot = manager.snapshot(plugin.key, manifest)
+            try:
+                prepared = manager.prepare(plugin.key, manifest, PluginLoader.get_plugin_dir(plugin.key))
+                manager.activate(plugin.key, prepared)
+            except BaseException:
+                manager.restore(plugin.key, snapshot)
+                raise
+            loaded_routes = [router.prefix for router in prepared[0]]
+            loaded_processors = [p[0] for p in prepared[1]]
 
             # 更新数据库记录
             plugin.loaded_routes = loaded_routes if loaded_routes else None

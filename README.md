@@ -40,10 +40,12 @@ Utilizes an extensible adapter pattern to easily integrate various storage types
 | Category | Adapters |
 |---|---|
 | **Standard Protocols** | Local, S3-compatible, WebDAV, SFTP, FTP, SMB |
-| **Cloud Drives** | Google Drive, OneDrive, Dropbox, Quark, UC, 123Pan, 115, 189 |
+| **Cloud Drives** | Google Drive, OneDrive, Dropbox, Baidu Netdisk, Quark, UC, 123Pan, 115, 189 |
 | **Special** | Telegram, AList, Foxel-to-Foxel, Seafile, Cloudreve V4 |
 
 The UC, 123Pan, 115, 189, SMB, Seafile, and Cloudreve V4 adapters use account or server credentials rather than developer SDK keys. See [configuration notes](docs/storage-adapters.md).
+
+Baidu Netdisk uses OAuth with `client_id`, `client_secret`, and a matching `refresh_token`. See [setup and limits](docs/baidu-netdisk.md).
 
 ### 🔍 AI-Powered Semantic Search
 

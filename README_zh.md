@@ -40,10 +40,12 @@
 | 分类 | 适配器 |
 |---|---|
 | **标准协议** | 本地存储、S3 兼容存储、WebDAV、SFTP、FTP、SMB |
-| **网盘服务** | Google Drive、OneDrive、Dropbox、夸克网盘、UC 网盘、123 网盘、115 网盘、天翼云盘 |
+| **网盘服务** | Google Drive、OneDrive、Dropbox、百度网盘、夸克网盘、UC 网盘、123 网盘、115 网盘、天翼云盘 |
 | **特殊类型** | Telegram、AList、Foxel 互联、Seafile、Cloudreve V4 |
 
 UC、123、115、天翼云盘、SMB、Seafile 和 Cloudreve V4 适配器无需申请开发者 SDK 密钥，使用账号或服务端凭据。[配置说明](docs/storage-adapters.md)
+
+百度网盘使用 OAuth 认证，需要 `client_id`、`client_secret` 和同一应用授权取得的 `refresh_token`。[配置与限制](docs/baidu-netdisk.md)
 
 ### 🔍 AI 语义搜索
 

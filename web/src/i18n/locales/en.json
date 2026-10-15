@@ -594,6 +594,7 @@
   "adapter.type.local": "Local Filesystem",
   "adapter.type.foxel": "Foxel Node",
   "adapter.type.dropbox": "Dropbox",
+  "adapter.type.baidu_netdisk": "Baidu Netdisk",
   "adapter.type.webdav": "WebDAV",
   "adapter.type.googledrive": "Google Drive",
   "adapter.type.onedrive": "OneDrive",

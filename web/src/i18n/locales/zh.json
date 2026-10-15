@@ -592,6 +592,7 @@
   "adapter.type.local": "本地文件系统",
   "adapter.type.foxel": "Foxel 节点",
   "adapter.type.dropbox": "Dropbox",
+  "adapter.type.baidu_netdisk": "百度网盘",
   "adapter.type.quark": "夸克网盘",
   "adapter.type.uc": "UC 网盘",
   "adapter.type.pan123": "123 网盘（账号）",

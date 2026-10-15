@@ -26,7 +26,7 @@ export function isHostRequest(value: unknown): value is HostRequest {
 }
 export function requireVfsPath(value: unknown): string {
   if (typeof value !== 'string' || !value.startsWith('/') || value.length > 8192
-    || /[\x00-\x1f\\?#]/.test(value) || value.split('/').includes('..')) {
+    || /[\x00-\x1f\\]/.test(value) || value.split('/').includes('..')) {
     throw new Error('Invalid VFS path');
   }
   return value.replace(/\/+$/, '') || '/';

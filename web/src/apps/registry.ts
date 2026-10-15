@@ -3,7 +3,7 @@ import type { AppDescriptor } from './types';
 import React, { useSyncExternalStore } from 'react';
 import { pluginsApi, type PluginItem } from '../api/plugins';
 import { PluginAppHost, PluginAppOpenHost } from './PluginHost';
-import { getPluginAssetUrl } from '../plugins/runtime';
+import { getPluginAssetUrl } from '../plugins/urls';
 
 let apps: AppDescriptor[] = [];
 const listeners = new Set<() => void>();
@@ -40,7 +40,7 @@ function resolvePluginIcon(p: PluginItem): string | undefined {
   }
 
   // 插件资源路径
-  return getPluginAssetUrl(p.key, p.icon);
+  return getPluginAssetUrl(p.key, p.icon, p.content_hash);
 }
 
 function resolvePluginUseSystemWindow(p: PluginItem): boolean | undefined {

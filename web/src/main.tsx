@@ -6,10 +6,6 @@ import { BrowserRouter } from 'react-router';
 import { ConfigProvider } from 'antd';
 import FoxelLoadingIndicator from './components/FoxelLoadingIndicator';
 
-// 初始化插件依赖注入
-import { initExternals } from './plugins/externals';
-initExternals();
-
 createRoot(document.getElementById('root')!).render(
   <ConfigProvider spin={{ indicator: <FoxelLoadingIndicator /> }}>
     <BrowserRouter>

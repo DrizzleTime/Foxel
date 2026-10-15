@@ -1,8 +1,9 @@
 import 'antd/dist/reset.css';
 import './global.css';
 
-import { initExternals } from './plugins/externals';
-import type { FoxelHostApi, RegisteredPlugin } from './plugins/externals';
+import { initExternals, loadCapability } from './plugins/externals';
+import type { FoxelHostApi, RegisteredPlugin } from './plugins/sdk/v1';
+import { getPluginAssetUrl, getPluginBundleUrl } from './plugins/urls';
 import type { PluginItem } from './api/plugins';
 import { pluginsApi } from './api/plugins';
 import request from './api/client';
@@ -19,7 +20,6 @@ type FrameQuery = {
   lang: string;
   filePath: string;
   pluginVersion: string;
-  pluginStyles: string[] | null;
   entry: VfsEntry | null;
 };
 
@@ -73,12 +73,6 @@ function getQuery(): FrameQuery {
   const filePath = (params.get('filePath') || '').trim();
   const pluginVersion = (params.get('pluginVersion') || '').trim();
 
-  const rawStyles = (params.get('pluginStyles') || '').trim();
-  const parsedStyles = rawStyles ? tryParseJson<unknown>(rawStyles) : null;
-  const pluginStyles = Array.isArray(parsedStyles)
-    ? parsedStyles.filter((s) => typeof s === 'string' && s.trim().length > 0)
-    : null;
-
   const rawEntry = (params.get('entry') || '').trim();
   const parsedEntry = rawEntry ? tryParseJson<any>(rawEntry) : null;
   const entry: VfsEntry | null =
@@ -93,7 +87,7 @@ function getQuery(): FrameQuery {
       }
       : null;
 
-  return { pluginKey, mode, lang, filePath, pluginVersion, pluginStyles, entry };
+  return { pluginKey, mode, lang, filePath, pluginVersion, entry };
 }
 
 function postToParent(data: any) {
@@ -217,19 +211,11 @@ function getPluginStylePaths(plugin: PluginItem): string[] {
   return styles.filter((s) => typeof s === 'string' && s.trim().length > 0);
 }
 
-function withVersion(url: string, version?: string | null): string {
-  const v = typeof version === 'string' ? version.trim() : '';
-  if (!v) return url;
-  const u = new URL(url, window.location.origin);
-  u.searchParams.set('v', v);
-  return u.pathname + u.search;
-}
-
 function injectPluginStyles(pluginKey: string, stylePaths: string[], version?: string | null) {
   if (stylePaths.length === 0) return;
 
   stylePaths.forEach((p) => {
-    const href = withVersion(`/api/plugins/${pluginKey}/assets/${p.replace(/^\/+/, '')}`, version);
+    const href = getPluginAssetUrl(pluginKey, p, version);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = href;
@@ -238,7 +224,7 @@ function injectPluginStyles(pluginKey: string, stylePaths: string[], version?: s
 }
 
 async function loadPluginBundle(pluginKey: string, version?: string | null): Promise<RegisteredPlugin> {
-  const url = withVersion(`/api/plugins/${pluginKey}/bundle.js`, version);
+  const url = getPluginBundleUrl(pluginKey, version);
 
   return new Promise<RegisteredPlugin>((resolve, reject) => {
     let done = false;
@@ -318,7 +304,7 @@ async function main() {
   }
   initExternals();
 
-  const { pluginKey, mode, filePath, pluginVersion, pluginStyles, entry } = query;
+  const { pluginKey, mode, filePath, pluginVersion, entry } = query;
   if (!pluginKey) {
     renderStatus('Missing pluginKey in query string', true);
     return;
@@ -334,8 +320,10 @@ async function main() {
   let mounted = false;
   let mounting = false;
   let cleaned = false;
+  let cancelLoading = () => {};
   const dispose = async () => {
     frameDisposed = true;
+    cancelLoading();
     for (const pending of hostRequests.values()) {
       window.clearTimeout(pending.timer);
       pending.reject(new Error('Plugin window closed'));
@@ -354,18 +342,23 @@ async function main() {
   });
   window.addEventListener('pagehide', () => { void dispose(); });
 
-  const cancelLoading = scheduleStatus('Loading plugin...', 200);
+  cancelLoading = scheduleStatus('Loading plugin...', 200);
 
   const host = createHostApi(pluginKey);
 
   const pluginPromise = (async () => {
-    if (pluginVersion && pluginStyles) {
-      injectPluginStyles(pluginKey, pluginStyles, pluginVersion);
-      return await loadPluginBundle(pluginKey, pluginVersion);
-    }
-
     const plugin: PluginItem = await pluginsApi.get(pluginKey);
-    const resolvedVersion = plugin.version || '';
+    if (plugin.status && plugin.status !== 'active') throw new Error('Plugin is not active');
+    const resolvedVersion = plugin.content_hash || plugin.version || '';
+    if (pluginVersion && pluginVersion !== resolvedVersion) throw new Error('Plugin version changed; reopen the window');
+    const capabilities = (plugin.manifest?.frontend as { capabilities?: unknown } | undefined)?.capabilities;
+    if (Array.isArray(capabilities)) {
+      await Promise.all(capabilities.map(capability => {
+        if (capability !== 'monaco' && capability !== 'artplayer') throw new Error('Invalid capability');
+        return loadCapability(capability);
+      }));
+    }
+    if (frameDisposed) throw new Error('Plugin window closed');
     injectPluginStyles(pluginKey, getPluginStylePaths(plugin), resolvedVersion);
     return await loadPluginBundle(pluginKey, resolvedVersion);
   })();
@@ -386,43 +379,35 @@ async function main() {
   cancelLoading();
   if (frameDisposed) return;
 
+  let runtimeError: string | null = null;
+  let closedBeforeError = false;
   const mountError = async () => {
     try {
-      root.innerHTML = '';
-
+      root.replaceChildren();
       mounting = true;
       mounted = true;
       cleanup = () => mode === 'app' ? registered.unmountApp?.(root) : registered.unmount?.(root);
       if (mode === 'app') {
-        if (typeof registered.mountApp !== 'function') {
-          throw new Error('This plugin does not support standalone mode');
-        }
+        if (typeof registered.mountApp !== 'function') throw new Error('This plugin does not support standalone mode');
         const ret = await registered.mountApp(root, { host });
         if (typeof ret === 'function') cleanup = ret;
-        return;
+      } else {
+        if (!filePath || !ctx) throw new Error('Missing file context');
+        if (typeof registered.mount !== 'function') throw new Error('This plugin does not support file mode');
+        const ret = await registered.mount(root, { filePath, entry: ctx.entry, urls: ctx.urls, host });
+        if (typeof ret === 'function') cleanup = ret;
       }
-
-      if (!filePath) {
-        throw new Error('Missing filePath in query string');
-      }
-
-      if (!ctx) {
-        throw new Error('Missing file context');
-      }
-
-      const ret = await registered.mount(root, { filePath, entry: ctx.entry, urls: ctx.urls, host });
-      if (typeof ret === 'function') cleanup = ret;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!frameDisposed) renderStatus(`Plugin runtime error: ${msg}`, true);
-      await dispose();
+    } catch (error) {
+      closedBeforeError = frameDisposed;
+      runtimeError = error instanceof Error ? error.message : String(error);
     } finally {
       mounting = false;
-      if (frameDisposed) await dispose();
+      if (frameDisposed || runtimeError) await dispose();
     }
   };
 
   await mountError();
+  if (runtimeError && !closedBeforeError) renderStatus(`Plugin runtime error: ${runtimeError}`, true);
 
 }
 

@@ -6,6 +6,7 @@ async def migrate_plugin_state():
     connection = Tortoise.get_connection("default")
     columns = {row["name"] for row in await connection.execute_query_dict('PRAGMA table_info("plugins")')}
     additions = {
+        "content_hash": "VARCHAR(64)",
         "status": "VARCHAR(16) NOT NULL DEFAULT 'loading'",
         "last_error": "TEXT",
         "active_directory": "VARCHAR(1024)",

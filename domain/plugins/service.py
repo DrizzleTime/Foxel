@@ -5,8 +5,11 @@
 """
 
 import asyncio
+import hashlib
 import logging
 import shutil
+import sys
+import uuid
 from pathlib import Path
 from typing import List, Union
 
@@ -17,7 +20,6 @@ from .manager import PluginManager
 from .loader import PluginLoader
 from .types import (
     PluginInstallResult,
-    PluginManifest,
     PluginOut,
 )
 from models.database import Plugin
@@ -36,6 +38,16 @@ class PluginService:
     def _get_plugin_dir(cls, plugin_key: str) -> Path:
         """获取插件目录"""
         return cls._plugins_root / plugin_key
+
+    @staticmethod
+    def _discard_path(path: Path):
+        try:
+            if path.is_symlink():
+                path.unlink()
+            elif path.exists():
+                shutil.rmtree(path)
+        except OSError:
+            logger.warning("无法清理插件旧目录 %s", path, exc_info=True)
 
     @classmethod
     def active_directory(cls, rec: Plugin) -> Path:
@@ -121,7 +133,7 @@ class PluginService:
         try:
             manifest, directory = PluginLoader.unpack_foxpkg(file_content)
             async with manager.lock(manifest.key):
-                return await cls._install_staged(manifest, directory, manager)
+                return await cls._install_staged(manifest, directory, manager, hashlib.sha256(file_content).hexdigest())
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -134,10 +146,10 @@ class PluginService:
                     shutil.rmtree(directory, ignore_errors=True)
 
     @classmethod
-    async def _install_staged(cls, manifest, directory, manager):
+    async def _install_staged(cls, manifest, directory, manager, content_hash):
         key = manifest.key
         target = cls._get_plugin_dir(key)
-        backup = target.with_name(f".{key}.rollback")
+        backup = target.with_name(f".{key}.rollback-{uuid.uuid4().hex}")
         previous = await Plugin.get_or_none(key=key)
         previous_status = previous.status if previous else "failed"
         if previous:
@@ -165,6 +177,7 @@ class PluginService:
                     setattr(rec, field, getattr(manifest, field))
                 rec.manifest = manifest.model_dump(mode="json")
                 rec.active_directory = directory.name
+                rec.content_hash = content_hash
                 rec.status = "active"
                 rec.last_error = None
                 frontend = manifest.frontend
@@ -190,14 +203,10 @@ class PluginService:
                 await Plugin.filter(key=key).update(status=previous_status)
             raise
         for module in snapshot[1].values():
-            import sys
             sys.modules.pop(module.__name__, None)
-        if backup.is_symlink():
-            backup.unlink()
-        elif backup.exists():
-            shutil.rmtree(backup, ignore_errors=True)
+        cls._discard_path(backup)
         if old_directory is not None:
-            shutil.rmtree(old_directory, ignore_errors=True)
+            cls._discard_path(old_directory)
         return PluginInstallResult(success=True, plugin=PluginOut.model_validate(rec), message="安装成功")
 
     # ========== 查询 ==========
@@ -215,19 +224,22 @@ class PluginService:
         return PluginOut.model_validate(rec)
 
     @classmethod
-    async def get_bundle_path(cls, key_or_id: Union[str, int]) -> Path:
-        """获取插件前端 bundle 路径"""
+    async def get_resource(cls, key_or_id, asset_path=None, revision=None):
         rec = await cls._get_by_key_or_id(key_or_id)
-        bundle_path = cls._get_bundle_path(rec)
-        if not bundle_path.exists():
-            raise HTTPException(status_code=404, detail="Plugin bundle not found")
-        return bundle_path
+        if revision and revision not in {rec.content_hash, rec.version}:
+            raise HTTPException(status_code=409, detail="Plugin resource revision changed")
+        path = cls._public_asset_path(rec, asset_path) if asset_path is not None else cls._get_bundle_path(rec)
+        immutable = bool(revision and rec.content_hash and revision == rec.content_hash)
+        cache = "public, max-age=31536000, immutable" if immutable else "no-cache"
+        return path, cache
+
+    @classmethod
+    async def get_bundle_path(cls, key_or_id: Union[str, int]) -> Path:
+        return (await cls.get_resource(key_or_id))[0]
 
     @classmethod
     async def get_asset_path(cls, key: str, asset_path: str) -> Path:
-        """获取插件静态资源路径"""
-        rec = await cls._get_by_key_or_404(key)
-        return cls._public_asset_path(rec, asset_path)
+        return (await cls.get_resource(key, asset_path))[0]
 
     # ========== 管理操作 ==========
 
@@ -255,7 +267,7 @@ class PluginService:
         async with manager.lock(rec.key):
             rec = await cls._get_by_key_or_id(rec.key)
             target = cls._get_plugin_dir(rec.key)
-            tombstone = target.with_name(f".{rec.key}.removed")
+            tombstone = target.with_name(f".{rec.key}.removed-{uuid.uuid4().hex}")
             directory = cls.active_directory(rec) if rec.active_directory else None
             moved = target.exists() or target.is_symlink()
             if moved:
@@ -268,10 +280,7 @@ class PluginService:
                 raise
             manager.remove(rec.key)
             PluginLoader.unload_plugin(rec.key)
-            if tombstone.is_symlink():
-                tombstone.unlink()
-            elif tombstone.exists():
-                shutil.rmtree(tombstone, ignore_errors=True)
+            cls._discard_path(tombstone)
             if directory is not None:
-                shutil.rmtree(directory, ignore_errors=True)
+                cls._discard_path(directory)
             logger.info("插件 %s 已卸载", rec.key)

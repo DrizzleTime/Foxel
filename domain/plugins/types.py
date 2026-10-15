@@ -11,6 +11,7 @@ class ManifestFrontend(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
+    capabilities: List[Literal["monaco", "artplayer"]] = Field(default_factory=list)
     public_dir: str = Field(default="frontend", alias="publicDir", description="公开前端资源目录，不允许插件根目录")
     assets: List[str] = Field(default_factory=list, description="额外公开资源文件清单")
     entry: Optional[str] = Field(default=None, description="前端入口文件路径")
@@ -119,6 +120,7 @@ class PluginOut(BaseModel):
     status: Literal["disabled", "loading", "active", "failed"] = "loading"
     last_error: Optional[str] = None
     active_directory: Optional[str] = None
+    content_hash: Optional[str] = None
     open_app: bool = False
     name: Optional[str] = None
     version: Optional[str] = None

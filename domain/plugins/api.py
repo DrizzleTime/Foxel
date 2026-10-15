@@ -97,9 +97,9 @@ async def set_plugin_enabled(
 @router.get("/{key_or_id}/bundle.js")
 async def get_bundle(request: Request, key_or_id: str):
     """获取插件前端 bundle"""
-    path = await PluginService.get_bundle_path(key_or_id)
-    v = (request.query_params.get("v") or "").strip()
-    cache_control = "public, max-age=31536000, immutable" if v else "no-cache"
+    path, cache_control = await PluginService.get_resource(
+        key_or_id, revision=request.query_params.get("v")
+    )
     return FileResponse(
         path,
         media_type="application/javascript",
@@ -110,7 +110,9 @@ async def get_bundle(request: Request, key_or_id: str):
 @router.get("/{key}/assets/{asset_path:path}")
 async def get_asset(request: Request, key: str, asset_path: str):
     """获取插件静态资源"""
-    path = await PluginService.get_asset_path(key, asset_path)
+    path, cache_control = await PluginService.get_resource(
+        key, asset_path, revision=request.query_params.get("v")
+    )
 
     # 根据扩展名确定 MIME 类型
     ext = path.suffix.lower()
@@ -138,5 +140,5 @@ async def get_asset(request: Request, key: str, asset_path: str):
     return FileResponse(
         path,
         media_type=media_type,
-        headers={"Cache-Control": "public, max-age=3600"},
+        headers={"Cache-Control": cache_control},
     )

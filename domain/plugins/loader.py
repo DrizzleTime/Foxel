@@ -42,8 +42,6 @@ class PluginLoader:
 
     # 已加载的插件模块缓存
     _loaded_modules: Dict[str, ModuleType] = {}
-    # 已挂载的路由追踪
-    _mounted_routers: Dict[str, List[APIRouter]] = {}
 
     @classmethod
     def get_plugin_dir(cls, plugin_key: str) -> Path:
@@ -146,10 +144,10 @@ class PluginLoader:
 
         Args:
             file_content: .foxpkg 文件内容
-            target_key: 可选，指定安装的插件 key（覆盖 manifest 中的 key）
+            target_key: 可选，校验预期的插件 key
 
         Returns:
-            (manifest, plugin_dir) 元组
+            (manifest, staged_dir) 元组；调用方负责激活或清理暂存目录
 
         Raises:
             PluginLoadError: 解包或验证失败
@@ -263,7 +261,7 @@ class PluginLoader:
 
             module = module_from_spec(spec)
             sys.modules[module_name] = module
-            cls._loaded_modules[f"{plugin_key}:route:{route_config.module}"] = module
+            cls._loaded_modules[f"{plugin_key}:route:{module_name}"] = module
             spec.loader.exec_module(module)
 
             # 获取 router
@@ -297,7 +295,6 @@ class PluginLoader:
             router = cls.load_route_module(plugin_key, route_config, plugin_dir)
             routers.append(router)
 
-        cls._mounted_routers[plugin_key] = routers
         return routers
 
     # ========== 处理器动态注册 ==========
@@ -328,7 +325,7 @@ class PluginLoader:
 
             module = module_from_spec(spec)
             sys.modules[module_name] = module
-            cls._loaded_modules[f"{plugin_key}:processor:{processor_config.module}"] = module
+            cls._loaded_modules[f"{plugin_key}:processor:{module_name}"] = module
             spec.loader.exec_module(module)
 
             # 获取处理器工厂
@@ -353,9 +350,8 @@ class PluginLoader:
                 sample = factory()
                 produces_file = getattr(sample, "produces_file", False)
                 supports_directory = getattr(sample, "supports_directory", False)
-            except Exception:
-                produces_file = False
-                supports_directory = False
+            except Exception as exc:
+                raise PluginLoadError(f"处理器工厂初始化失败: {exc}") from exc
 
             metadata = {
                 "type": processor_type,
@@ -365,6 +361,8 @@ class PluginLoader:
                 "produces_file": produces_file,
                 "supports_directory": supports_directory,
                 "plugin": plugin_key,  # 标记来源插件
+                "module": processor_config.module,
+                "plugin_directory": str(plugin_dir or cls.get_plugin_dir(plugin_key)),
                 "module_path": str(module_path),
             }
 
@@ -412,9 +410,6 @@ class PluginLoader:
             module = cls._loaded_modules.pop(key, None)
             if module and module.__name__ in sys.modules:
                 del sys.modules[module.__name__]
-
-        # 清理加载器的路由缓存；实际分发由 PluginManager 管理
-        cls._mounted_routers.pop(plugin_key, None)
 
     @classmethod
     def delete_plugin_files(cls, plugin_key: str) -> None:

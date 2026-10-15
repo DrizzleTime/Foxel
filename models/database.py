@@ -314,6 +314,7 @@ class Notice(Model):
 
 
 class Plugin(Model):
+    content_hash = fields.CharField(max_length=64, null=True)
     status = fields.CharField(max_length=16, default="loading")
     last_error = fields.TextField(null=True)
     active_directory = fields.CharField(max_length=1024, null=True)

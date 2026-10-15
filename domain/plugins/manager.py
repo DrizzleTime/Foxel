@@ -78,6 +78,10 @@ class PluginManager:
         from .compatibility import check_compatibility
         check_compatibility(manifest)
         from .loader import PluginLoader
+        # The caller retains a snapshot until commit; only new modules belong to this candidate.
+        for name in list(PluginLoader._loaded_modules):
+            if name.startswith(f"{key}:"):
+                del PluginLoader._loaded_modules[name]
         routers = PluginLoader.load_all_routes(key, manifest, directory)
         processors = [
             PluginLoader.load_processor_module(key, config, directory, register=False)

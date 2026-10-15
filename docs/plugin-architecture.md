@@ -13,3 +13,9 @@ Foxel 当前只支持受信任插件。安装权限等同于执行宿主代码�
 状态包括 disabled、loading、active、failed；管理 API PATCH /api/plugins/{key}/enabled 接收 {"enabled": true/false}。只有 active 插件注册为前端应用。安装和启动会检查 foxpkg=1.0、合法的版本号、hostApiVersion（默认 >=1.0,<2.0）、dependencies.python 和已安装的包版本；不会自动安装 Python 依赖。版本范围使用 PEP 440，包声明使用 PEP 508；URL 和 extras 依赖须改为可验证的具体包要求。
 
 插件管理器及处理器注册表为进程内状态，部署应使用单个应用进程；多进程部署需要额外的版本广播和各工作进程的同步激活机制。
+
+前端唯一加载入口是 plugin-frame。插件类型契约位于 web/src/plugins/sdk/v1.ts，host API 版本为 1.0.0；URL 辅助模块 urls.ts 无运行时注册副作用。核心 React/Antd 依赖按 iframe 初始化；frontend.capabilities 可声明 ["monaco", "artplayer"]，运行时在执行 bundle 前按需动态加载。也可通过 window.__FOXEL_EXTERNALS__.loadCapability(name) 动态获取，然后使用 MonacoEditor / Artplayer。
+
+每次安装记录包的 SHA-256 为 content_hash。bundle、样式和图标 URL 使用此哈希作 v 参数；只有参数与已激活包哈希一致时返回一年 immutable 缓存。未提供哈希或旧版 manifest 版本参数仅返回 no-cache，过期或任意参数返回 409。即使发布者复用了 version，新包也不会复用旧内容的缓存。关闭等待使用浏览器支持的 moveBefore 保留 iframe 文档；旧浏览器通过 pagehide 释放文档。
+
+已有编辑器或播放器插件需在 manifest.frontend.capabilities 中补充对应能力声明，或改为调用 loadCapability 后使用。安装事务回滚的是宿主管理的版本、文件入口和组件注册；受信任 Python 代码自行产生的外部副作用不属于该事务。

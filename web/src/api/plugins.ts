@@ -1,4 +1,5 @@
 import request from './client';
+import { getPluginAssetUrl, getPluginBundleUrl } from '../plugins/urls';
 
 export interface PluginItem {
   id: number;
@@ -6,6 +7,7 @@ export interface PluginItem {
   status?: 'disabled' | 'loading' | 'active' | 'failed';
   last_error?: string | null;
   active_directory?: string | null;
+  content_hash?: string | null;
   open_app?: boolean | null;
   name?: string | null;
   version?: string | null;
@@ -64,11 +66,10 @@ export const pluginsApi = {
   /**
    * 获取插件 bundle URL
    */
-  getBundleUrl: (key: string) => `/api/plugins/${key}/bundle.js`,
+  getBundleUrl: getPluginBundleUrl,
 
   /**
    * 获取插件资源 URL
    */
-  getAssetUrl: (key: string, assetPath: string) =>
-    `/api/plugins/${key}/assets/${assetPath}`,
+  getAssetUrl: getPluginAssetUrl,
 };

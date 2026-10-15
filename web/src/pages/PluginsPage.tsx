@@ -5,7 +5,7 @@ import { pluginsApi, type PluginItem } from '../api/plugins';
 import { getAppByKey, reloadPluginApps, usePluginApps } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
-import { getPluginAssetUrl } from '../plugins/runtime';
+import { getPluginAssetUrl } from '../plugins/urls';
 import { fetchFoxelCoreAppDetail, fetchFoxelCoreApps, downloadFoxelCoreApp, type FoxelCoreApp, type FoxelCoreAppDetail } from '../api/pluginCenter';
 import type { UploadFile } from 'antd';
 import ReactMarkdown from 'react-markdown';
@@ -397,7 +397,7 @@ const PluginsPage = memo(function PluginsPage() {
     if (p.icon.startsWith('http://') || p.icon.startsWith('https://') || p.icon.startsWith('/')) {
       return p.icon;
     }
-    return getPluginAssetUrl(p.key, p.icon);
+    return getPluginAssetUrl(p.key, p.icon, p.content_hash);
   };
 
   /**

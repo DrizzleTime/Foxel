@@ -2,7 +2,6 @@
 import json
 import logging
 import uuid
-from pathlib import Path
 
 from .loader import PluginLoadError, PluginLoader
 from .types import PluginManifest

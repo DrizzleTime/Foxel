@@ -1,3 +1,4 @@
+import sys
 from dataclasses import dataclass
 
 import inspect
@@ -60,7 +61,6 @@ def discover_processors(force_reload: bool = False) -> list[str]:
     """扫描并缓存可用的处理器模块。"""
     from . import builtin as processors_pkg
 
-
     global LAST_DISCOVERY_ERRORS
     LAST_DISCOVERY_ERRORS = []
 
@@ -105,7 +105,6 @@ def discover_processors(force_reload: bool = False) -> list[str]:
         except Exception as exc:
             LAST_DISCOVERY_ERRORS.append(f"Failed to instantiate processor {processor_type}: {exc}")
             continue
-
 
         produces_file = getattr(module, "produces_file", None)
         if produces_file is None and hasattr(sample, "produces_file"):
@@ -158,18 +157,28 @@ def discover_processors(force_reload: bool = False) -> list[str]:
         for processor_type, registration in list(REGISTRATIONS.items()):
             if registration.owner == "builtin":
                 continue
+            cache = dict(PluginLoader._loaded_modules)
             try:
                 metadata = registration.metadata
                 path = Path(metadata["module_path"])
                 prepared = PluginLoader.load_processor_module(
                     registration.owner,
-                    ManifestProcessorConfig(module=path.name, type=processor_type, name=metadata.get("name")),
-                    path.parent, register=False,
+                    ManifestProcessorConfig(module=metadata.get("module", path.name), type=processor_type, name=metadata.get("name")),
+                    Path(metadata.get("plugin_directory", path.parent)), register=False,
                 )
                 _, factory, meta, module = prepared
                 register(processor_type, owner=registration.owner, version=registration.version,
                          factory=factory, metadata=meta, module=module)
+                for key, cached_module in list(PluginLoader._loaded_modules.items()):
+                    if cached_module is registration.module:
+                        del PluginLoader._loaded_modules[key]
+                sys.modules.pop(registration.module.__name__, None)
             except Exception as exc:
+                for key, candidate in list(PluginLoader._loaded_modules.items()):
+                    if key.startswith(f"{registration.owner}:") and cache.get(key) is not candidate:
+                        sys.modules.pop(candidate.__name__, None)
+                        PluginLoader._loaded_modules.pop(key, None)
+                PluginLoader._loaded_modules.update(cache)
                 LAST_DISCOVERY_ERRORS.append(f"Failed to reload {processor_type}: {exc}")
     return LAST_DISCOVERY_ERRORS
 

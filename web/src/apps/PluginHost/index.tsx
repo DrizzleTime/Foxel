@@ -23,18 +23,17 @@ function buildPluginFrameUrl(params: Record<string, string>): string {
   return `/plugin-frame.html?${qs.toString()}`;
 }
 
-function getPluginStylePaths(plugin: PluginItem): string[] {
-  const styles = (plugin.manifest as any)?.frontend?.styles as unknown;
-  if (!Array.isArray(styles)) return [];
-  return styles.filter((s) => typeof s === 'string' && s.trim().length > 0);
-}
-
 function unloadPluginFrame(iframe: HTMLIFrameElement | null) {
   const frameWindow = iframe?.contentWindow;
   if (!iframe || !frameWindow) return;
   // Keep the document alive until a pending asynchronous mount has disposed.
   iframe.style.display = 'none';
-  document.body.appendChild(iframe);
+  if (!('moveBefore' in document.body) || !iframe.isConnected) {
+    // Older browsers release the document via pagehide during normal DOM removal.
+    frameWindow.postMessage({ type: 'foxel-plugin:unload' }, window.location.origin);
+    return;
+  }
+  document.body.moveBefore(iframe, null);
   const finish = () => {
     window.clearTimeout(timer);
     window.removeEventListener('message', onMessage);
@@ -140,8 +139,7 @@ export const PluginAppHost: React.FC<PluginAppHostProps> = ({
     () =>
       buildPluginFrameUrl({
         pluginKey: plugin.key,
-        pluginVersion: plugin.version || '',
-        pluginStyles: JSON.stringify(getPluginStylePaths(plugin)),
+        pluginVersion: plugin.content_hash || plugin.version || '',
         mode: 'file',
         lang,
         filePath,
@@ -179,8 +177,7 @@ export const PluginAppOpenHost: React.FC<PluginAppOpenHostProps> = ({ plugin, on
     () =>
       buildPluginFrameUrl({
         pluginKey: plugin.key,
-        pluginVersion: plugin.version || '',
-        pluginStyles: JSON.stringify(getPluginStylePaths(plugin)),
+        pluginVersion: plugin.content_hash || plugin.version || '',
         mode: 'app',
         lang,
       }),

@@ -1,11 +1,19 @@
 import type { VfsEntry } from '../api/client';
 import type { AppDescriptor } from './types';
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { pluginsApi, type PluginItem } from '../api/plugins';
 import { PluginAppHost, PluginAppOpenHost } from './PluginHost';
 import { getPluginAssetUrl } from '../plugins/runtime';
 
-const apps: AppDescriptor[] = [];
+let apps: AppDescriptor[] = [];
+const listeners = new Set<() => void>();
+export function subscribePluginApps(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+export function usePluginApps() {
+  return useSyncExternalStore(subscribePluginApps, () => apps);
+}
 
 /**
  * 获取插件的唯一 key
@@ -41,9 +49,8 @@ function resolvePluginUseSystemWindow(p: PluginItem): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
 }
 
-function registerPluginAsApp(p: PluginItem) {
+function buildPluginApp(p: PluginItem): AppDescriptor {
   const key = getPluginAppKey(p);
-  if (apps.find((a) => a.key === key)) return;
 
   const supported = (entry: VfsEntry) => {
     if (entry.is_dir) return false;
@@ -52,7 +59,7 @@ function registerPluginAsApp(p: PluginItem) {
     return p.supported_exts.includes(ext);
   };
 
-  apps.push({
+  return {
     key,
     name: p.name || `插件 ${p.key}`,
     supported,
@@ -70,13 +77,14 @@ function registerPluginAsApp(p: PluginItem) {
     supportedExts: p.supported_exts || undefined,
     website: p.website || undefined,
     github: p.github || undefined,
-  });
+  };
 }
 
 async function loadApps() {
   try {
     const items = await pluginsApi.list();
-    items.forEach((p) => registerPluginAsApp(p));
+    apps = items.map(buildPluginApp);
+    listeners.forEach((listener) => listener());
   } catch {
     void 0;
   }
@@ -114,43 +122,9 @@ export function getDefaultAppForEntry(entry: VfsEntry): AppDescriptor | undefine
 export type { AppDescriptor };
 export type { AppComponentProps } from './types';
 
-export async function reloadPluginApps() {
-  try {
-    const items = await pluginsApi.list();
-
-    // 生成要保留的 key 集合
-    const keepKeys = new Set(items.map((p) => getPluginAppKey(p)));
-
-    // 移除已卸载的插件应用
-    for (let i = apps.length - 1; i >= 0; i--) {
-      const a = apps[i];
-      if (!keepKeys.has(a.key)) {
-        apps.splice(i, 1);
-      }
-    }
-
-    // 更新或添加插件应用
-    items.forEach((p) => {
-      const key = getPluginAppKey(p);
-      const existing = apps.find((a) => a.key === key);
-      if (!existing) {
-        registerPluginAsApp(p);
-      } else {
-        // 更新现有应用信息
-        existing.name = p.name || `插件 ${p.key}`;
-        existing.defaultBounds = p.default_bounds || undefined;
-        existing.defaultMaximized = p.default_maximized || undefined;
-        existing.useSystemWindow = resolvePluginUseSystemWindow(p);
-        existing.iconUrl = resolvePluginIcon(p);
-        existing.description = p.description || undefined;
-        existing.author = p.author || undefined;
-        existing.supportedExts = p.supported_exts || undefined;
-        existing.openAppComponent = p.open_app
-          ? (props: any) => React.createElement(PluginAppOpenHost, { plugin: p, ...props })
-          : undefined;
-      }
-    });
-  } catch {
-    void 0;
-  }
+// Serialize refreshes so an older response cannot overwrite a newer installation.
+let refresh = appsLoadedPromise;
+export function reloadPluginApps() {
+  refresh = refresh.then(loadApps);
+  return refresh;
 }

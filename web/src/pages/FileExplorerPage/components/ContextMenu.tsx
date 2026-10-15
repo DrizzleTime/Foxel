@@ -3,7 +3,7 @@ import { Drawer, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type { VfsEntry } from '../../../api/client';
 import type { ProcessorTypeMeta } from '../../../api/processors';
-import { getAppsForEntry, getDefaultAppForEntry } from '../../../apps/registry';
+import { getAppsForEntry, getDefaultAppForEntry, usePluginApps } from '../../../apps/registry';
 import { useI18n } from '../../../i18n';
 import {
   FolderFilled, AppstoreOutlined, AppstoreAddOutlined, DownloadOutlined,
@@ -54,6 +54,7 @@ interface ActionMenuItem {
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
+  usePluginApps();
   const { token } = theme.useToken();
   const { t } = useI18n();
   const { x, y, mobile = false, entry, entries, selectedEntries, processorTypes, onClose, ...actions } = props;

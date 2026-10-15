@@ -3,7 +3,7 @@ import { Table, Dropdown, Button, Tooltip, theme } from 'antd';
 import { FolderFilled, MoreOutlined, EditOutlined, DeleteOutlined, AppstoreOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import type { VfsEntry } from '../../../api/client';
 import { getFileIcon } from './FileIcons';
-import { getAppsForEntry, getDefaultAppForEntry } from '../../../apps/registry';
+import { getAppsForEntry, getDefaultAppForEntry, usePluginApps } from '../../../apps/registry';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useI18n } from '../../../i18n';
 
@@ -69,6 +69,7 @@ export const FileListView: React.FC<FileListViewProps> = ({
   onDelete,
   onContextMenu,
 }) => {
+  usePluginApps();
   const { token } = theme.useToken();
   const { resolvedMode } = useTheme();
   const { t } = useI18n();

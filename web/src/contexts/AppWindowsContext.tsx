@@ -1,8 +1,8 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Modal, Checkbox } from 'antd';
 import type { VfsEntry } from '../api/client';
 import type { AppDescriptor } from '../apps/registry';
-import { getAppsForEntry, getDefaultAppForEntry, getAppByKey } from '../apps/registry';
+import { getAppsForEntry, getDefaultAppForEntry, getAppByKey, usePluginApps } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { useNavigate } from 'react-router';
 
@@ -50,6 +50,15 @@ export const AppWindowsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const { t } = useI18n();
   const navigate = useNavigate();
   const [windows, setWindows] = useState<AppWindowItem[]>([]);
+
+  const pluginApps = usePluginApps();
+  useEffect(() => {
+    setWindows(ws => ws.flatMap(w => {
+      const app = pluginApps.find(a => a.key === w.app.key);
+      if (!app || (w.kind === 'app' && !app.openAppComponent)) return [];
+      return [{ ...w, app }];
+    }));
+  }, [pluginApps]);
 
   const openWithApp = useCallback((entry: VfsEntry, app: AppDescriptor, currentPath: string) => {
     const fullPath = (currentPath === '/' ? '' : currentPath) + '/' + entry.name;

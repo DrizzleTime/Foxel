@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode
 import { Alert, Button, Card, Collapse, Empty, List, Modal, Popconfirm, Progress, Skeleton, Space, Tabs, Tag, Typography, Upload, message, theme } from 'antd';
 import { GithubOutlined, LinkOutlined, UploadOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import { pluginsApi, type PluginItem } from '../api/plugins';
-import { getAppByKey, reloadPluginApps } from '../apps/registry';
+import { getAppByKey, reloadPluginApps, usePluginApps } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
 import { getPluginAssetUrl } from '../plugins/runtime';
@@ -133,6 +133,7 @@ const CenterCard = memo(function CenterCard(props: CenterCardProps) {
 });
 
 const PluginsPage = memo(function PluginsPage() {
+  usePluginApps();
   const [data, setData] = useState<PluginItem[]>([]);
   const [installing, setInstalling] = useState(false);
   const [loading, setLoading] = useState(false);

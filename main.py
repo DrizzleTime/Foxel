@@ -99,8 +99,11 @@ def create_app() -> FastAPI:
         description="A highly extensible private cloud storage solution for individuals and teams",
         lifespan=lifespan,
     )
+    from domain.plugins.manager import PluginManager
+    app.state.plugin_manager = PluginManager()
     include_routers(app)
     app.mount("/api/mcp", MCP_REMOTE_APP, name="mcp")
+    app.router.routes.append(app.state.plugin_manager.dispatch)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(httpx.HTTPStatusError, httpx_exception_handler)

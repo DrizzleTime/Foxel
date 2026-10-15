@@ -62,9 +62,8 @@ async def load_installed_plugins(app: "FastAPI") -> Tuple[int, List[str]]:
             if manifest.backend and manifest.backend.routes:
                 try:
                     routers = PluginLoader.load_all_routes(plugin.key, manifest)
-                    for router in routers:
-                        app.include_router(router)
-                        loaded_routes.append(router.prefix)
+                    app.state.plugin_manager.replace_routes(plugin.key, routers)
+                    loaded_routes = [router.prefix for router in routers]
                     logger.info(f"插件 {plugin.key} 加载了 {len(routers)} 个路由")
                 except PluginLoadError as e:
                     errors.append(f"插件 {plugin.key} 路由加载失败: {e}")

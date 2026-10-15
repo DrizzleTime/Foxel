@@ -11,6 +11,7 @@ from domain.audit import AuditAction, audit
 from domain.auth import User, get_current_active_user
 from domain.permission import require_system_permission
 from domain.permission.types import SystemPermission
+from .manager import PluginManager, get_plugin_manager
 from .service import PluginService
 from .types import (
     PluginInstallResult,
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 async def install_plugin(
     request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
+    manager: Annotated[PluginManager, Depends(get_plugin_manager)],
     file: UploadFile = File(...),
 ):
     """
@@ -37,7 +39,7 @@ async def install_plugin(
     上传 .foxpkg 文件进行安装。
     """
     content = await file.read()
-    return await PluginService.install_package(content, file.filename or "plugin.foxpkg")
+    return await PluginService.install_package(content, file.filename or "plugin.foxpkg", manager)
 
 
 # ========== 插件列表和详情 ==========
@@ -72,7 +74,7 @@ async def delete_plugin(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     """卸载插件"""
-    await PluginService.delete(key_or_id)
+    await PluginService.delete(key_or_id, get_plugin_manager(request))
     return {"code": 0, "msg": "ok"}
 
 

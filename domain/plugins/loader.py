@@ -417,7 +417,7 @@ class PluginLoader:
             if module and module.__name__ in sys.modules:
                 del sys.modules[module.__name__]
 
-        # 清理路由追踪（注意：FastAPI 不支持动态移除路由，需要重启应用）
+        # 清理加载器的路由缓存；实际分发由 PluginManager 管理
         cls._mounted_routers.pop(plugin_key, None)
 
     @classmethod

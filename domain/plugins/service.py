@@ -12,6 +12,7 @@ from typing import List, Optional, Union
 
 from fastapi import HTTPException
 
+from .manager import PluginManager
 from .loader import PluginLoadError, PluginLoader
 from .types import (
     PluginInstallResult,
@@ -75,7 +76,7 @@ class PluginService:
     # ========== 安装 ==========
 
     @classmethod
-    async def install_package(cls, file_content: bytes, filename: str) -> PluginInstallResult:
+    async def install_package(cls, file_content: bytes, filename: str, manager: PluginManager) -> PluginInstallResult:
         """
         安装 .foxpkg 插件包
 
@@ -132,11 +133,9 @@ class PluginService:
                 # 加载路由
                 if manifest.backend.routes:
                     try:
-                        from main import app
                         routers = PluginLoader.load_all_routes(plugin_key, manifest)
-                        for router in routers:
-                            app.include_router(router)
-                            loaded_routes.append(router.prefix)
+                        manager.replace_routes(plugin_key, routers)
+                        loaded_routes = [router.prefix for router in routers]
                     except PluginLoadError as e:
                         errors.append(f"路由加载失败: {e}")
                         logger.error(f"插件 {plugin_key} 路由加载失败: {e}")
@@ -245,7 +244,7 @@ class PluginService:
     # ========== 管理操作 ==========
 
     @classmethod
-    async def delete(cls, key_or_id: Union[str, int]) -> None:
+    async def delete(cls, key_or_id: Union[str, int], manager: PluginManager) -> None:
         """删除/卸载插件"""
         rec = await cls._get_by_key_or_id(key_or_id)
 
@@ -256,6 +255,8 @@ class PluginService:
                 manifest = PluginManifest.model_validate(rec.manifest)
             except Exception:
                 pass
+
+        manager.remove(rec.key)
 
         # 卸载后端组件
         if manifest:

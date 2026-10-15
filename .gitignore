@@ -34,3 +34,4 @@ lerna-debug.log*
 *.sw?
 
 /client
+/plugins

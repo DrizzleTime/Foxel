@@ -9,6 +9,8 @@ import request from './api/client';
 import { vfsApi, type VfsEntry } from './api/vfs';
 import { parseLang } from './i18n/lang';
 
+import { PLUGIN_PROTOCOL_VERSION, type HostMethod, type HostResult } from './plugins/protocol';
+
 type FrameMode = 'file' | 'app';
 
 type FrameQuery = {
@@ -145,6 +147,33 @@ async function getTempLinkUrl(filePath: string, expiresIn: number = TEMP_LINK_DE
   return url;
 }
 
+const hostRequests = new Map<string, { resolve: () => void; reject: (error: Error) => void; timer: number }>();
+let frameDisposed = false;
+window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin || event.source !== window.parent) return;
+  const data = event.data as HostResult;
+  if (data?.type !== 'foxel-plugin:result' || data.protocol !== PLUGIN_PROTOCOL_VERSION
+    || data.pluginKey !== getQuery().pluginKey || typeof data.id !== 'string') return;
+  const pending = hostRequests.get(data.id);
+  if (!pending) return;
+  window.clearTimeout(pending.timer);
+  hostRequests.delete(data.id);
+  if (typeof data.error === 'string') pending.reject(new Error(data.error));
+  else pending.resolve();
+});
+function callHost(pluginKey: string, method: HostMethod, params: Record<string, unknown> = {}): Promise<void> {
+  if (frameDisposed) return Promise.reject(new Error('Plugin window closed'));
+  return new Promise((resolve, reject) => {
+    const id = crypto.randomUUID();
+    const timer = window.setTimeout(() => {
+      hostRequests.delete(id);
+      reject(new Error(`Host request timed out: ${method}`));
+    }, 15000);
+    hostRequests.set(id, { resolve, reject, timer });
+    postToParent({ type: 'foxel-plugin:request', protocol: PLUGIN_PROTOCOL_VERSION, pluginKey, id, method, params });
+  });
+}
+
 function createHostApi(pluginKey: string): FoxelHostApi {
   const showMessage: FoxelHostApi['showMessage'] = (type, content) => {
     const antd = window.__FOXEL_EXTERNALS__?.antd;
@@ -168,10 +197,10 @@ function createHostApi(pluginKey: string): FoxelHostApi {
   };
 
   return {
-    close: () => postToParent({ type: 'foxel-plugin:close', pluginKey }),
-    openPath: (path) => postToParent({ type: 'foxel-plugin:openPath', pluginKey, path }),
+    close: () => callHost(pluginKey, 'close'),
+    openPath: (path) => callHost(pluginKey, 'openPath', { path }),
     openFile: (filePath, appKey) =>
-      postToParent({ type: 'foxel-plugin:openFile', pluginKey, filePath, appKey }),
+      callHost(pluginKey, 'openFile', { filePath, appKey }),
     showMessage,
     callApi: async <T = unknown>(path: string, options?: RequestInit & { json?: unknown }) =>
       request<T>(path, options),
@@ -301,6 +330,30 @@ async function main() {
     return;
   }
 
+  let cleanup: (() => void | Promise<void>) | null = null;
+  let mounted = false;
+  let mounting = false;
+  let cleaned = false;
+  const dispose = async () => {
+    frameDisposed = true;
+    for (const pending of hostRequests.values()) {
+      window.clearTimeout(pending.timer);
+      pending.reject(new Error('Plugin window closed'));
+    }
+    hostRequests.clear();
+    if (mounting || cleaned) return;
+    cleaned = true;
+    try { if (mounted) await cleanup?.(); }
+    catch (error) { console.error('Plugin cleanup failed', error); }
+    root.replaceChildren();
+    postToParent({ type: 'foxel-plugin:unloaded' });
+  };
+  window.addEventListener('message', (event) => {
+    if (event.origin === window.location.origin && event.source === window.parent
+      && event.data?.type === 'foxel-plugin:unload') void dispose();
+  });
+  window.addEventListener('pagehide', () => { void dispose(); });
+
   const cancelLoading = scheduleStatus('Loading plugin...', 200);
 
   const host = createHostApi(pluginKey);
@@ -326,17 +379,20 @@ async function main() {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     cancelLoading();
-    renderStatus(`Failed to load plugin: ${msg}`, true);
+    if (!frameDisposed) renderStatus(`Failed to load plugin: ${msg}`, true);
     return;
   }
 
   cancelLoading();
+  if (frameDisposed) return;
 
-  let cleanup: (() => void) | null = null;
   const mountError = async () => {
     try {
       root.innerHTML = '';
 
+      mounting = true;
+      mounted = true;
+      cleanup = () => mode === 'app' ? registered.unmountApp?.(root) : registered.unmount?.(root);
       if (mode === 'app') {
         if (typeof registered.mountApp !== 'function') {
           throw new Error('This plugin does not support standalone mode');
@@ -358,34 +414,16 @@ async function main() {
       if (typeof ret === 'function') cleanup = ret;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      renderStatus(`Plugin runtime error: ${msg}`, true);
+      if (!frameDisposed) renderStatus(`Plugin runtime error: ${msg}`, true);
+      await dispose();
+    } finally {
+      mounting = false;
+      if (frameDisposed) await dispose();
     }
   };
 
   await mountError();
 
-  const runCleanup = () => {
-    try {
-      cleanup?.();
-    } catch {
-      void 0;
-    }
-    cleanup = null;
-  };
-
-  window.addEventListener('message', (ev) => {
-    if (ev.origin !== window.location.origin) return;
-    if (ev.source !== window.parent) return;
-    const data = ev.data as any;
-    if (!data || typeof data !== 'object') return;
-    if (data.type !== 'foxel-plugin:unload') return;
-    runCleanup();
-    root.innerHTML = '';
-  });
-
-  window.addEventListener('beforeunload', () => {
-    runCleanup();
-  });
 }
 
 void main();

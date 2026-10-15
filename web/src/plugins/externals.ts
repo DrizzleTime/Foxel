@@ -37,17 +37,17 @@ export interface FoxelHostApi {
   /**
    * 关闭当前插件窗口
    */
-  close: () => void;
+  close: () => Promise<void>;
 
   /**
    * 在文件浏览器中打开指定路径
    */
-  openPath?: (path: string) => void;
+  openPath?: (path: string) => Promise<void>;
 
   /**
    * 使用指定应用打开文件
    */
-  openFile?: (filePath: string, appKey?: string) => void;
+  openFile?: (filePath: string, appKey?: string) => Promise<void>;
 
   /**
    * 显示消息提示

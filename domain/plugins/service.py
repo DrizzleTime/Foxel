@@ -40,15 +40,35 @@ class PluginService:
     @classmethod
     def _get_bundle_path(cls, rec: Plugin) -> Path:
         """获取前端 bundle 路径"""
-        plugin_dir = cls._get_plugin_dir(rec.key)
-        # 从 manifest 读取
-        if rec.manifest:
-            frontend = rec.manifest.get("frontend", {})
-            entry = frontend.get("entry")
-            if entry:
-                return plugin_dir / entry
-        # 默认位置
-        return plugin_dir / "frontend" / "index.js"
+        frontend = (rec.manifest or {}).get("frontend") or {}
+        return cls._public_asset_path(rec, frontend.get("entry") or "frontend/index.js")
+
+    @classmethod
+    def _public_asset_path(cls, rec: Plugin, asset_path: str) -> Path:
+        frontend = (rec.manifest or {}).get("frontend") or {}
+        root = cls._get_plugin_dir(rec.key).resolve()
+        path = Path(asset_path)
+        public_dir = frontend.get("public_dir", frontend.get("publicDir", "frontend"))
+        public = Path(public_dir)
+        if (not asset_path or path.is_absolute() or ".." in path.parts or "\\" in asset_path
+            or public.is_absolute() or ".." in public.parts or public == Path(".")):
+            raise HTTPException(status_code=400, detail="Invalid public asset path")
+        allowed = set(frontend.get("assets") or [])
+        allowed.update(frontend.get("styles") or [])
+        allowed.add(frontend.get("entry") or "frontend/index.js")
+        allowed.add(frontend.get("icon"))
+        backend = (rec.manifest or {}).get("backend") or {}
+        private = {item["module"] for group in ("routes", "processors") for item in backend.get(group) or []}
+        if (asset_path in private or path.suffix.lower() in {".py", ".pyc", ".pyo"}
+            or path.name == "manifest.json" or any(part.startswith(".") for part in path.parts)
+            or (not path.is_relative_to(public) and asset_path not in allowed)):
+            raise HTTPException(status_code=404, detail="Asset not public")
+        full_path = (root / path).resolve()
+        if not full_path.is_relative_to(root):
+            raise HTTPException(status_code=400, detail="Invalid asset path")
+        if not full_path.is_file():
+            raise HTTPException(status_code=404, detail="Asset not found")
+        return full_path
 
     @classmethod
     async def _get_by_key_or_404(cls, key: str) -> Plugin:
@@ -196,24 +216,7 @@ class PluginService:
     async def get_asset_path(cls, key: str, asset_path: str) -> Path:
         """获取插件静态资源路径"""
         rec = await cls._get_by_key_or_404(key)
-        plugin_dir = cls._get_plugin_dir(rec.key)
-
-        # 安全检查：防止路径遍历
-        asset_path = asset_path.lstrip("/")
-        if ".." in asset_path:
-            raise HTTPException(status_code=400, detail="Invalid asset path")
-
-        full_path = plugin_dir / asset_path
-        if not full_path.exists():
-            raise HTTPException(status_code=404, detail="Asset not found")
-
-        # 确保路径在插件目录内
-        try:
-            full_path.resolve().relative_to(plugin_dir.resolve())
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid asset path")
-
-        return full_path
+        return cls._public_asset_path(rec, asset_path)
 
     # ========== 管理操作 ==========
 

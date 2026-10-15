@@ -11,6 +11,8 @@ class ManifestFrontend(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
+    public_dir: str = Field(default="frontend", alias="publicDir", description="公开前端资源目录，不允许插件根目录")
+    assets: List[str] = Field(default_factory=list, description="额外公开资源文件清单")
     entry: Optional[str] = Field(default=None, description="前端入口文件路径")
     styles: Optional[List[str]] = Field(default=None, description="前端样式文件路径列表（相对插件根目录）")
     open_app: Optional[bool] = Field(

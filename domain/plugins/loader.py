@@ -204,6 +204,20 @@ class PluginLoader:
             if (info.external_attr >> 16) & 0o170000 == 0o120000:
                 raise PluginLoadError("插件包不允许符号链接")
 
+        if manifest.frontend:
+            frontend = manifest.frontend
+            public = Path(frontend.public_dir)
+            if public.is_absolute() or public == Path(".") or ".." in public.parts or "\\" in frontend.public_dir:
+                raise PluginLoadError("frontend.publicDir 必须是插件内的子目录")
+            paths = [frontend.entry, *(frontend.styles or []), *frontend.assets]
+            if frontend.icon and not frontend.icon.startswith(("/", "https://", "http://")):
+                paths.append(frontend.icon)
+            for value in paths:
+                if value and (Path(value).is_absolute() or ".." in Path(value).parts or "\\" in value):
+                    raise PluginLoadError(f"非法前端资源路径: {value}")
+                if value and value not in file_list:
+                    raise PluginLoadError(f"前端资源不存在: {value}")
+
         # 检查前端入口
         if manifest.frontend and manifest.frontend.entry:
             if manifest.frontend.entry not in file_list:

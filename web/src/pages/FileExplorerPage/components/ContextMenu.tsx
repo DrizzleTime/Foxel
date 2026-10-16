@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Drawer, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type { VfsEntry } from '../../../api/client';
@@ -64,6 +64,30 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
   useLayoutEffect(() => {
     setPosition({ left: x, top: y });
   }, [x, y]);
+
+  useEffect(() => {
+    if (mobile) return;
+
+    const closeWhenOutside = (event: Event) => {
+      if (event.target instanceof Node && !containerRef.current?.contains(event.target)) {
+        onClose();
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('pointerdown', closeWhenOutside, true);
+    document.addEventListener('focusin', closeWhenOutside, true);
+    document.addEventListener('keydown', closeOnEscape, true);
+    window.addEventListener('blur', onClose);
+    return () => {
+      document.removeEventListener('pointerdown', closeWhenOutside, true);
+      document.removeEventListener('focusin', closeWhenOutside, true);
+      document.removeEventListener('keydown', closeOnEscape, true);
+      window.removeEventListener('blur', onClose);
+    };
+  }, [mobile, onClose]);
 
   const getContextMenuItems = (): ActionMenuItem[] => {
     if (!entry) { // Blank context menu
@@ -290,11 +314,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
       ref={containerRef}
       style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 9999, boxShadow: '0 4px 16px rgba(0,0,0,.15)', borderRadius: token.borderRadius, background: token.colorBgElevated }}
       onContextMenu={(e) => e.preventDefault()}
-      onClick={onClose}
+      onClick={(e) => e.stopPropagation()}
     >
       <Menu
         items={items}
         selectable={false}
+        getPopupContainer={() => containerRef.current ?? document.body}
         onClick={({ key }) => {
           const handler = handlerMap.get(String(key));
           if (handler) handler();

@@ -6,6 +6,7 @@ import { getAppByKey, reloadPluginApps, usePluginApps } from '../apps/registry';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
 import { getPluginAssetUrl } from '../plugins/urls';
+import { isNewerPluginVersion } from '../plugins/versions';
 import { fetchFoxelCoreAppDetail, fetchFoxelCoreApps, downloadFoxelCoreApp, type FoxelCoreApp, type FoxelCoreAppDetail } from '../api/pluginCenter';
 import type { UploadFile } from 'antd';
 import ReactMarkdown from 'react-markdown';
@@ -151,6 +152,11 @@ const PluginsPage = memo(function PluginsPage() {
   const [discoveryError, setDiscoveryError] = useState<string | undefined>(undefined);
   const [discoverySearch, setDiscoverySearch] = useState('');
   const [downloadingApps, setDownloadingApps] = useState<Set<string>>(new Set());
+  const activeDownloadsRef = useRef(new Set<string>());
+  const [updateApps, setUpdateApps] = useState<FoxelCoreApp[]>([]);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updateError, setUpdateError] = useState(false);
+  const updateCheckRef = useRef(false);
 
   // 应用详情弹窗状态
   const [detailOpen, setDetailOpen] = useState(false);
@@ -173,6 +179,27 @@ const PluginsPage = memo(function PluginsPage() {
   }, []);
 
   useEffect(() => { void reload(); }, [reload]);
+
+  // Keep the complete update catalog independent of discovery search results.
+  const checkUpdates = useCallback(async () => {
+    if (updateCheckRef.current) return;
+    updateCheckRef.current = true;
+    setCheckingUpdates(true);
+    setUpdateError(false);
+    try {
+      setUpdateApps(await fetchFoxelCoreApps());
+    } catch {
+      setUpdateError(true);
+    } finally {
+      updateCheckRef.current = false;
+      setCheckingUpdates(false);
+    }
+  }, []);
+
+  useEffect(() => { void checkUpdates(); }, [checkUpdates]);
+
+  const availableApps = useMemo(() => new Map(updateApps.map(app => [app.key, app])), [updateApps]);
+  const installedApps = useMemo(() => new Map(data.map(plugin => [plugin.key, plugin])), [data]);
 
   // 加载应用发现列表（带搜索）
   const loadDiscoveryApps = useCallback(async (query: string) => {
@@ -306,6 +333,7 @@ const PluginsPage = memo(function PluginsPage() {
   };
 
   const handleInstall = async () => {
+    if (activeDownloadsRef.current.size > 0 || installing) return;
     if (fileList.length === 0) {
       message.warning(t('Please select a .foxpkg file'));
       return;
@@ -424,14 +452,13 @@ const PluginsPage = memo(function PluginsPage() {
     ));
   }, [data, q, resolvePluginTexts]);
 
-  // 检查应用是否已安装
-  const isAppInstalled = (appKey: string) => {
-    return data.some(p => p.key === appKey);
-  };
-
-  // 下载并安装应用
+  // 下载并安装或升级应用
   const handleDownloadAndInstall = async (app: Pick<FoxelCoreApp, 'key' | 'version' | 'downloadUrl'>) => {
-    if (downloadingApps.has(app.key)) return;
+    if (activeDownloadsRef.current.has(app.key) || installing || installModalOpen || loading) return;
+    const installed = installedApps.get(app.key);
+    if (installed && !isNewerPluginVersion(app.version, installed.version)) return;
+    const upgrading = !!installed;
+    activeDownloadsRef.current.add(app.key);
     
     try {
       setDownloadingApps(prev => new Set(prev).add(app.key));
@@ -439,22 +466,23 @@ const PluginsPage = memo(function PluginsPage() {
       
       const file = await downloadFoxelCoreApp(app);
       message.destroy(app.key);
-      message.loading({ content: t('Installing'), key: app.key, duration: 0 });
+      message.loading({ content: t(upgrading ? 'Updating' : 'Installing'), key: app.key, duration: 0 });
       
       const result = await pluginsApi.install(file);
       message.destroy(app.key);
       
       if (result.success) {
-        message.success(t('Installed successfully'));
+        message.success(t(upgrading ? 'Updated successfully' : 'Installed successfully'));
         await reload();
         await reloadPluginApps();
       } else {
-        message.error(result.message || t('Installation failed'));
+        message.error([result.message || t(upgrading ? 'Update failed' : 'Installation failed'), ...(result.errors || [])].join('; '));
       }
     } catch (e: any) {
       message.destroy(app.key);
-      message.error(e?.message || t('Installation failed'));
+      message.error(e?.message || t(upgrading ? 'Update failed' : 'Installation failed'));
     } finally {
+      activeDownloadsRef.current.delete(app.key);
       setDownloadingApps(prev => {
         const next = new Set(prev);
         next.delete(app.key);
@@ -470,17 +498,25 @@ const PluginsPage = memo(function PluginsPage() {
     const appKey = `plugin:${p.key}`;
     const app = getAppByKey(appKey);
     const canOpenApp = !!p.open_app && (!p.status || p.status === 'active');
+    const latest = availableApps.get(p.key);
+    const updateAvailable = latest && isNewerPluginVersion(latest.version, p.version);
+    const downloading = downloadingApps.has(p.key);
+    const busy = installing || downloading || p.status === 'loading';
     return (
       <CenterCard
         key={p.key}
         iconUrl={icon}
         iconAlt={name}
         name={name}
-        version={p.version || undefined}
+        version={updateAvailable ? (
+          <span title={t('Update available')}>{p.version} → {latest.version}</span>
+        ) : p.version || undefined}
         description={[texts.description || t('No description'), p.last_error].filter(Boolean).join(' — ')}
         metaLeft={p.author || undefined}
         metaRight={`${p.key}${p.status ? ` · ${p.status}` : ''}`}
         pills={buildCardPills(p.supported_exts, t('Any'))}
+        onIconClick={latest ? () => openDiscoveryAppDetail(latest) : undefined}
+        onTitleClick={latest ? () => openDiscoveryAppDetail(latest) : undefined}
         footerLeft={(p.github || p.website) ? (
           <div className="fx-center-card-links">
             {p.github ? (
@@ -497,6 +533,18 @@ const PluginsPage = memo(function PluginsPage() {
         ) : null}
         footerRight={
           <div className="fx-center-card-actions">
+            {updateAvailable ? (
+              <Button
+                type="primary"
+                size="small"
+                icon={<DownloadOutlined />}
+                loading={downloading}
+                disabled={busy || installModalOpen || loading || checkingUpdates || updateError}
+                onClick={() => { void handleDownloadAndInstall(latest); }}
+              >
+                {t('Update App')}
+              </Button>
+            ) : null}
             <Button
               type="primary"
               size="small"
@@ -512,7 +560,7 @@ const PluginsPage = memo(function PluginsPage() {
             >
               {t('Open App')}
             </Button>
-            <Button type="text" size="small" disabled={p.status === 'loading' || !p.version}
+            <Button type="text" size="small" disabled={busy || !p.version}
               onClick={async () => {
                 try {
                   await pluginsApi.setEnabled(p.key, p.status !== 'active');
@@ -522,8 +570,8 @@ const PluginsPage = memo(function PluginsPage() {
               }}>
               {t(p.status === 'active' ? 'Disable' : 'Enable')}
             </Button>
-            <Popconfirm title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.key); await reload(); await reloadPluginApps(); }}>
-              <Button type="text" danger size="small">{t('Uninstall')}</Button>
+            <Popconfirm disabled={busy} title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.key); await reload(); await reloadPluginApps(); }}>
+              <Button type="text" danger size="small" disabled={busy}>{t('Uninstall')}</Button>
             </Popconfirm>
           </div>
         }
@@ -537,7 +585,7 @@ const PluginsPage = memo(function PluginsPage() {
         <Upload
           accept=".foxpkg"
           multiple
-          disabled={installing}
+          disabled={installing || downloadingApps.size > 0}
           fileList={fileList}
           onChange={({ fileList: newFileList }) => {
             setFileList(newFileList);
@@ -552,6 +600,11 @@ const PluginsPage = memo(function PluginsPage() {
           <Button icon={<UploadOutlined />} type="primary">{t('Install Plugin')}</Button>
         </Upload>
         {tab === 'installed' && <Button onClick={reload} loading={loading} disabled={installing}>{t('Refresh')}</Button>}
+        {tab === 'installed' && (
+          <Button icon={<ReloadOutlined />} onClick={() => { void checkUpdates(); }} loading={checkingUpdates}>
+            {t('Check for updates')}
+          </Button>
+        )}
         <div style={{ marginLeft: 'auto' }} />
       </div>
 
@@ -566,6 +619,9 @@ const PluginsPage = memo(function PluginsPage() {
             label: t('Installed'),
             children: (
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                {updateError ? (
+                  <Alert style={{ marginBottom: 12 }} type="warning" showIcon title={t('Failed to check for updates')} />
+                ) : null}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <input
                     type="text"
@@ -654,7 +710,8 @@ const PluginsPage = memo(function PluginsPage() {
                         const description = lang === 'zh' ? app.description.zh : app.description.en;
                         const tags = lang === 'zh' ? app.tags.zh : app.tags.en;
                         const iconUrl = `https://foxel.cc/api/apps/${encodeURIComponent(app.key)}/icon`;
-                        const installed = isAppInstalled(app.key);
+                        const installed = installedApps.get(app.key);
+                        const updateAvailable = installed && isNewerPluginVersion(app.version, installed.version);
                         const downloading = downloadingApps.has(app.key);
                         const approvedDate = new Date(app.approvedAt).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US');
                         const onOpenDetail = () => openDiscoveryAppDetail(app);
@@ -677,7 +734,7 @@ const PluginsPage = memo(function PluginsPage() {
                                 <LinkOutlined />
                               </a>
                             ) : null}
-                            footerRight={installed ? (
+                            footerRight={installed && !updateAvailable ? (
                               <span className="fx-center-pill fx-center-pill-success">{t('Installed already')}</span>
                             ) : (
                               <Button
@@ -685,9 +742,10 @@ const PluginsPage = memo(function PluginsPage() {
                                 size="small"
                                 icon={<DownloadOutlined />}
                                 loading={downloading}
+                                disabled={installing || installModalOpen || loading || installed?.status === 'loading'}
                                 onClick={() => handleDownloadAndInstall(app)}
                               >
-                                {downloading ? t('Downloading') : t('Download and Install')}
+                                {downloading ? t('Downloading') : t(updateAvailable ? 'Update App' : 'Download and Install')}
                               </Button>
                             )}
                           />
@@ -717,15 +775,16 @@ const PluginsPage = memo(function PluginsPage() {
         width={860}
         footer={(() => {
           const key = detailKey || detailApp?.key || detailSummary?.key;
-          const installed = key ? isAppInstalled(key) : false;
+          const installed = key ? installedApps.get(key) : undefined;
           const downloading = key ? downloadingApps.has(key) : false;
           const downloadUrl = detailApp?.latest.downloadUrl || detailSummary?.downloadUrl;
           const version = detailApp?.latest.version || detailSummary?.version;
+          const updateAvailable = installed && isNewerPluginVersion(version, installed.version);
 
           return (
             <Space>
               <Button onClick={closeDetailModal}>{t('Close')}</Button>
-              {installed ? (
+              {installed && !updateAvailable ? (
                 <Button disabled>{t('Installed already')}</Button>
               ) : (
                 <Button
@@ -733,13 +792,13 @@ const PluginsPage = memo(function PluginsPage() {
                   size="middle"
                   icon={<DownloadOutlined />}
                   loading={downloading}
-                  disabled={!key || !downloadUrl || !version || detailLoading}
+                  disabled={!key || !downloadUrl || !version || detailLoading || !!detailError || installing || installModalOpen || loading || installed?.status === 'loading'}
                   onClick={() => {
                     if (!key || !downloadUrl || !version) return;
                     void handleDownloadAndInstall({ key, version, downloadUrl });
                   }}
                 >
-                  {t('Download and Install')}
+                  {t(updateAvailable ? 'Update App' : 'Download and Install')}
                 </Button>
               )}
             </Space>

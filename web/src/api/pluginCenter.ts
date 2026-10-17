@@ -119,7 +119,7 @@ export async function fetchFoxelCoreApps(query?: string): Promise<FoxelCoreApp[]
   if (q) {
     url.searchParams.set('q', q);
   }
-  const resp = await fetch(url.href);
+  const resp = await fetch(url.href, { cache: 'no-store' });
   if (!resp.ok) {
     throw new Error(`Failed to fetch apps: ${resp.status}`);
   }
@@ -132,7 +132,7 @@ export async function fetchFoxelCoreApps(query?: string): Promise<FoxelCoreApp[]
  */
 export async function fetchFoxelCoreAppDetail(appKey: string): Promise<FoxelCoreAppDetail> {
   const url = `${FOXEL_CORE_BASE}/api/apps/${encodeURIComponent(appKey)}`;
-  const resp = await fetch(url);
+  const resp = await fetch(url, { cache: 'no-store' });
   if (!resp.ok) {
     throw new Error(`Failed to fetch app detail: ${resp.status}`);
   }
@@ -144,7 +144,7 @@ export async function fetchFoxelCoreAppDetail(appKey: string): Promise<FoxelCore
  * 从 foxel-core 下载应用包文件
  */
 export async function downloadFoxelCoreApp(app: Pick<FoxelCoreApp, 'key' | 'version' | 'downloadUrl'>): Promise<File> {
-  const url = `${FOXEL_CORE_BASE}${app.downloadUrl}`;
+  const url = new URL(app.downloadUrl, FOXEL_CORE_BASE).href;
   const resp = await fetch(url);
   if (!resp.ok) {
     throw new Error(`Failed to download app: ${resp.status}`);

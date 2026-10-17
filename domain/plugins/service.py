@@ -152,6 +152,7 @@ class PluginService:
         backup = target.with_name(f".{key}.rollback-{uuid.uuid4().hex}")
         previous = await Plugin.get_or_none(key=key)
         previous_status = previous.status if previous else "failed"
+        enabled = previous_status != "disabled"
         if previous:
             previous.status = "loading"
             await previous.save(update_fields=["status"])
@@ -178,16 +179,20 @@ class PluginService:
                 rec.manifest = manifest.model_dump(mode="json")
                 rec.active_directory = directory.name
                 rec.content_hash = content_hash
-                rec.status = "active"
+                rec.status = "active" if enabled else "disabled"
                 rec.last_error = None
                 frontend = manifest.frontend
                 rec.open_app = bool(frontend and frontend.open_app)
                 for field in ("supported_exts", "default_bounds", "default_maximized", "icon"):
                     setattr(rec, field, getattr(frontend, field) if frontend else None)
-                rec.loaded_routes = [router.prefix for router in prepared[0]]
-                rec.loaded_processors = [p[0] for p in prepared[1]]
+                rec.loaded_routes = [router.prefix for router in prepared[0]] if enabled else []
+                rec.loaded_processors = [p[0] for p in prepared[1]] if enabled else []
                 await rec.save(using_db=connection)
-                manager.activate(key, prepared)
+                if enabled:
+                    manager.activate(key, prepared)
+                else:
+                    manager.remove(key)
+                    PluginLoader.unload_plugin(key)
         except BaseException as exc:
             manager.restore(key, snapshot)
             if switched:

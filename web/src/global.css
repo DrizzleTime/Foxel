@@ -198,6 +198,10 @@ body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe
   align-items: center;
   gap: 8px;
 }
+.fx-center-card-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .fx-center-card-iconLink {
   width: 28px;
   height: 28px;

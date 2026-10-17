@@ -40,6 +40,7 @@ export const tasksApi = {
   update: (id: number, payload: AutomationTaskUpdate) => request<AutomationTask>(`/tasks/${id}`, { method: 'PUT', json: payload }),
   remove: (id: number) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
   getQueue: () => request<QueuedTask[]>('/tasks/queue'),
+  getQueuedTask: (id: string | number) => request<QueuedTask>(`/tasks/queue/${id}`),
   getQueueSettings: () => request<TaskQueueSettings>('/tasks/queue/settings'),
   updateQueueSettings: (payload: TaskQueueSettingsUpdate) => request<TaskQueueSettings>('/tasks/queue/settings', { method: 'POST', json: payload }),
 };

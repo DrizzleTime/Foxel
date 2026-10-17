@@ -30,6 +30,21 @@ export interface DirListing {
   };
 }
 
+export interface BatchOpItem {
+  src: string;
+  dst?: string;
+  ok: boolean;
+  error?: string;
+  queued?: boolean;
+  task_id?: string;
+}
+
+export interface BatchOpResult {
+  results: BatchOpItem[];
+  succeeded: number;
+  failed: number;
+}
+
 export interface SearchResultItem {
   id: string;
   path: string;
@@ -159,6 +174,12 @@ export const vfsApi = {
     return request(`/fs/copy${query ? `?${query}` : ''}`, { method: 'POST', json: { src, dst } });
   },
   rename: (src: string, dst: string) => request('/fs/rename', { method: 'POST', json: { src, dst } }),
+  batchDelete: (paths: string[]) =>
+    request<BatchOpResult>('/fs/batch/delete', { method: 'POST', json: { paths } }),
+  batchMove: (srcs: string[], dst: string, options?: { overwrite?: boolean }) =>
+    request<BatchOpResult>(`/fs/batch/move?overwrite=${options?.overwrite ? 'true' : 'false'}`, { method: 'POST', json: { srcs, dst } }),
+  batchCopy: (srcs: string[], dst: string, options?: { overwrite?: boolean }) =>
+    request<BatchOpResult>(`/fs/batch/copy?overwrite=${options?.overwrite ? 'true' : 'false'}`, { method: 'POST', json: { srcs, dst } }),
   thumb: (path: string, w=256, h=256, fit='cover') =>
     request<ArrayBuffer>(`/fs/thumb/${encodeURI(path.replace(/^\/+/, ''))}?w=${w}&h=${h}&fit=${fit}`),
   streamUrl: (path: string) => `${API_BASE_URL}/fs/stream/${encodeURI(path.replace(/^\/+/, ''))}`,

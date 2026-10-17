@@ -42,6 +42,33 @@ class MoveRequest(BaseModel):
     dst: str
 
 
+class BatchDeleteRequest(BaseModel):
+    paths: List[str] = Field(min_length=1, max_length=200)
+
+    @field_validator("paths", mode="after")
+    @classmethod
+    def normalize_paths(cls, value):
+        try:
+            return list(dict.fromkeys(normalize_path(path) for path in value))
+        except ExecutionError as exc:
+            raise ValueError("Invalid batch path") from exc
+
+
+class BatchTransferRequest(BaseModel):
+    srcs: List[str] = Field(min_length=1, max_length=200)
+    dst: str
+
+    @field_validator("srcs", "dst", mode="after")
+    @classmethod
+    def normalize_paths(cls, value):
+        try:
+            if isinstance(value, list):
+                return list(dict.fromkeys(normalize_path(path) for path in value))
+            return normalize_path(value)
+        except ExecutionError as exc:
+            raise ValueError("Invalid batch path") from exc
+
+
 class CompressRequest(BaseModel):
     sources: List[str] = Field(min_length=1, max_length=1000)
     dst: str

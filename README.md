@@ -37,6 +37,8 @@ Choose **Compress to ZIP** in a file or folder's context menu, including multipl
 
 Cloudreve runs an asynchronous server task and requires archive task permissions. Foxel connections discover and forward upstream capabilities. Refresh the folder after completion. PikPak supports GCID deduplication and OSS multipart uploads, including as a destination for cross-storage transfers and background compression tasks.
 
+Choose **Extract ZIP** in a ZIP file's context menu and enter a new destination folder, including on another storage mount. Adapters supporting download, upload, and directories use the background queue to download, validate, extract, and upload files. The queue shows download, extraction, and upload progress; refresh the destination after completion. Existing folders are rejected, and each output path requires write permission. Unsafe paths, symbolic links, duplicate paths, and encrypted archives are rejected. Archives are limited to 100,000 entries and 10 GiB of extracted data; downloads are also limited to 10 GiB. Temporary files are cleaned up on success or failure. If an upload fails, files already uploaded remain in the destination folder.
+
 ### 🔌 Pluggable Storage Backends
 
 Utilizes an extensible adapter pattern to easily integrate various storage types:

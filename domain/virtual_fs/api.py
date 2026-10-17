@@ -13,7 +13,7 @@ from domain.auth import User, get_current_active_user
 from domain.permission import require_path_permission
 from domain.permission.types import PathAction
 from .service import VirtualFSService
-from .types import CompressRequest, MkdirRequest, MoveRequest
+from .types import CompressRequest, ExtractRequest, MkdirRequest, MoveRequest
 from .chunk_uploads import ChunkUploadCreate, ChunkUploadService
 
 router = APIRouter(prefix="/api/fs", tags=["virtual-fs"])
@@ -38,6 +38,27 @@ async def compress_files(
     body: CompressRequest,
 ):
     return success(await VirtualFSService.compress(body.sources, body.dst, current_user.id))
+
+
+@router.get("/extraction")
+@require_path_permission(PathAction.READ, "path")
+async def extraction_capabilities(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    path: str = Query(...),
+):
+    return success(await VirtualFSService.extraction_capabilities(path))
+
+
+@router.post("/extract")
+@audit(action=AuditAction.CREATE, description="Extract archive", body_fields=["src", "dst"])
+@require_path_permission(PathAction.READ, "body.src")
+@require_path_permission(PathAction.WRITE, "body.dst")
+async def extract_archive(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    body: ExtractRequest,
+):
+    return success(await VirtualFSService.extract(body.src, body.dst, current_user.id))
 
 
 @router.post("/uploads")

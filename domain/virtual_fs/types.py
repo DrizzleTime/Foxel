@@ -55,3 +55,16 @@ class CompressRequest(BaseModel):
             return normalize_path(value)
         except ExecutionError as exc:
             raise ValueError("Invalid archive path") from exc
+
+
+class ExtractRequest(BaseModel):
+    src: str
+    dst: str
+
+    @field_validator("src", "dst")
+    @classmethod
+    def normalize_paths(cls, value):
+        try:
+            return normalize_path(value)
+        except ExecutionError as exc:
+            raise ValueError("Invalid archive path") from exc

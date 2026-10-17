@@ -20,6 +20,7 @@ import { CreateDirModal } from './components/Modals/CreateDirModal';
 import { CreateFileModal } from './components/Modals/CreateFileModal';
 import { RenameModal } from './components/Modals/RenameModal';
 import { CompressModal } from './components/Modals/CompressModal';
+import { ExtractModal } from './components/Modals/ExtractModal';
 import { ProcessorModal } from './components/Modals/ProcessorModal';
 import UploadModal from './components/Modals/UploadModal';
 import { ShareModal } from './components/Modals/ShareModal';
@@ -67,6 +68,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [copyingEntries, setCopyingEntries] = useState<VfsEntry[]>([]);
   const [compressingEntries, setCompressingEntries] = useState<VfsEntry[]>([]);
   const [compressionCapability, setCompressionCapability] = useState<{ path: string; supported: boolean } | null>(null);
+  const [extractingEntry, setExtractingEntry] = useState<VfsEntry | null>(null);
+  const [extractionCapability, setExtractionCapability] = useState<{ path: string; supported: boolean } | null>(null);
 
   // --- Search ---
   const fileSearch = useFileSearch({
@@ -114,6 +117,19 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       })
       .catch(() => {
         if (active) setCompressionCapability({ path: entryBasePath, supported: false });
+      });
+    return () => { active = false; };
+  }, [ctxMenu, entryBasePath]);
+
+  useEffect(() => {
+    if (!ctxMenu || ctxMenu.entry.is_dir || !/\.zip$/i.test(ctxMenu.entry.name)) return;
+    let active = true;
+    vfsApi.extractionCapabilities(entryBasePath)
+      .then(capability => {
+        if (active) setExtractionCapability({ path: entryBasePath, supported: capability.formats.includes('zip') });
+      })
+      .catch(() => {
+        if (active) setExtractionCapability({ path: entryBasePath, supported: false });
       });
     return () => { active = false; };
   }, [ctxMenu, entryBasePath]);
@@ -505,6 +521,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           processorTypes={processorTypes}
           canCompress={compressionCapability?.path === entryBasePath && compressionCapability.supported}
           onCompress={setCompressingEntries}
+          canExtract={extractionCapability?.path === entryBasePath && extractionCapability.supported}
+          onExtract={setExtractingEntry}
           onClose={closeContextMenus}
           onOpen={handleOpenEntry}
           onOpenWith={(entry, appKey) => confirmOpenWithApp(entry, appKey, entryBasePath)}
@@ -533,6 +551,16 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onCancel={() => setCompressingEntries([])}
         onDone={() => {
           setCompressingEntries([]);
+          clearAllSelection();
+          effectiveRefresh();
+        }}
+      />
+      <ExtractModal
+        entry={extractingEntry}
+        path={entryBasePath}
+        onCancel={() => setExtractingEntry(null)}
+        onDone={() => {
+          setExtractingEntry(null);
           clearAllSelection();
           effectiveRefresh();
         }}

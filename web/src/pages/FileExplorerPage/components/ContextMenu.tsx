@@ -39,6 +39,8 @@ interface ContextMenuProps {
   onCopy: (entries: VfsEntry[]) => void;
   canCompress: boolean;
   onCompress: (entries: VfsEntry[]) => void;
+  canExtract: boolean;
+  onExtract: (entry: VfsEntry) => void;
 }
 
 type MenuItem = Required<MenuProps>['items'][number];
@@ -59,7 +61,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
   usePluginApps();
   const { token } = theme.useToken();
   const { t } = useI18n();
-  const { x, y, mobile = false, entry, entries, selectedEntries, processorTypes, canCompress, onClose, ...actions } = props;
+  const { x, y, mobile = false, entry, entries, selectedEntries, processorTypes, canCompress, canExtract, onClose, ...actions } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: x, top: y });
 
@@ -203,6 +205,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         icon: <FileZipOutlined />,
         disabled: targetEntries.length === 0 || targetEntries.some(target => target.type === 'mount'),
         onClick: () => actions.onCompress(targetEntries),
+      } : null,
+      canExtract && !entry.is_dir && /\.zip$/i.test(entry.name) ? {
+        key: 'extract',
+        label: t('Extract ZIP'),
+        icon: <FileZipOutlined />,
+        disabled: targetEntries.length !== 1,
+        onClick: () => actions.onExtract(entry),
       } : null,
       {
         key: 'move',

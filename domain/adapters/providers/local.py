@@ -10,6 +10,7 @@ import mimetypes
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse, Response
 from models import StorageAdapter
+from domain.adapters.archive import zip_entries, MAX_EXTRACTED_BYTES
 
 
 def _safe_join(root: str, rel: str) -> Path:
@@ -47,6 +48,48 @@ class LocalAdapter:
 
     async def get_compression_capabilities(self, root: str, rel: str) -> Dict:
         return {"formats": ["zip"]}
+
+    async def get_extraction_capabilities(self, root: str, rel: str) -> Dict:
+        return {"formats": ["zip"]}
+
+    async def extract(self, root: str, src_rel: str, dst_rel: str) -> Dict:
+        """Extract into a new directory, validating the entire ZIP before writing."""
+        def extract_archive():
+            root_path = Path(root).resolve()
+            source, destination = _safe_join(root, src_rel), _safe_join(root, dst_rel)
+            for rel in (src_rel, dst_rel):
+                parts = Path(rel).parts
+                if not parts or Path(rel).is_absolute() or ".." in parts:
+                    raise ValueError("Invalid extraction path")
+                if any(root_path.joinpath(*parts[:end]).is_symlink() for end in range(1, len(parts) + 1)):
+                    raise ValueError("Cannot extract through symbolic links")
+            if destination == root_path or source.is_relative_to(destination):
+                raise ValueError("Extraction destination must be outside the archive source")
+            with zipfile.ZipFile(source) as archive:
+                entries = zip_entries(archive)
+                destination.mkdir()  # Exclusive: never merge with an existing tree.
+                try:
+                    written = 0
+                    for entry in entries:
+                        target = destination.joinpath(*entry["name"].split("/"))
+                        if entry["is_dir"]:
+                            target.mkdir(exist_ok=True)
+                            continue
+                        with archive.open(entry["name"]) as incoming, target.open("xb") as output:
+                            while chunk := incoming.read(512 * 1024):
+                                written += len(chunk)
+                                if written > MAX_EXTRACTED_BYTES:
+                                    raise ValueError("Archive exceeds the 10 GiB extraction limit")
+                                output.write(chunk)
+                    return {"queued": False, "entries": entries, "bytes": written}
+                except BaseException:
+                    shutil.rmtree(destination)
+                    raise
+
+        try:
+            return await asyncio.to_thread(extract_archive)
+        except (zipfile.BadZipFile, NotImplementedError, RuntimeError, EOFError) as exc:
+            raise ValueError(f"Cannot extract ZIP archive: {exc}") from exc
 
     async def compress(self, root: str, source_rels: List[str], dst_rel: str) -> Dict:
         def create_archive():

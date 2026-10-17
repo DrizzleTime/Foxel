@@ -102,7 +102,7 @@ const TaskQueuePage = memo(function TaskQueuePage() {
     const percent = task.progress?.percent;
     const stageKey = task.progress?.stage;
     const stageLabels: Record<string, string> = {
-      preparing: t('Preparing'), downloading: t('Downloading'), compressing: t('Compressing'),
+      preparing: t('Preparing'), downloading: t('Downloading'), compressing: t('Compressing'), extracting: t('Extracting'),
       uploading: t('Uploading'), completed: t('Completed'),
     };
     const stage = stageKey ? stageLabels[stageKey] || stageKey : undefined;
@@ -133,7 +133,7 @@ const TaskQueuePage = memo(function TaskQueuePage() {
       dataIndex: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
       width: 160,
-      render: (name: string) => name === 'compress_archive' ? t('Archive compression') : name,
+      render: (name: string) => ({ compress_archive: t('Archive compression'), extract_archive: t('Archive extraction') })[name] ?? name,
     },
     {
       title: t('Status'),

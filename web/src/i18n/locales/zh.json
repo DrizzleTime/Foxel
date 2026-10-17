@@ -898,5 +898,12 @@
   "permission.category.adapter": "存储适配器",
   "Retry failed uploads": "重试失败上传",
   "Upload cancelled": "上传已取消",
-  "Download completed": "下载完成"
+  "Download completed": "下载完成",
+  "Extract ZIP": "解压 ZIP",
+  "Destination folder": "目标目录",
+  "Please enter a destination folder": "请输入目标目录",
+  "Extract into a new folder. Existing folders cannot be overwritten.": "解压到新目录，不能覆盖已有目录。",
+  "Extraction task queued. View progress in Task Queue.": "解压任务已加入队列，可在任务队列中查看进度。",
+  "Extracting": "解压中",
+  "Archive extraction": "文件解压"
 }

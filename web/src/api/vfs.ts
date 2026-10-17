@@ -141,6 +141,10 @@ export const vfsApi = {
     path: string; compressed: boolean; queued: boolean; upstream_task_id?: string | null;
     task_id?: string; task_name?: string;
   }>('/fs/compress', { method: 'POST', json: { sources, dst } }),
+  extractionCapabilities: (path: string) => request<{ formats: string[]; native: boolean }>(`/fs/extraction?${new URLSearchParams({ path })}`),
+  extract: (src: string, dst: string) => request<{
+    path: string; extracted: boolean; queued: boolean; task_id: string; task_name: string;
+  }>('/fs/extract', { method: 'POST', json: { src, dst } }),
   deletePath: (path: string) => request(`/fs/${encodeURI(path.replace(/^\/+/, ''))}`, { method: 'DELETE' }),
   move: (src: string, dst: string, options?: { overwrite?: boolean }) => {
     const params = new URLSearchParams();

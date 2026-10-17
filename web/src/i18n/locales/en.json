@@ -895,5 +895,12 @@
   "permission.category.adapter": "Adapter",
   "Retry failed uploads": "Retry failed uploads",
   "Upload cancelled": "Upload cancelled",
-  "Download completed": "Download completed"
+  "Download completed": "Download completed",
+  "Extract ZIP": "Extract ZIP",
+  "Destination folder": "Destination folder",
+  "Please enter a destination folder": "Please enter a destination folder",
+  "Extract into a new folder. Existing folders cannot be overwritten.": "Extract into a new folder. Existing folders cannot be overwritten.",
+  "Extraction task queued. View progress in Task Queue.": "Extraction task queued. View progress in Task Queue.",
+  "Extracting": "Extracting",
+  "Archive extraction": "Archive extraction"
 }

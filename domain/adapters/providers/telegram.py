@@ -53,6 +53,7 @@ CONFIG_SCHEMA = [
 
 class TelegramAdapter:
     """Telegram 存储适配器 (使用用户 Session)"""
+    supports_directories = False
     native_video_thumbnail_only = True
     _message_cache_ttl = 300
     _message_cache_limit = 200

@@ -139,6 +139,8 @@ class TaskQueueService:
             elif task.name == "cross_mount_transfer":
                 result = await VirtualFSService.run_cross_mount_transfer_task(task)
                 task.result = result
+            elif task.name == "compress_archive":
+                task.result = await VirtualFSService.run_compression_task(task)
             elif task.name == "send_email":
                 from domain.email import EmailService
                 await EmailService.send_from_task(task.id, task.task_info)

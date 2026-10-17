@@ -2,6 +2,7 @@ import os
 import shutil
 import stat
 import time
+import zipfile
 from pathlib import Path
 from typing import List, Dict, Tuple, AsyncIterator
 import asyncio
@@ -14,7 +15,7 @@ from models import StorageAdapter
 def _safe_join(root: str, rel: str) -> Path:
     root_path = Path(root).resolve()
     full = (root_path / rel).resolve()
-    if not str(full).startswith(str(root_path)):
+    if not full.is_relative_to(root_path):
         raise ValueError("Path escape detected")
     return full
 
@@ -43,6 +44,51 @@ class LocalAdapter:
         if sub_path:
             return str(Path(root) / sub_path)
         return root
+
+    async def get_compression_capabilities(self, root: str, rel: str) -> Dict:
+        return {"formats": ["zip"]}
+
+    async def compress(self, root: str, source_rels: List[str], dst_rel: str) -> Dict:
+        def create_archive():
+            root_path = Path(root).resolve()
+            destination = _safe_join(root, dst_rel)
+            sources = []
+            for rel in source_rels:
+                source = _safe_join(root, rel)
+                parts = Path(rel).parts
+                if any((root_path.joinpath(*parts[:end])).is_symlink() for end in range(1, len(parts) + 1)):
+                    raise ValueError("Cannot compress symbolic links")
+                if source == root_path or destination.is_relative_to(source):
+                    raise ValueError("Archive destination must be outside its sources")
+                sources.append((Path(root) / rel, Path(rel).name))
+
+            def add(archive, path, name):
+                # Following links could include files outside the authorized tree.
+                if path.is_symlink() or not path.resolve().is_relative_to(root_path):
+                    raise ValueError("Cannot compress symbolic links or paths outside the storage root")
+                if path.is_dir():
+                    archive.write(path, name + "/")
+                    for child in sorted(path.iterdir()):
+                        add(archive, child, name + "/" + child.name)
+                elif path.is_file():
+                    archive.write(path, name)
+                else:
+                    raise ValueError("Only regular files and directories can be compressed")
+
+            # Exclusive creation also closes the race after the VFS existence check.
+            with destination.open("xb") as output:
+                try:
+                    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                        for source, name in sources:
+                            add(archive, source, name)
+                except BaseException:
+                    output.close()
+                    destination.unlink(missing_ok=True)
+                    raise
+            _apply_mode(destination, DEFAULT_FILE_MODE)
+            return {"queued": False}
+
+        return await asyncio.to_thread(create_archive)
 
     async def list_dir(self, root: str, rel: str, page_num: int = 1, page_size: int = 50, sort_by: str = "name", sort_order: str = "asc") -> Tuple[List[Dict], int]:
         rel = rel.strip('/')
@@ -314,6 +360,10 @@ class LocalAdapter:
             "mode": stat.S_IMODE(st.st_mode),
             "type": "dir" if is_dir else "file",
             "path": str(fp),
+            "is_symlink": any(
+                Path(root).resolve().joinpath(*Path(rel).parts[:end]).is_symlink()
+                for end in range(1, len(Path(rel).parts) + 1)
+            ),
         }
         if include_metadata and not is_dir:
             exif = None

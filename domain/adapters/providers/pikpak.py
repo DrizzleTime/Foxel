@@ -1,9 +1,18 @@
 import asyncio
+import base64
+from contextlib import suppress
+from email.utils import formatdate
 import hashlib
+import hmac
+import io
+import math
 import mimetypes
 import re
+import tempfile
 import time
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from urllib.parse import quote, urlsplit
+import xml.etree.ElementTree as ET
 
 import httpx
 from fastapi import HTTPException
@@ -11,6 +20,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from models import StorageAdapter
 from .base import BaseAdapter
+from ._remote import clean_path
 
 
 API_BASE = "https://api-drive.mypikpak.com/drive/v1"
@@ -156,7 +166,153 @@ def _parse_time(value: str | None) -> int:
         return 0
 
 
+# GCID and OSS upload protocol adapted from Bengerthelorf/pikpaktui (Apache-2.0).
+# See THIRD_PARTY_NOTICES.md and licenses/pikpaktui-Apache-2.0.txt.
+def gcid_block_size(size: int) -> int:
+    for limit, block in ((128, 256), (256, 512), (512, 1024)):
+        if size <= limit * 1024 * 1024:
+            return block * 1024
+    return 2 * 1024 * 1024
+
+
+def hash_upload_file(file_obj) -> tuple[int, str]:
+    file_obj.seek(0, 2)
+    size = file_obj.tell()
+    file_obj.seek(0)
+    digest = hashlib.sha1()
+    remaining = size
+    block_size = gcid_block_size(size)
+    try:
+        while remaining:
+            length = min(block_size, remaining)
+            block = bytearray()
+            while len(block) < length:
+                data = file_obj.read(length - len(block))
+                if not data:
+                    raise ValueError("PikPak upload source was truncated while hashing")
+                block.extend(data)
+            digest.update(hashlib.sha1(block).digest())
+            remaining -= length
+        return size, digest.hexdigest().upper()
+    finally:
+        file_obj.seek(0)
+
+
+class OSSUploader:
+    PART_SIZE = 10 * 1024 * 1024
+    CHUNK_SIZE = 512 * 1024
+    PART_ATTEMPTS = 3
+
+    def __init__(self, params, timeout):
+        required = ("endpoint", "bucket", "key", "access_key_id", "access_key_secret", "security_token")
+        if not isinstance(params, dict) or any(not isinstance(params.get(key), str) or not params[key].strip() for key in required):
+            raise HTTPException(502, "PikPak returned incomplete OSS upload credentials")
+        endpoint = params["endpoint"].rstrip("/")
+        if "://" not in endpoint:
+            endpoint = "https://" + endpoint
+        parsed = urlsplit(endpoint)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path:
+            raise HTTPException(502, "PikPak returned an invalid OSS upload endpoint")
+        self.params = params
+        self.url = endpoint + "/" + quote(params["key"], safe="/~")
+        self.resource = "/" + params["bucket"] + "/" + params["key"]
+        self.timeout = httpx.Timeout(timeout, write=max(300, timeout))
+
+    def signed_headers(self, method, query, size, date=None):
+        date = date or formatdate(usegmt=True)
+        token = self.params["security_token"]
+        resource = self.resource + ("?" + "&".join(
+            key + ("=" + str(value) if value != "" else "") for key, value in sorted(query.items())
+        ) if query else "")
+        content_type = "application/octet-stream"
+        text = f"{method}\n\n{content_type}\n{date}\nx-oss-security-token:{token}\n{resource}"
+        signature = base64.b64encode(hmac.digest(self.params["access_key_secret"].encode(), text.encode(), "sha1")).decode()
+        return {"Authorization": f"OSS {self.params['access_key_id']}:{signature}", "Date": date,
+                "x-oss-security-token": token, "Content-Type": content_type, "Content-Length": str(size)}
+
+    async def _request(self, client, method, query, *, content=b"", size=0, attempts=1):
+        query_string = "&".join(quote(key, safe="") + ("=" + quote(str(value), safe="") if value != "" else "")
+                                for key, value in sorted(query.items()))
+        for attempt in range(attempts):
+            try:
+                response = await client.request(method, self.url + "?" + query_string,
+                    headers=self.signed_headers(method, query, size),
+                    content=content() if callable(content) else content)
+            except httpx.TransportError:
+                if attempt + 1 == attempts:
+                    raise HTTPException(502, "PikPak OSS upload connection failed") from None
+            else:
+                if response.is_success:
+                    return response
+                if response.status_code not in (408, 429) and response.status_code < 500:
+                    raise HTTPException(502, f"PikPak OSS upload failed (HTTP {response.status_code})")
+                if attempt + 1 == attempts:
+                    raise HTTPException(502, f"PikPak OSS upload failed (HTTP {response.status_code})")
+            await asyncio.sleep(0.5 * (attempt + 1))
+
+    @staticmethod
+    def _xml(response):
+        try:
+            root = ET.fromstring(response.content)
+        except ET.ParseError as exc:
+            raise HTTPException(502, "PikPak OSS returned invalid upload XML") from exc
+        if root.tag.rsplit("}", 1)[-1] == "Error":
+            raise HTTPException(502, "PikPak OSS rejected the upload")
+        return root
+
+    async def upload(self, file_obj, size):
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=False) as client:
+            response = await self._request(client, "POST", {"uploads": ""})
+            root = self._xml(response)
+            upload_id = next((element.text for element in root.iter() if element.tag.rsplit("}", 1)[-1] == "UploadId"), None)
+            if not upload_id or not upload_id.strip():
+                raise HTTPException(502, "PikPak OSS returned no multipart upload ID")
+            completed = False
+            try:
+                # OSS accepts at most 10,000 parts. Keep each read bounded even
+                # if very large files need parts larger than the default.
+                part_size = max(self.PART_SIZE, math.ceil(size / 10000))
+                parts = max(1, math.ceil(size / part_size))
+                manifest = ET.Element("CompleteMultipartUpload")
+                for index in range(parts):
+                    offset = index * part_size
+                    length = min(part_size, size - offset)
+
+                    async def body(offset=offset, length=length):
+                        await asyncio.to_thread(file_obj.seek, offset)
+                        remaining = length
+                        while remaining:
+                            data = await asyncio.to_thread(file_obj.read, min(self.CHUNK_SIZE, remaining))
+                            if not data:
+                                raise ValueError("PikPak upload source was truncated during transfer")
+                            remaining -= len(data)
+                            yield data
+
+                    response = await self._request(client, "PUT", {"partNumber": index + 1, "uploadId": upload_id},
+                        content=body, size=length, attempts=self.PART_ATTEMPTS)
+                    etag = response.headers.get("etag", "").strip()
+                    if not etag:
+                        raise HTTPException(502, "PikPak OSS upload part returned no ETag")
+                    part = ET.SubElement(manifest, "Part")
+                    ET.SubElement(part, "PartNumber").text = str(index + 1)
+                    ET.SubElement(part, "ETag").text = etag
+                xml = ET.tostring(manifest, encoding="utf-8")
+                response = await self._request(client, "POST", {"uploadId": upload_id}, content=xml, size=len(xml))
+                result = self._xml(response)
+                if result.tag.rsplit("}", 1)[-1] != "CompleteMultipartUploadResult":
+                    raise HTTPException(502, "PikPak OSS did not confirm upload completion")
+                completed = True
+            finally:
+                if not completed:
+                    with suppress(Exception):
+                        await self._request(client, "DELETE", {"uploadId": upload_id})
+
+
 class PikPakAdapter:
+    supports_upload = True
+    UPLOAD_POLL_ATTEMPTS = 60
+    UPLOAD_POLL_INTERVAL = 1
+
     def __init__(self, record: StorageAdapter):
         self.record = record
         cfg = record.config or {}
@@ -888,10 +1044,31 @@ class PikPakAdapter:
         _ = src_parent_id
 
     async def write_file(self, root: str, rel: str, data: bytes):
-        raise HTTPException(501, detail="PikPak upload not implemented")
+        with io.BytesIO(data) as file:
+            return await self.write_upload_file(root, rel, file, None, len(data))
 
     async def write_file_stream(self, root: str, rel: str, data_iter: AsyncIterator[bytes]):
-        raise HTTPException(501, detail="PikPak upload not implemented")
+        # GCID and OSS retries need a seekable source; spool to disk instead of
+        # collecting the upload in memory. TemporaryFile also cleans up on error.
+        with tempfile.TemporaryFile() as file:
+            size = 0
+            async for chunk in data_iter:
+                if chunk:
+                    await asyncio.to_thread(file.write, chunk)
+                    size += len(chunk)
+            return await self.write_upload_file(root, rel, file, None, size)
+
+    async def _wait_uploaded_file(self, file_id):
+        for attempt in range(self.UPLOAD_POLL_ATTEMPTS):
+            if attempt:
+                await asyncio.sleep(self.UPLOAD_POLL_INTERVAL)
+            item = await self._request("GET", f"/files/{file_id}")
+            phase = item.get("phase")
+            if phase == "PHASE_TYPE_COMPLETE":
+                return
+            if phase in ("PHASE_TYPE_ERROR", "PHASE_TYPE_PAUSED"):
+                raise HTTPException(502, f"PikPak upload finalization failed for file {file_id}")
+        raise HTTPException(504, f"PikPak upload transferred but file {file_id} is still processing; check it before retrying")
 
     async def write_upload_file(
         self,
@@ -902,7 +1079,43 @@ class PikPakAdapter:
         file_size: int | None = None,
         content_type: str | None = None,
     ):
-        raise HTTPException(501, detail="PikPak upload not implemented")
+        if not rel or rel.endswith(("/", "\\")):
+            raise HTTPException(400, detail="Invalid PikPak upload file path")
+        rel = clean_path(rel)
+        if not rel:
+            raise HTTPException(400, detail="Cannot upload to mount root")
+        parent_rel, name = _split_parent_name(rel)
+        size, gcid = await asyncio.to_thread(hash_upload_file, file_obj)
+        if file_size is not None and size != file_size:
+            raise HTTPException(400, detail="PikPak upload source size does not match the declared size")
+        base_id = await self._resolve_root_id(root)
+        parent_id = await self._resolve_dir_id_from(base_id, parent_rel)
+        self._invalidate_children_cache(parent_id)
+        existing = await self._find_child(parent_id, name)
+        if existing and existing.get("is_dir"):
+            raise FileExistsError("PikPak upload destination is a directory")
+        try:
+            upload = await self._request("POST", "/files", json={
+                "kind": "drive#file", "name": name, "parent_id": parent_id,
+                "size": str(size), "hash": gcid, "upload_type": "UPLOAD_TYPE_RESUMABLE",
+                "objProvider": {"provider": "UPLOAD_TYPE_UNKNOWN"},
+            })
+            item = upload.get("file") or {}
+            file_id = item.get("id")
+            if item.get("phase") != "PHASE_TYPE_COMPLETE":
+                if not file_id:
+                    raise HTTPException(502, detail="PikPak upload response omitted the file ID")
+                params = (upload.get("resumable") or {}).get("params")
+                await OSSUploader(params, self.timeout).upload(file_obj, size)
+                await self._wait_uploaded_file(file_id)
+            if existing and existing.get("fid") != file_id:
+                if not file_id:
+                    raise HTTPException(502, detail="PikPak uploaded the file but omitted its ID; existing file preserved")
+                # Replace an existing file only once the new content is complete.
+                await self._request("POST", "/files:batchTrash", json={"ids": [existing["fid"]]})
+            return {"size": size, "rel": rel}
+        finally:
+            self._invalidate_children_cache(parent_id)
 
 
 ADAPTER_TYPE = "pikpak"

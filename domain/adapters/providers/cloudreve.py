@@ -332,6 +332,17 @@ class CloudreveAdapter(RemoteFileAdapter):
                 "free_bytes": max(0, int(total) - int(used)) if total is not None and used is not None else None,
                 "source": "cloudreve", "scope": "account"}
 
+    async def get_compression_capabilities(self, root, rel):
+        return {"formats": ["zip"]}
+
+    async def compress(self, root, source_rels, dst_rel):
+        # Cloudreve V4 creates archives asynchronously in its workflow queue.
+        task = await self._request("POST", "/api/v4/workflow/archive", json_body={
+            "src": [self._uri(root, rel) for rel in source_rels],
+            "dst": self._uri(root, dst_rel),
+        })
+        return {"queued": True, "upstream_task_id": task.get("id")}
+
 
 ADAPTER_TYPE = "cloudreve"
 ADAPTER_FACTORY = CloudreveAdapter

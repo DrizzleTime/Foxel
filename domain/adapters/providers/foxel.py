@@ -176,7 +176,12 @@ class FoxelAdapter:
     async def stat_file(self, root: str, rel: str):
         rel = (rel or "").strip("/")
         full_path = _join_fs_path(root, rel)
-        payload = await self._request_json("GET", self._stat_path(full_path))
+        try:
+            payload = await self._request_json("GET", self._stat_path(full_path))
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise FileNotFoundError(rel) from exc
+            raise
         data = _unwrap_success(payload, context="stat_file")
         if not isinstance(data, dict):
             raise HTTPException(502, detail="Foxel stat 响应异常")
@@ -196,6 +201,28 @@ class FoxelAdapter:
                 continue
             return resp.status_code == 200
         return False
+
+    async def get_compression_capabilities(self, root: str, rel: str) -> Dict:
+        try:
+            payload = await self._request_json("GET", "/api/fs/compression", params={
+                "path": _join_fs_path(root, rel),
+            })
+        except httpx.HTTPStatusError as exc:
+            # Older Foxel servers do not expose compression capabilities.
+            if exc.response.status_code in (404, 405, 501):
+                return {"formats": []}
+            raise
+        return _unwrap_success(payload, context="compression capabilities")
+
+    async def compress(self, root: str, source_rels: List[str], dst_rel: str) -> Dict:
+        payload = await self._request_json("POST", "/api/fs/compress", json={
+            "sources": [_join_fs_path(root, rel) for rel in source_rels],
+            "dst": _join_fs_path(root, dst_rel),
+        })
+        result = _unwrap_success(payload, context="compress")
+        # The upstream path belongs to the upstream namespace.
+        return {"queued": bool(result.get("queued")),
+                "upstream_task_id": result.get("task_id") or result.get("upstream_task_id")}
 
     async def read_file(self, root: str, rel: str) -> bytes:
         rel = (rel or "").lstrip("/")

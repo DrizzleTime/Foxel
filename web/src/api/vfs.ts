@@ -136,6 +136,11 @@ export const vfsApi = {
     return request(`/fs/file/${encodeURI(fullPath.replace(/^\/+/, ''))}`, { method: 'POST', formData: fd });
   },
   mkdir: (path: string) => request('/fs/mkdir', { method: 'POST', json: { path } }),
+  compressionCapabilities: (path: string) => request<{ formats: string[]; native: boolean }>(`/fs/compression?${new URLSearchParams({ path })}`),
+  compress: (sources: string[], dst: string) => request<{
+    path: string; compressed: boolean; queued: boolean; upstream_task_id?: string | null;
+    task_id?: string; task_name?: string;
+  }>('/fs/compress', { method: 'POST', json: { sources, dst } }),
   deletePath: (path: string) => request(`/fs/${encodeURI(path.replace(/^\/+/, ''))}`, { method: 'DELETE' }),
   move: (src: string, dst: string, options?: { overwrite?: boolean }) => {
     const params = new URLSearchParams();

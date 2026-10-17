@@ -1,6 +1,8 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+from domain.permission.execution import ExecutionError, normalize_path
 
 
 class VfsEntry(BaseModel):
@@ -38,3 +40,18 @@ class MkdirRequest(BaseModel):
 class MoveRequest(BaseModel):
     src: str
     dst: str
+
+
+class CompressRequest(BaseModel):
+    sources: List[str] = Field(min_length=1, max_length=1000)
+    dst: str
+
+    @field_validator("sources", "dst", mode="after")
+    @classmethod
+    def normalize_paths(cls, value):
+        try:
+            if isinstance(value, list):
+                return list(dict.fromkeys(normalize_path(path) for path in value))
+            return normalize_path(value)
+        except ExecutionError as exc:
+            raise ValueError("Invalid archive path") from exc

@@ -8,9 +8,11 @@ from .transfer import VirtualFSTransferMixin
 from .processing import VirtualFSProcessingMixin
 from .temp_link import VirtualFSTempLinkMixin
 from .routes import VirtualFSRouteMixin
+from .compression import VirtualFSCompressionMixin
 
 
 class VirtualFSService(
+    VirtualFSCompressionMixin,
     VirtualFSRouteMixin,
     VirtualFSTempLinkMixin,
     VirtualFSProcessingMixin,

@@ -100,13 +100,18 @@ const TaskQueuePage = memo(function TaskQueuePage() {
 
   const progressLabel = useCallback((task: QueuedTask) => {
     const percent = task.progress?.percent;
-    const stage = task.progress?.stage;
+    const stageKey = task.progress?.stage;
+    const stageLabels: Record<string, string> = {
+      preparing: t('Preparing'), downloading: t('Downloading'), compressing: t('Compressing'),
+      uploading: t('Uploading'), completed: t('Completed'),
+    };
+    const stage = stageKey ? stageLabels[stageKey] || stageKey : undefined;
     if (percent !== undefined && percent !== null) {
       const percentText = `${percent.toFixed(1)}%`;
       return stage ? `${percentText} · ${stage}` : percentText;
     }
     return stage ?? '--';
-  }, []);
+  }, [t]);
 
   const columns: ColumnsType<QueuedTask> = useMemo(() => ([
     {
@@ -128,6 +133,7 @@ const TaskQueuePage = memo(function TaskQueuePage() {
       dataIndex: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
       width: 160,
+      render: (name: string) => name === 'compress_archive' ? t('Archive compression') : name,
     },
     {
       title: t('Status'),
@@ -153,7 +159,10 @@ const TaskQueuePage = memo(function TaskQueuePage() {
       title: t('Progress'),
       render: (_: unknown, record) => (
         record.progress?.percent !== undefined && record.progress.percent !== null
-          ? <Progress percent={Number(record.progress.percent.toFixed(1))} size="small" status={record.status === 'failed' ? 'exception' : record.status === 'success' ? 'success' : 'active'} />
+          ? <div>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>{progressLabel(record)}</Typography.Text>
+              <Progress percent={Number(record.progress.percent.toFixed(1))} size="small" status={record.status === 'failed' ? 'exception' : record.status === 'success' ? 'success' : 'active'} />
+            </div>
           : <Typography.Text type="secondary" style={{ fontSize: 12 }}>{progressLabel(record)}</Typography.Text>
       ),
     },

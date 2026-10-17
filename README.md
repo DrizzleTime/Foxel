@@ -33,6 +33,10 @@
 
 Centralize management of files distributed across different storage backends. Browse, upload, download, move, copy, and delete — all through a single, unified interface.
 
+Choose **Compress to ZIP** in a file or folder's context menu, including multiple selected items. Local storage, Cloudreve V4, and Foxel upstreams exposing the compression API use native compression where possible. Other adapters supporting download and upload use the existing background task queue to download files to server temporary storage, create a ZIP, and upload it to the destination, including across storage mounts. The queue displays preparation, download, compression, and upload progress. Temporary files are removed after success or failure; source files are preserved. Existing destination archives cannot be overwritten.
+
+Cloudreve runs an asynchronous server task and requires archive task permissions. Foxel connections discover and forward upstream capabilities. Refresh the folder after completion. PikPak supports GCID deduplication and OSS multipart uploads, including as a destination for cross-storage transfers and background compression tasks.
+
 ### 🔌 Pluggable Storage Backends
 
 Utilizes an extensible adapter pattern to easily integrate various storage types:

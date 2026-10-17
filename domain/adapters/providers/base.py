@@ -26,3 +26,9 @@ class BaseAdapter(Protocol):
 @runtime_checkable
 class UsageCapableAdapter(Protocol):
     async def get_usage(self, root: str) -> Dict: ...
+
+
+@runtime_checkable
+class CompressionCapableAdapter(Protocol):
+    async def get_compression_capabilities(self, root: str, rel: str) -> Dict: ...
+    async def compress(self, root: str, source_rels: List[str], dst_rel: str) -> Dict: ...

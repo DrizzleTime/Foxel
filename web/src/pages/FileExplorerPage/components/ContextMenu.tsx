@@ -9,7 +9,7 @@ import {
   FolderFilled, AppstoreOutlined, AppstoreAddOutlined, DownloadOutlined,
   EditOutlined, DeleteOutlined, InfoCircleOutlined, UploadOutlined, PlusOutlined,
   ShareAltOutlined, LinkOutlined, CopyOutlined, SwapOutlined, FileAddOutlined,
-  PlayCircleOutlined
+  PlayCircleOutlined, FileZipOutlined
 } from '@ant-design/icons';
 
 interface ContextMenuProps {
@@ -37,6 +37,8 @@ interface ContextMenuProps {
   onGetDirectLink: (entry: VfsEntry) => void;
   onMove: (entries: VfsEntry[]) => void;
   onCopy: (entries: VfsEntry[]) => void;
+  canCompress: boolean;
+  onCompress: (entries: VfsEntry[]) => void;
 }
 
 type MenuItem = Required<MenuProps>['items'][number];
@@ -57,7 +59,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
   usePluginApps();
   const { token } = theme.useToken();
   const { t } = useI18n();
-  const { x, y, mobile = false, entry, entries, selectedEntries, processorTypes, onClose, ...actions } = props;
+  const { x, y, mobile = false, entry, entries, selectedEntries, processorTypes, canCompress, onClose, ...actions } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: x, top: y });
 
@@ -195,6 +197,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
         disabled: targetEntries.length !== 1 || targetEntries[0].type === 'mount',
         onClick: () => actions.onRename(targetEntries[0]),
       },
+      canCompress ? {
+        key: 'compress',
+        label: t('Compress to ZIP'),
+        icon: <FileZipOutlined />,
+        disabled: targetEntries.length === 0 || targetEntries.some(target => target.type === 'mount'),
+        onClick: () => actions.onCompress(targetEntries),
+      } : null,
       {
         key: 'move',
         label: t('Move'),

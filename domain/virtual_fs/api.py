@@ -13,10 +13,31 @@ from domain.auth import User, get_current_active_user
 from domain.permission import require_path_permission
 from domain.permission.types import PathAction
 from .service import VirtualFSService
-from .types import MkdirRequest, MoveRequest
+from .types import CompressRequest, MkdirRequest, MoveRequest
 from .chunk_uploads import ChunkUploadCreate, ChunkUploadService
 
 router = APIRouter(prefix="/api/fs", tags=["virtual-fs"])
+
+
+@router.get("/compression")
+@require_path_permission(PathAction.READ, "path")
+async def compression_capabilities(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    path: str = Query(...),
+):
+    return success(await VirtualFSService.compression_capabilities(path))
+
+
+@router.post("/compress")
+@audit(action=AuditAction.CREATE, description="Create archive", body_fields=["sources", "dst"])
+@require_path_permission(PathAction.READ, "body.sources")
+@require_path_permission(PathAction.WRITE, "body.dst")
+async def compress_files(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    body: CompressRequest,
+):
+    return success(await VirtualFSService.compress(body.sources, body.dst, current_user.id))
 
 
 @router.post("/uploads")

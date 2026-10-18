@@ -59,11 +59,14 @@ async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
     except Exception:
         return []
 
-    results: List[SearchResultItem] = []
+    results_by_path: Dict[str, SearchResultItem] = {}
     for bucket in raw_results or []:
         for record in bucket or []:
-            results.append(_normalize_result(record, "vector"))
-    return results
+            item = _normalize_result(record, "vector")
+            existing = results_by_path.get(item.path)
+            if existing is None or item.score > existing.score:
+                results_by_path[item.path] = item
+    return sorted(results_by_path.values(), key=lambda item: item.score, reverse=True)
 
 
 async def _filename_search(query: str, page: int, page_size: int) -> Tuple[List[SearchResultItem], bool]:

@@ -224,6 +224,13 @@ export const Header: React.FC<HeaderProps> = ({
         <Button size="small" icon={<ArrowUpOutlined />} onClick={onGoUp} disabled={path === '/'} />
         {renderBreadcrumb()}
         <Space size={4} style={{ flexShrink: 0 }}>
+          <Button
+            size="small"
+            icon={viewMode === 'grid' ? <UnorderedListOutlined /> : <AppstoreOutlined />}
+            onClick={() => onSetViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            aria-label={t(viewMode === 'grid' ? 'List' : 'Grid')}
+            title={t(viewMode === 'grid' ? 'List' : 'Grid')}
+          />
           <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loading} aria-label={t('Refresh')} />
           <Button size="small" icon={<PlusOutlined />} onClick={onCreateDir} aria-label={t('New Folder')} />
           <Button size="small" icon={<UploadOutlined />} onClick={onUploadFile} aria-label={t('Upload Files')} />

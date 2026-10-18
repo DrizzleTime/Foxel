@@ -152,22 +152,16 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     let mounted = true;
     getPublicConfig()
       .then((cfg) => {
-        if (!mounted || isMobile) return;
+        if (!mounted) return;
         setViewMode(cfg.DEFAULT_FILE_VIEW_MODE === 'list' ? 'list' : 'grid');
       })
       .catch(() => {
-        if (mounted && !isMobile) setViewMode('grid');
+        if (mounted) setViewMode('grid');
       });
     return () => {
       mounted = false;
     };
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (isMobile && viewMode !== 'grid') {
-      setViewMode('grid');
-    }
-  }, [isMobile, viewMode]);
+  }, []);
 
   const effectiveRefresh = useCallback(() => {
     if (isSearching) {
@@ -478,6 +472,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         ) : (
           <FileListView
             entries={entries}
+            mobile={isMobile}
+            thumbs={thumbs}
             selectedEntries={selectedEntries}
             onRowClick={(r, e) => handleSelect(r, e.ctrlKey || e.metaKey)}
             onSelectionChange={setSelectedEntries}
@@ -486,6 +482,10 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             onRename={setRenaming}
             onDelete={(entry) => doDelete([entry])}
             onContextMenu={openContextMenu}
+            onOpenMenu={openEntryMenuFromAnchor}
+            batchMode={batchBarVisible}
+            batchSelectedNames={batch.currentDirNames}
+            onBatchToggle={handleBatchToggle}
           />
         )}
       </div>

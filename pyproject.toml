@@ -30,6 +30,7 @@ dependencies = [
     "uvicorn>=0.54.0",
     "websockets>=17.1",
     "smbprotocol>=1.17.0",
+    "gunicorn>=23.0.0",
 ]
 
 [dependency-groups]

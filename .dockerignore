@@ -1,15 +1,27 @@
 # Git
-.git
+**/.git
 .gitignore
+.github/
 
 # Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
 .Python
-.venv/
+**/.venv/
 .env/
+.env
+.env.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data and local artifacts
+data/
+*.log
 
 # Database
 *.sqlite3
@@ -19,9 +31,19 @@ __pycache__/
 *.db.lock
 
 # Node
-web/node_modules/
+**/node_modules/
 web/dist/
+web/dist-ssr/
+web/logs/
+web/*.local
+web/*.tsbuildinfo
 
 # IDEs and editors
 .idea/
 .vscode/
+
+# Development-only files
+tests/
+AGENTS.md
+Dockerfile
+compose.yaml

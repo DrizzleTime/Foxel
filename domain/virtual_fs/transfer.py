@@ -378,10 +378,15 @@ class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
             while stack:
                 current_rel, current_dst_rel, current_relative = stack.pop()
                 page = 1
+                cursor = None
+                seen_cursors: set[str] = set()
                 while True:
-                    entries, total = await list_dir(root_s, current_rel, page, page_size, "name", "asc")
-                    if not entries and (total or 0) == 0:
-                        break
+                    kwargs = {"cursor": cursor} if cursor else {}
+                    listing = await list_dir(root_s, current_rel, page, page_size, "name", "asc", **kwargs)
+                    if isinstance(listing, dict):
+                        entries, total = listing.get("items", []), listing.get("total")
+                    else:
+                        entries, total = listing
                     for entry in entries:
                         name = entry.get("name")
                         if not name:
@@ -402,9 +407,17 @@ class VirtualFSTransferMixin(VirtualFSFileOpsMixin):
                                     "name": name,
                                 }
                             )
-                    if total is None or page * page_size >= (total or 0):
-                        break
-                    page += 1
+                    if isinstance(listing, dict) and listing.get("pagination_mode") == "cursor":
+                        if not listing.get("has_next"):
+                            break
+                        cursor = listing.get("next_cursor")
+                        if not cursor or cursor in seen_cursors:
+                            raise ValueError("Storage returned invalid pagination")
+                        seen_cursors.add(cursor)
+                    else:
+                        if total is None or page * page_size >= (total or 0):
+                            break
+                        page += 1
         else:
             relative_rel = rel_s or (src_stat.get("name") or "file")
             files_to_transfer.append(

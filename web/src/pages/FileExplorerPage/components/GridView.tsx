@@ -21,7 +21,6 @@ interface Props {
   batchMode?: boolean;
   batchSelectedNames?: Set<string>;
   onBatchToggle?: (e: VfsEntry) => void;
-  onBatchStart?: (e: VfsEntry) => void;
 }
 
 const formatSize = (size: number) => {
@@ -31,12 +30,10 @@ const formatSize = (size: number) => {
   return (size / 1024 / 1024 / 1024).toFixed(1) + ' GB';
 };
 
-export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, path, mobile = false, onSelect, onSelectRange, onOpen, onContextMenu, onOpenMenu, batchMode = false, batchSelectedNames, onBatchToggle, onBatchStart }) => {
+export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, path, mobile = false, onSelect, onSelectRange, onOpen, onContextMenu, onOpenMenu, batchMode = false, batchSelectedNames, onBatchToggle }) => {
   const { token } = theme.useToken();
   const { resolvedMode } = useTheme();
   const { t } = useI18n();
-  const longPressState = useRef<number | null>(null);
-  const longPressStart = useRef<{ x: number; y: number } | null>(null);
 
   const lightenColor = (hex: string, amount: number) => {
     const parseHex = (h: string) => {
@@ -180,37 +177,6 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, pa
             }}
             onContextMenu={(e) => {
               if (!mobile) onContextMenu(e, ent);
-            }}
-            onTouchStart={(ev) => {
-              if (!mobile || batchMode || !onBatchStart) return;
-              const touch = ev.touches[0];
-              longPressState.current = window.setTimeout(() => {
-                longPressState.current = null;
-                navigator.vibrate?.(30);
-                onBatchStart(ent);
-              }, 500);
-              longPressStart.current = { x: touch.clientX, y: touch.clientY };
-            }}
-            onTouchMove={(ev) => {
-              if (!longPressState.current) return;
-              const touch = ev.touches[0];
-              const start = longPressStart.current;
-              if (start && Math.abs(touch.clientX - start.x) + Math.abs(touch.clientY - start.y) > 10) {
-                clearTimeout(longPressState.current);
-                longPressState.current = null;
-              }
-            }}
-            onTouchEnd={() => {
-              if (longPressState.current) {
-                clearTimeout(longPressState.current);
-                longPressState.current = null;
-              }
-            }}
-            onTouchCancel={() => {
-              if (longPressState.current) {
-                clearTimeout(longPressState.current);
-                longPressState.current = null;
-              }
             }}
             style={{ userSelect: 'none', position: 'relative' }}
           >

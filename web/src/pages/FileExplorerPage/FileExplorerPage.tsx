@@ -75,6 +75,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [extractingEntry, setExtractingEntry] = useState<VfsEntry | null>(null);
   const [extractionCapability, setExtractionCapability] = useState<{ path: string; supported: boolean } | null>(null);
   const [pendingBatchItems, setPendingBatchItems] = useState<BatchItem[] | null>(null);
+  const [batchCompressSources, setBatchCompressSources] = useState<string[] | null>(null);
 
   // --- Search ---
   const fileSearch = useFileSearch({
@@ -213,7 +214,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   });
 
   const { doDelete, doRename, doDownload, doShare, doGetDirectLink, doMove, doCopy,
-    doBatchDelete, doBatchTransfer, doBatchDownload, batchProgress, closeBatchProgress } = useFileActions({
+    doBatchDelete, doBatchTransfer, batchProgress, closeBatchProgress } = useFileActions({
     path: entryBasePath,
     refresh: effectiveRefresh,
     clearSelection: clearAllSelection,
@@ -283,12 +284,6 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     batch.toggle(entry);
   }, [batch]);
 
-  const handleBatchStart = useCallback((entry: VfsEntry) => {
-    if (isSearching || entry.type === 'mount') return;
-    batch.enter();
-    batch.toggle(entry);
-  }, [batch, isSearching]);
-
   const handleBatchToggleAll = useCallback(() => {
     batch.toggleMany(batchSelectableEntries);
   }, [batch, batchSelectableEntries]);
@@ -297,9 +292,9 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     doBatchDelete(batch.items);
   }, [batch.items, doBatchDelete]);
 
-  const handleBatchDownload = useCallback(() => {
-    doBatchDownload(batch.items);
-  }, [batch.items, doBatchDownload]);
+  const handleBatchCompress = useCallback(() => {
+    setBatchCompressSources(batch.items.map(i => i.path));
+  }, [batch.items]);
 
   const handleBatchShare = useCallback(() => {
     const currentDirItems = batch.items.filter(i => (i.path.slice(0, i.path.lastIndexOf('/')) || '/') === path);
@@ -472,7 +467,6 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             batchMode={batchBarVisible}
             batchSelectedNames={batch.currentDirNames}
             onBatchToggle={handleBatchToggle}
-            onBatchStart={handleBatchStart}
           />
         ) : (
           <FileListView
@@ -636,9 +630,14 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       <CompressModal
         entries={compressingEntries}
         path={entryBasePath}
-        onCancel={() => setCompressingEntries([])}
+        sources={batchCompressSources}
+        onCancel={() => {
+          setCompressingEntries([]);
+          setBatchCompressSources(null);
+        }}
         onDone={() => {
           setCompressingEntries([]);
+          setBatchCompressSources(null);
           clearAllSelection();
           effectiveRefresh();
         }}
@@ -672,7 +671,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         <BatchActionBar
           count={batch.count}
           canShare={batchCanShare}
-          onDownload={handleBatchDownload}
+          onCompress={handleBatchCompress}
           onMove={handleBatchMove}
           onCopy={handleBatchCopy}
           onShare={handleBatchShare}

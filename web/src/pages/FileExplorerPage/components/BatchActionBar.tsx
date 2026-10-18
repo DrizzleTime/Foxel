@@ -1,13 +1,13 @@
 import { Flex, Button, theme } from 'antd';
 import {
-  DownloadOutlined, SwapOutlined, CopyOutlined, ShareAltOutlined, DeleteOutlined,
+  FileZipOutlined, SwapOutlined, CopyOutlined, ShareAltOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { useI18n } from '../../../i18n';
 
 interface BatchActionBarProps {
   count: number;
   canShare: boolean;
-  onDownload: () => void;
+  onCompress: () => void;
   onMove: () => void;
   onCopy: () => void;
   onShare: () => void;
@@ -16,16 +16,16 @@ interface BatchActionBarProps {
 
 const SAFE_AREA_PADDING = 'env(safe-area-inset-bottom, 0px)';
 
-export function BatchActionBar({ count, canShare, onDownload, onMove, onCopy, onShare, onDelete }: BatchActionBarProps) {
+export function BatchActionBar({ count, canShare, onCompress, onMove, onCopy, onShare, onDelete }: BatchActionBarProps) {
   const { token } = theme.useToken();
   const { t } = useI18n();
   const disabled = count === 0;
 
   const actions = [
-    { key: 'download', label: t('Download'), icon: <DownloadOutlined />, onClick: onDownload, disabled },
+    { key: 'share', label: t('Share'), icon: <ShareAltOutlined />, onClick: onShare, disabled: disabled || !canShare },
+    { key: 'compress', label: t('Compress'), icon: <FileZipOutlined />, onClick: onCompress, disabled },
     { key: 'move', label: t('Move'), icon: <SwapOutlined />, onClick: onMove, disabled },
     { key: 'copy', label: t('Copy'), icon: <CopyOutlined />, onClick: onCopy, disabled },
-    { key: 'share', label: t('Share'), icon: <ShareAltOutlined />, onClick: onShare, disabled: disabled || !canShare },
     { key: 'delete', label: t('Delete'), icon: <DeleteOutlined />, onClick: onDelete, disabled },
   ];
 

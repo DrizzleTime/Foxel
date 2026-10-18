@@ -3,7 +3,6 @@ import { Button, message, Modal, Progress, Tooltip } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
 import { useI18n } from '../../../i18n';
 import { vfsApi, type VfsEntry } from '../../../api/client';
-import { tasksApi } from '../../../api/tasks';
 import { API_BASE_URL } from '../../../api/client';
 import { downloadRanges, encodeFilePath, MAX_BLOB_DOWNLOAD_SIZE, saveDownloadUrl,
   selectDownloadTarget, TRANSFER_CHUNK_SIZE } from '../../../api/transfers';
@@ -328,39 +327,6 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     }
   }, [normalizeDestination, t, summarizeBatch, clearSelection, refresh]);
 
-  const doBatchDownload = useCallback(async (items: BatchItem[]) => {
-    if (!items.length) return;
-    const sources = items.map(i => i.path);
-    const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
-    const zipName = `batch-${stamp}.zip`;
-    const dst = `${path === '/' ? '' : path}/${zipName}`;
-    setBatchProgress({ open: true, title: t('Batch download'), items: [{ label: zipName, status: 'running' }] });
-    try {
-      const res = await vfsApi.compress(sources, dst);
-      if (res.queued && res.task_id) {
-        const deadline = Date.now() + 15 * 60_000;
-        let done = false;
-        while (Date.now() < deadline) {
-          const task = await tasksApi.getQueuedTask(res.task_id).catch(() => null);
-          if (task?.status === 'success') { done = true; break; }
-          if (task?.status === 'failed') throw new Error(task.error || t('Task failed'));
-          await new Promise(r => setTimeout(r, 2000));
-        }
-        if (!done) throw new Error(t('Task timeout'));
-      }
-      const tempLink = await vfsApi.getTempLinkToken(dst);
-      saveDownloadUrl(vfsApi.getTempPublicUrl(tempLink.token), zipName);
-      await vfsApi.deletePath(dst).catch(() => undefined);
-      setBatchProgress({ open: true, title: t('Batch download'), items: [{ label: zipName, status: 'success' }] });
-      message.success(t('Download completed'));
-      refresh();
-    } catch (e: any) {
-      setBatchProgress({ open: true, title: t('Batch download'), items: [{ label: zipName, status: 'error', error: e?.message }] });
-      message.error(e.message);
-      refresh();
-    }
-  }, [path, refresh, t]);
-
   return {
     doCreateDir,
     doCreateFile,
@@ -373,7 +339,6 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     doCopy,
     doBatchDelete,
     doBatchTransfer,
-    doBatchDownload,
     batchProgress,
     closeBatchProgress: useCallback(() => setBatchProgress(prev => ({ ...prev, open: false })), []),
   };

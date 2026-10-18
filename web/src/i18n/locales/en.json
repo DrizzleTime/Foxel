@@ -921,5 +921,6 @@
   "{failed} failed": "{failed} failed",
   "Task queued": "Task queued",
   "Task failed": "Task failed",
-  "Task timeout": "Task timeout"
+  "Task timeout": "Task timeout",
+  "Compress": "Compress"
 }

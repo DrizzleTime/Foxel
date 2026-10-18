@@ -44,6 +44,8 @@ RUN apt-get update \
 COPY --from=python-builder /opt/venv /opt/venv
 COPY --from=python-builder /build/migrate /app/migrate
 
+RUN /opt/venv/bin/python -c "from tortoise import Tortoise, exceptions; import gunicorn; from uvicorn.workers import UvicornWorker"
+
 COPY . .
 
 COPY --from=frontend-builder /app/web/dist /app/web/dist

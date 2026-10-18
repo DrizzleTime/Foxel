@@ -141,15 +141,61 @@ class ShareService:
         return {"items": items, "pagination": pagination}
 
     @classmethod
-    def _single_file_listing(cls, stat: dict, page_num: int, page_size: int):
+    async def _stat_shared_path(cls, path: str) -> dict:
+        try:
+            stat = dict(await VirtualFSService.stat_file(path))
+        except FileNotFoundError as e:
+            raise HTTPException(status_code=404, detail="分享的源文件不存在") from e
+        except HTTPException as e:
+            # Some adapters report directories through an exception instead of stat.
+            if "Path is a directory" in str(e.detail) or "Not a file" in str(e.detail):
+                stat = {"is_dir": True, "size": 0, "mtime": 0}
+            else:
+                raise
+        stat["name"] = path.rstrip("/").rsplit("/", 1)[-1]
+        return stat
+
+    @classmethod
+    def _relative_share_path(cls, path: str) -> str:
+        parts = path.split("/")
+        if ".." in parts:
+            raise HTTPException(status_code=400, detail="无效的文件路径")
+        return "/".join(part for part in parts if part and part != ".")
+
+    @classmethod
+    async def _resolve_shared_path(cls, share: ShareLink, relative_path: str) -> str:
+        if len(share.paths) > 1:
+            # A multi-item share exposes the selected items as a virtual root.
+            name, _, remainder = relative_path.partition("/")
+            base_path = next(
+                (p for p in share.paths if p.rstrip("/").rsplit("/", 1)[-1] == name),
+                None,
+            )
+            if base_path is None:
+                raise HTTPException(status_code=403, detail="无权访问此路径")
+            if not remainder:
+                return base_path
+        else:
+            base_path = share.paths[0]
+            remainder = relative_path
+
+        stat = await cls._stat_shared_path(base_path)
+        if stat.get("is_dir"):
+            return f"{base_path.rstrip('/')}/{remainder}"
+        if len(share.paths) == 1 and relative_path == stat["name"]:
+            return base_path
+        raise HTTPException(status_code=403, detail="无权访问此路径")
+
+    @classmethod
+    def _shared_items_listing(cls, items: list[dict], total: int, page_num: int, page_size: int):
         return {
-            "items": [stat] if page_num == 1 else [],
+            "items": items,
             "pagination": {
                 "mode": "paged",
                 "page_size": page_size,
-                "total": 1,
+                "total": total,
                 "page": page_num,
-                "pages": 1,
+                "pages": (total + page_size - 1) // page_size,
             },
         }
 
@@ -165,31 +211,28 @@ class ShareService:
         if not share.paths:
             raise HTTPException(status_code=404, detail="分享内容为空")
 
-        base_shared_path = share.paths[0]
-
-        if sub_path and sub_path != "/":
-            full_path = f"{base_shared_path.rstrip('/')}/{sub_path.lstrip('/')}".rstrip("/")
-            if not full_path.startswith(base_shared_path):
-                raise HTTPException(status_code=403, detail="无权访问此路径")
+        relative_path = cls._relative_share_path(sub_path)
+        if relative_path:
+            full_path = await cls._resolve_shared_path(share, relative_path)
             return await cls._list_shared_virtual_dir(
                 full_path, page_num, page_size, cursor
             )
 
-        try:
-            stat = await VirtualFSService.stat_file(base_shared_path)
-            if stat.get("is_dir"):
-                return await cls._list_shared_virtual_dir(
-                    base_shared_path, page_num, page_size, cursor
-                )
+        if len(share.paths) > 1:
+            start = (page_num - 1) * page_size
+            items = [
+                await cls._stat_shared_path(path)
+                for path in share.paths[start : start + page_size]
+            ]
+            return cls._shared_items_listing(items, len(share.paths), page_num, page_size)
 
-            stat["name"] = base_shared_path.split("/")[-1]
-            return cls._single_file_listing(stat, page_num, page_size)
-        except HTTPException as e:
-            if "Path is a directory" in str(e.detail) or "Not a file" in str(e.detail):
-                return await cls._list_shared_virtual_dir(
-                    base_shared_path, page_num, page_size, cursor
-                )
-            raise e
+        base_shared_path = share.paths[0]
+        stat = await cls._stat_shared_path(base_shared_path)
+        if stat.get("is_dir"):
+            return await cls._list_shared_virtual_dir(
+                base_shared_path, page_num, page_size, cursor
+            )
+        return cls._shared_items_listing([stat] if page_num == 1 else [], 1, page_num, page_size)
 
     @classmethod
     async def stream_shared_file(
@@ -199,37 +242,14 @@ class ShareService:
         range_header: str | None,
         password: Optional[str] = None,
     ) -> Response:
-        if not path or path == "/" or ".." in path.split("/"):
+        relative_path = cls._relative_share_path(path)
+        if not relative_path:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无效的文件路径")
 
         share = await cls.ensure_share_access(token, password)
         if not share.paths:
             raise HTTPException(status_code=404, detail="分享的源文件不存在")
-        base_shared_path = share.paths[0]
-
-        is_dir = False
-        try:
-            stat = await VirtualFSService.stat_file(base_shared_path)
-            if stat and stat.get("is_dir"):
-                is_dir = True
-        except HTTPException as e:
-            if "Path is a directory" in str(e.detail) or "Not a file" in str(e.detail):
-                is_dir = True
-            elif e.status_code == 404:
-                raise HTTPException(status_code=404, detail="分享的源文件不存在")
-            else:
-                raise
-
-        if is_dir:
-            full_virtual_path = f"{base_shared_path.rstrip('/')}/{path.lstrip('/')}"
-            if not full_virtual_path.startswith(base_shared_path):
-                raise HTTPException(status_code=403, detail="无权访问此路径")
-        else:
-            shared_filename = base_shared_path.split("/")[-1]
-            request_filename = path.lstrip("/")
-            if shared_filename != request_filename:
-                raise HTTPException(status_code=403, detail="无权访问此路径")
-            full_virtual_path = base_shared_path
+        full_virtual_path = await cls._resolve_shared_path(share, relative_path)
 
         response = await VirtualFSService.stream_file(full_virtual_path, range_header)
         filename = full_virtual_path.split("/")[-1]

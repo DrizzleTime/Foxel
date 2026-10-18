@@ -8,11 +8,13 @@ import { downloadRanges, encodeFilePath, MAX_BLOB_DOWNLOAD_SIZE, saveDownloadUrl
   selectDownloadTarget, TRANSFER_CHUNK_SIZE } from '../../../api/transfers';
 import type { DownloadTarget } from '../../../api/transfers';
 import type { BatchItem } from './useBatchMode';
+import type { BatchOpResult } from '../../../api/vfs';
 
 interface FileActionsParams {
   path: string;
   refresh: () => void;
   clearSelection: () => void;
+  onBatchResult?: (result: BatchOpResult) => void;
   onShare: (entries: VfsEntry[]) => void;
   onGetDirectLink: (entry: VfsEntry) => void;
 }
@@ -29,7 +31,7 @@ export interface BatchProgressState {
   items: BatchProgressItem[];
 }
 
-export function useFileActions({ path, refresh, clearSelection, onShare, onGetDirectLink }: FileActionsParams) {
+export function useFileActions({ path, refresh, clearSelection, onBatchResult, onShare, onGetDirectLink }: FileActionsParams) {
   const { t } = useI18n();
   const [batchProgress, setBatchProgress] = useState<BatchProgressState>({ open: false, title: '', items: [] });
   const downloadsRef = useRef(new Map<string, AbortController>());
@@ -287,6 +289,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
       onOk: async () => {
         try {
           const res = await vfsApi.batchDelete(items.map(i => i.path));
+          onBatchResult?.(res);
           summarizeBatch(t('Batch delete'), res.results);
           if (res.failed === 0) message.success(t('{succeeded} succeeded', { succeeded: res.succeeded }));
           else if (res.succeeded === 0) message.error(t('{failed} failed', { failed: res.failed }));
@@ -298,7 +301,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
         }
       }
     });
-  }, [t, summarizeBatch, clearSelection, refresh]);
+  }, [t, summarizeBatch, clearSelection, onBatchResult, refresh]);
 
   const doBatchTransfer = useCallback(async (items: BatchItem[], destination: string, mode: 'move' | 'copy', overwrite: boolean = false) => {
     if (!items.length) return;
@@ -312,6 +315,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
       const res = mode === 'move'
         ? await vfsApi.batchMove(srcs, normalized, { overwrite })
         : await vfsApi.batchCopy(srcs, normalized, { overwrite });
+      onBatchResult?.(res);
       summarizeBatch(mode === 'move' ? t('Batch move') : t('Batch copy'), res.results);
       if (res.failed === 0) {
         message.success(mode === 'move' ? t('Move completed') : t('Copy completed'));
@@ -325,7 +329,7 @@ export function useFileActions({ path, refresh, clearSelection, onShare, onGetDi
     } catch (e: any) {
       message.error(e.message);
     }
-  }, [normalizeDestination, t, summarizeBatch, clearSelection, refresh]);
+  }, [normalizeDestination, t, summarizeBatch, clearSelection, onBatchResult, refresh]);
 
   return {
     doCreateDir,

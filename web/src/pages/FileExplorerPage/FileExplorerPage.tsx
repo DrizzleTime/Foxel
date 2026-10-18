@@ -34,6 +34,7 @@ import { MoveCopyModal } from './components/Modals/MoveCopyModal';
 import { SearchResultsView } from './components/SearchResultsView';
 import type { ViewMode } from './types';
 import { vfsApi, type VfsEntry } from '../../api/client';
+import type { BatchOpResult } from '../../api/vfs';
 import { getPublicConfig } from '../../api/config';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import useResponsive from '../../hooks/useResponsive';
@@ -205,6 +206,11 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     clearSearchSelection();
   }, [clearSearchSelection, clearSelection]);
 
+  const removeBatchPaths = batch.removePaths;
+  const handleBatchResult = useCallback((result: BatchOpResult) => {
+    removeBatchPaths(result.results.filter(item => item.ok).map(item => item.src));
+  }, [removeBatchPaths]);
+
   const { doCreateDir: doCreateDirInCurrentDir, doCreateFile: doCreateFileInCurrentDir } = useFileActions({
     path,
     refresh,
@@ -218,6 +224,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     path: entryBasePath,
     refresh: effectiveRefresh,
     clearSelection: clearAllSelection,
+    onBatchResult: handleBatchResult,
     onShare: (entriesToShare) => setSharingEntries(entriesToShare),
     onGetDirectLink: (entry) => setDirectLinkEntry(entry),
   });
@@ -320,7 +327,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
 
   const showFsPagination = !isSearching && pagination.mode === 'paged' && pagination.total > 0;
   const showCursorPagination = !isSearching && pagination.mode === 'cursor' && (pagination.cursorHistory.length > 0 || pagination.hasNext);
-  const shouldReserveBottomBar = showSearchPagination || showFsPagination || batchBarVisible;
+  const shouldReserveBottomBar = showSearchPagination || showFsPagination;
   const shouldReserveAnyBottomBar = shouldReserveBottomBar || showCursorPagination;
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -431,7 +438,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onChange={handleDirectoryInputChange}
       />
 
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: shouldReserveAnyBottomBar ? '80px' : '0' }} onContextMenu={isMobile ? undefined : openBlankContextMenu}>
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: batchBarVisible ? 0 : shouldReserveAnyBottomBar ? '80px' : '0' }} onContextMenu={isMobile ? undefined : openBlankContextMenu}>
         {isSearching ? (
           <SearchResultsView
             viewMode={viewMode}
@@ -484,13 +491,13 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       </div>
 
       {showFsPagination && (
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
+        <div style={{ position: batchBarVisible ? 'relative' : 'absolute', flexShrink: 0, bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
           <Pagination {...pagination} onChange={handlePaginationChange} onShowSizeChange={handlePaginationChange} />
         </div>
       )}
 
       {showCursorPagination && (
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
+        <div style={{ position: batchBarVisible ? 'relative' : 'absolute', flexShrink: 0, bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
           <Space>
             <Button size="small" onClick={goCursorPrev} disabled={pagination.cursorHistory.length === 0 || loading}>
               上一页
@@ -524,7 +531,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         mode="move"
         entries={movingEntries}
         open={movingEntries.length > 0}
-        defaultPath={buildDefaultDestination(movingEntries)}
+        defaultPath={pendingBatchItems ? path : buildDefaultDestination(movingEntries)}
+        destinationIsDirectory={!!pendingBatchItems}
         onOk={async (destination) => {
           if (pendingBatchItems && movingEntries.length > 0) {
             await doBatchTransfer(pendingBatchItems, destination, 'move');
@@ -541,7 +549,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         mode="copy"
         entries={copyingEntries}
         open={copyingEntries.length > 0}
-        defaultPath={buildDefaultDestination(copyingEntries)}
+        defaultPath={pendingBatchItems ? path : buildDefaultDestination(copyingEntries)}
+        destinationIsDirectory={!!pendingBatchItems}
         onOk={async (destination) => {
           if (pendingBatchItems && copyingEntries.length > 0) {
             await doBatchTransfer(pendingBatchItems, destination, 'copy');

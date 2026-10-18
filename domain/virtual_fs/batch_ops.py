@@ -1,8 +1,13 @@
+import posixpath
+
 from fastapi import HTTPException
 
-from .routes import VirtualFSRouteMixin
+from domain.permission.execution import guard_path
+from domain.permission.service import PermissionService
+from domain.permission.types import PathAction
 
-MAX_BATCH_ITEMS = 200
+from .routes import VirtualFSRouteMixin
+from .types import BatchDeleteRequest, BatchTransferRequest
 
 
 def _err_text(exc: Exception) -> str:
@@ -21,11 +26,13 @@ class VirtualFSBatchOpsMixin(VirtualFSRouteMixin):
     """
 
     @classmethod
-    async def batch_delete(cls, paths: list[str]) -> dict:
-        paths = list(dict.fromkeys(paths))[:MAX_BATCH_ITEMS]
+    async def batch_delete(cls, paths: list[str], *, user_id: int) -> dict:
+        paths = BatchDeleteRequest(paths=paths).paths
         results: list[dict] = []
         for path in paths:
             try:
+                await PermissionService.require_path_permission(user_id, path, PathAction.DELETE)
+                await guard_path(path, PathAction.DELETE)
                 await cls.delete(path)
                 results.append({"src": path, "ok": True})
             except Exception as exc:
@@ -34,14 +41,20 @@ class VirtualFSBatchOpsMixin(VirtualFSRouteMixin):
         return {"results": results, "succeeded": len(results) - failed, "failed": failed}
 
     @classmethod
-    async def _batch_transfer(cls, srcs: list[str], dst: str, overwrite: bool, copy: bool) -> dict:
-        srcs = list(dict.fromkeys(srcs))[:MAX_BATCH_ITEMS]
-        dst = dst.rstrip("/") or "/"
+    async def _batch_transfer(cls, srcs: list[str], dst: str, overwrite: bool, copy: bool, user_id: int) -> dict:
+        body = BatchTransferRequest(srcs=srcs, dst=dst)
+        srcs, dst = body.srcs, body.dst
         results: list[dict] = []
         for src in srcs:
-            name = src.rstrip("/").split("/")[-1]
-            target = dst if dst == "/" else f"{dst}/{name}"
+            target = posixpath.join(dst, posixpath.basename(src))
             try:
+                action = PathAction.READ if copy else PathAction.DELETE
+                await PermissionService.require_path_permission(user_id, src, action)
+                await guard_path(src, action)
+                await PermissionService.require_path_permission(user_id, target, PathAction.WRITE)
+                await guard_path(target, PathAction.WRITE)
+                if target == src or target.startswith(src.rstrip("/") + "/"):
+                    raise HTTPException(400, "Destination must be outside the source")
                 if copy:
                     result = await cls.copy(src, target, overwrite)
                 else:
@@ -56,9 +69,9 @@ class VirtualFSBatchOpsMixin(VirtualFSRouteMixin):
         return {"results": results, "succeeded": len(results) - failed, "failed": failed}
 
     @classmethod
-    async def batch_move(cls, srcs: list[str], dst: str, overwrite: bool = False) -> dict:
-        return await cls._batch_transfer(srcs, dst, overwrite, copy=False)
+    async def batch_move(cls, srcs: list[str], dst: str, overwrite: bool = False, *, user_id: int) -> dict:
+        return await cls._batch_transfer(srcs, dst, overwrite, copy=False, user_id=user_id)
 
     @classmethod
-    async def batch_copy(cls, srcs: list[str], dst: str, overwrite: bool = False) -> dict:
-        return await cls._batch_transfer(srcs, dst, overwrite, copy=True)
+    async def batch_copy(cls, srcs: list[str], dst: str, overwrite: bool = False, *, user_id: int) -> dict:
+        return await cls._batch_transfer(srcs, dst, overwrite, copy=True, user_id=user_id)

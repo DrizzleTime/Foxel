@@ -34,10 +34,7 @@ export function BatchActionBar({ count, canShare, onCompress, onMove, onCopy, on
       justify="space-around"
       align="center"
       style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
+        flexShrink: 0,
         zIndex: 100,
         background: token.colorBgContainer,
         borderTop: `1px solid ${token.colorBorderSecondary}`,

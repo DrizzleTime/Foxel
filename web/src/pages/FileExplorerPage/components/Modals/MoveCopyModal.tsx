@@ -9,17 +9,18 @@ interface MoveCopyModalProps {
   entries: VfsEntry[];
   open: boolean;
   defaultPath: string;
+  destinationIsDirectory?: boolean;
   onOk: (destination: string) => Promise<void> | void;
   onCancel: () => void;
 }
 
-export function MoveCopyModal({ mode, entries, open, defaultPath, onOk, onCancel }: MoveCopyModalProps) {
+export function MoveCopyModal({ mode, entries, open, defaultPath, destinationIsDirectory = false, onOk, onCancel }: MoveCopyModalProps) {
   const { t } = useI18n();
   const [value, setValue] = useState(defaultPath);
   const [loading, setLoading] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
 
-  const entryName = useMemo(() => entries.length === 1 ? entries[0]?.name ?? '' : '', [entries]);
+  const entryName = useMemo(() => !destinationIsDirectory && entries.length === 1 ? entries[0]?.name ?? '' : '', [destinationIsDirectory, entries]);
 
   useEffect(() => {
     if (open) {
@@ -79,12 +80,13 @@ export function MoveCopyModal({ mode, entries, open, defaultPath, onOk, onCancel
     const normalized = value.replace(/\\/g, '/');
     if (!normalized || normalized === '/') return '/';
     const trimmed = normalized.endsWith('/') ? normalized.replace(/\/+$/, '') : normalized;
+    if (destinationIsDirectory) return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
     const parts = trimmed.split('/');
     if (parts.length <= 1) return '/';
     parts.pop();
     const parent = parts.join('/') || '/';
     return parent.startsWith('/') ? parent : `/${parent}`;
-  }, [value]);
+  }, [destinationIsDirectory, value]);
 
   return (
     <Modal

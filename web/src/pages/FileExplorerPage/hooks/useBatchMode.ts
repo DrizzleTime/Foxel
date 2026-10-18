@@ -59,6 +59,11 @@ export function useBatchMode(currentPath: string) {
 
   const clear = useCallback(() => setItems([]), []);
 
+  const removePaths = useCallback((paths: string[]) => {
+    const removed = new Set(paths);
+    setItems(prev => prev.filter(item => !removed.has(item.path)));
+  }, []);
+
   const selectedPaths = useMemo(() => items.map(i => i.path), [items]);
 
   /** Names selected within the current directory (for rendering check circles). */
@@ -74,7 +79,7 @@ export function useBatchMode(currentPath: string) {
   return {
     active, setActive, enter, exit,
     items, setItems, toBatchItem,
-    toggle, toggleMany, clear,
+    toggle, toggleMany, clear, removePaths,
     selectedPaths, currentDirNames,
     count: items.length,
   };

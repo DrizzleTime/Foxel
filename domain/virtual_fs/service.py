@@ -8,6 +8,7 @@ from .transfer import VirtualFSTransferMixin
 from .processing import VirtualFSProcessingMixin
 from .temp_link import VirtualFSTempLinkMixin
 from .routes import VirtualFSRouteMixin
+from .batch_ops import VirtualFSBatchOpsMixin
 from .compression import VirtualFSCompressionMixin
 from .extraction import VirtualFSExtractionMixin
 
@@ -15,6 +16,7 @@ from .extraction import VirtualFSExtractionMixin
 class VirtualFSService(
     VirtualFSExtractionMixin,
     VirtualFSCompressionMixin,
+    VirtualFSBatchOpsMixin,
     VirtualFSRouteMixin,
     VirtualFSTempLinkMixin,
     VirtualFSProcessingMixin,

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Tooltip, theme, Button } from 'antd';
-import { FolderFilled, PictureOutlined, MoreOutlined } from '@ant-design/icons';
+import { FolderFilled, PictureOutlined, MoreOutlined, RightOutlined } from '@ant-design/icons';
 import type { VfsEntry } from '../../../api/client';
 import { getFileIcon } from './FileIcons';
 import { EmptyState } from './EmptyState';
@@ -18,6 +18,9 @@ interface Props {
   onOpen: (e: VfsEntry) => void;
   onContextMenu: (e: React.MouseEvent, entry: VfsEntry) => void;
   onOpenMenu?: (entry: VfsEntry, anchor: HTMLElement) => void;
+  batchMode?: boolean;
+  batchSelectedNames?: Set<string>;
+  onBatchToggle?: (e: VfsEntry) => void;
 }
 
 const formatSize = (size: number) => {
@@ -27,7 +30,7 @@ const formatSize = (size: number) => {
   return (size / 1024 / 1024 / 1024).toFixed(1) + ' GB';
 };
 
-export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, path, mobile = false, onSelect, onSelectRange, onOpen, onContextMenu, onOpenMenu }) => {
+export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, path, mobile = false, onSelect, onSelectRange, onOpen, onContextMenu, onOpenMenu, batchMode = false, batchSelectedNames, onBatchToggle }) => {
   const { token } = theme.useToken();
   const { resolvedMode } = useTheme();
   const { t } = useI18n();
@@ -149,6 +152,7 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, pa
         const ext = ent.name.split('.').pop()?.toLowerCase();
         const isPictureType = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext || '');
         const isSelected = selectedEntries.includes(ent.name);
+        const batchChecked = batchMode && !!batchSelectedNames?.has(ent.name);
 
         return (
           <div
@@ -156,8 +160,12 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, pa
             ref={(el) => {
               itemRefs.current[ent.name] = el;
             }}
-            className={['fx-grid-item', isSelected ? 'selected' : '', ent.is_dir ? 'dir' : 'file'].join(' ')}
+            className={['fx-grid-item', (isSelected || batchChecked) ? 'selected' : '', ent.is_dir ? 'dir' : 'file'].join(' ')}
             onClick={(ev) => {
+              if (mobile && batchMode) {
+                onBatchToggle?.(ent);
+                return;
+              }
               if (mobile) {
                 onOpen(ent);
                 return;
@@ -170,9 +178,36 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, pa
             onContextMenu={(e) => {
               if (!mobile) onContextMenu(e, ent);
             }}
-            style={{ userSelect: 'none' }}
+            style={{ userSelect: 'none', position: 'relative' }}
           >
-            {mobile && onOpenMenu && (
+            {mobile && batchMode && (
+              <span
+                aria-label={batchChecked ? t('Deselect') : t('Select')}
+                style={{
+                  position: 'absolute', top: 6, left: 6, zIndex: 3, width: 22, height: 22, borderRadius: '50%',
+                  border: `2px solid ${batchChecked ? token.colorPrimary : token.colorBorder}`,
+                  background: batchChecked ? token.colorPrimary : token.colorBgContainer,
+                  color: '#fff', fontSize: 12, lineHeight: '18px', textAlign: 'center',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
+                }}
+              >
+                {batchChecked ? '✓' : ''}
+              </span>
+            )}
+            {mobile && batchMode && ent.is_dir && (
+              <Button
+                size="small"
+                type="text"
+                icon={<RightOutlined />}
+                aria-label={t('Open')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpen(ent);
+                }}
+                style={{ position: 'absolute', top: 4, right: 4, zIndex: 2 }}
+              />
+            )}
+            {mobile && !batchMode && onOpenMenu && (
               <Button
                 size="small"
                 type="text"

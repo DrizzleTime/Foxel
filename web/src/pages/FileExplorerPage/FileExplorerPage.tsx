@@ -10,6 +10,7 @@ import { useProcessor } from './hooks/useProcessor';
 import { useFileSearch } from './hooks/useFileSearch';
 import { useThumbnails } from './hooks/useThumbnails';
 import { useUploader } from './hooks/useUploader';
+import { useBatchMode, type BatchItem } from './hooks/useBatchMode';
 import { Header } from './components/Header';
 import { GridView } from './components/GridView';
 import { FileListView } from './components/FileListView';
@@ -26,11 +27,14 @@ import UploadModal from './components/Modals/UploadModal';
 import { ShareModal } from './components/Modals/ShareModal';
 import { DirectLinkModal } from './components/Modals/DirectLinkModal';
 import { VideoRoomModal } from './components/Modals/VideoRoomModal';
+import { BatchActionBar } from './components/BatchActionBar';
+import { BatchProgressModal } from './components/Modals/BatchProgressModal';
 import { FileDetailModal } from './components/FileDetailModal';
 import { MoveCopyModal } from './components/Modals/MoveCopyModal';
 import { SearchResultsView } from './components/SearchResultsView';
 import type { ViewMode } from './types';
 import { vfsApi, type VfsEntry } from '../../api/client';
+import type { BatchOpResult } from '../../api/vfs';
 import { getPublicConfig } from '../../api/config';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import useResponsive from '../../hooks/useResponsive';
@@ -48,6 +52,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   // --- Hooks ---
   const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange, goCursorNext, goCursorPrev } = useFileExplorer(navKey);
   const { selectedEntries, handleSelect, handleSelectRange, clearSelection, setSelectedEntries } = useFileSelection();
+  const batch = useBatchMode(path);
   const { openFileWithDefaultApp, confirmOpenWithApp } = useAppWindows();
   const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, openContextMenuAt, closeContextMenus } = useContextMenu();
   const uploader = useUploader(path, refresh);
@@ -70,6 +75,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [compressionCapability, setCompressionCapability] = useState<{ path: string; supported: boolean } | null>(null);
   const [extractingEntry, setExtractingEntry] = useState<VfsEntry | null>(null);
   const [extractionCapability, setExtractionCapability] = useState<{ path: string; supported: boolean } | null>(null);
+  const [pendingBatchItems, setPendingBatchItems] = useState<BatchItem[] | null>(null);
+  const [batchCompressSources, setBatchCompressSources] = useState<string[] | null>(null);
 
   // --- Search ---
   const fileSearch = useFileSearch({
@@ -199,6 +206,11 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     clearSearchSelection();
   }, [clearSearchSelection, clearSelection]);
 
+  const removeBatchPaths = batch.removePaths;
+  const handleBatchResult = useCallback((result: BatchOpResult) => {
+    removeBatchPaths(result.results.filter(item => item.ok).map(item => item.src));
+  }, [removeBatchPaths]);
+
   const { doCreateDir: doCreateDirInCurrentDir, doCreateFile: doCreateFileInCurrentDir } = useFileActions({
     path,
     refresh,
@@ -207,10 +219,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     onGetDirectLink: (entry) => setDirectLinkEntry(entry),
   });
 
-  const { doDelete, doRename, doDownload, doShare, doGetDirectLink, doMove, doCopy } = useFileActions({
+  const { doDelete, doRename, doDownload, doShare, doGetDirectLink, doMove, doCopy,
+    doBatchDelete, doBatchTransfer, batchProgress, closeBatchProgress } = useFileActions({
     path: entryBasePath,
     refresh: effectiveRefresh,
     clearSelection: clearAllSelection,
+    onBatchResult: handleBatchResult,
     onShare: (entriesToShare) => setSharingEntries(entriesToShare),
     onGetDirectLink: (entry) => setDirectLinkEntry(entry),
   });
@@ -255,6 +269,62 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     }
     return joined.startsWith('/') ? joined : `/${joined}`;
   }, [entryBasePath]);
+
+  // --- Batch mode (touch) ---
+  const batchBarVisible = isMobile && batch.active && !isSearching;
+  const batchSelectableEntries = entries.filter(e => e.type !== 'mount');
+  const batchAllSelected = batchSelectableEntries.length > 0
+    && batchSelectableEntries.every(e => batch.currentDirNames.has(e.name));
+  const batchCanShare = batch.items.every(i => (i.path.slice(0, i.path.lastIndexOf('/')) || '/') === path);
+
+  const batchToEntries = useCallback((items: BatchItem[]): VfsEntry[] =>
+    items.map(i => ({ name: i.name, is_dir: i.isDir, size: i.size, mtime: i.mtime })),
+  []);
+
+  const batchExit = batch.exit;
+  useEffect(() => {
+    if (isSearching) batchExit();
+  }, [isSearching, batchExit]);
+
+  const handleBatchToggle = useCallback((entry: VfsEntry) => {
+    if (entry.type === 'mount') return;
+    batch.toggle(entry);
+  }, [batch]);
+
+  const handleBatchToggleAll = useCallback(() => {
+    batch.toggleMany(batchSelectableEntries);
+  }, [batch, batchSelectableEntries]);
+
+  const handleBatchDelete = useCallback(() => {
+    doBatchDelete(batch.items);
+  }, [batch.items, doBatchDelete]);
+
+  const handleBatchCompress = useCallback(() => {
+    setBatchCompressSources(batch.items.map(i => i.path));
+  }, [batch.items]);
+
+  const handleBatchShare = useCallback(() => {
+    const currentDirItems = batch.items.filter(i => (i.path.slice(0, i.path.lastIndexOf('/')) || '/') === path);
+    if (currentDirItems.length === 0) return;
+    doShare(batchToEntries(currentDirItems));
+  }, [batch.items, path, doShare, batchToEntries]);
+
+  const handleBatchMove = useCallback(() => {
+    setPendingBatchItems(batch.items);
+    setMovingEntries(batchToEntries(batch.items));
+  }, [batch.items, batchToEntries]);
+
+  const handleBatchCopy = useCallback(() => {
+    setPendingBatchItems(batch.items);
+    setCopyingEntries(batchToEntries(batch.items));
+  }, [batch.items, batchToEntries]);
+
+  const closeBatchModals = useCallback(() => {
+    setPendingBatchItems(null);
+    setMovingEntries([]);
+    setCopyingEntries([]);
+  }, []);
+
   const showFsPagination = !isSearching && pagination.mode === 'paged' && pagination.total > 0;
   const showCursorPagination = !isSearching && pagination.mode === 'cursor' && (pagination.cursorHistory.length > 0 || pagination.hasNext);
   const shouldReserveBottomBar = showSearchPagination || showFsPagination;
@@ -336,6 +406,12 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         sortOrder={sortOrder}
         paginationMode={pagination.mode}
         isMobile={isMobile}
+        batchMode={batchBarVisible}
+        batchCount={batch.count}
+        batchAllSelected={batchAllSelected}
+        onBatchEnter={batch.enter}
+        onBatchExit={batch.exit}
+        onBatchToggleAll={handleBatchToggleAll}
         onGoUp={goUp}
         onNavigate={navigateTo}
         onRefresh={effectiveRefresh}
@@ -362,7 +438,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onChange={handleDirectoryInputChange}
       />
 
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: shouldReserveAnyBottomBar ? '80px' : '0' }} onContextMenu={isMobile ? undefined : openBlankContextMenu}>
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: batchBarVisible ? 0 : shouldReserveAnyBottomBar ? '80px' : '0' }} onContextMenu={isMobile ? undefined : openBlankContextMenu}>
         {isSearching ? (
           <SearchResultsView
             viewMode={viewMode}
@@ -395,6 +471,9 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             onOpen={handleOpenEntry}
             onContextMenu={openContextMenu}
             onOpenMenu={openEntryMenuFromAnchor}
+            batchMode={batchBarVisible}
+            batchSelectedNames={batch.currentDirNames}
+            onBatchToggle={handleBatchToggle}
           />
         ) : (
           <FileListView
@@ -412,13 +491,13 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       </div>
 
       {showFsPagination && (
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
+        <div style={{ position: batchBarVisible ? 'relative' : 'absolute', flexShrink: 0, bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
           <Pagination {...pagination} onChange={handlePaginationChange} onShowSizeChange={handlePaginationChange} />
         </div>
       )}
 
       {showCursorPagination && (
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
+        <div style={{ position: batchBarVisible ? 'relative' : 'absolute', flexShrink: 0, bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
           <Space>
             <Button size="small" onClick={goCursorPrev} disabled={pagination.cursorHistory.length === 0 || loading}>
               上一页
@@ -452,25 +531,37 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         mode="move"
         entries={movingEntries}
         open={movingEntries.length > 0}
-        defaultPath={buildDefaultDestination(movingEntries)}
+        defaultPath={pendingBatchItems ? path : buildDefaultDestination(movingEntries)}
+        destinationIsDirectory={!!pendingBatchItems}
         onOk={async (destination) => {
-          if (movingEntries.length > 0) {
+          if (pendingBatchItems && movingEntries.length > 0) {
+            await doBatchTransfer(pendingBatchItems, destination, 'move');
+            closeBatchModals();
+          } else if (movingEntries.length > 0) {
             await doMove(movingEntries, destination);
           }
         }}
-        onCancel={() => setMovingEntries([])}
+        onCancel={() => {
+          closeBatchModals();
+        }}
       />
       <MoveCopyModal
         mode="copy"
         entries={copyingEntries}
         open={copyingEntries.length > 0}
-        defaultPath={buildDefaultDestination(copyingEntries)}
+        defaultPath={pendingBatchItems ? path : buildDefaultDestination(copyingEntries)}
+        destinationIsDirectory={!!pendingBatchItems}
         onOk={async (destination) => {
-          if (copyingEntries.length > 0) {
+          if (pendingBatchItems && copyingEntries.length > 0) {
+            await doBatchTransfer(pendingBatchItems, destination, 'copy');
+            closeBatchModals();
+          } else if (copyingEntries.length > 0) {
             await doCopy(copyingEntries, destination);
           }
         }}
-        onCancel={() => setCopyingEntries([])}
+        onCancel={() => {
+          closeBatchModals();
+        }}
       />
       {sharingEntries.length > 0 && (
         <ShareModal
@@ -548,9 +639,14 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       <CompressModal
         entries={compressingEntries}
         path={entryBasePath}
-        onCancel={() => setCompressingEntries([])}
+        sources={batchCompressSources}
+        onCancel={() => {
+          setCompressingEntries([]);
+          setBatchCompressSources(null);
+        }}
         onDone={() => {
           setCompressingEntries([]);
+          setBatchCompressSources(null);
           clearAllSelection();
           effectiveRefresh();
         }}
@@ -579,6 +675,18 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onCancelUpload={uploader.cancelUpload}
         onResolveConflict={uploader.confirmConflict}
       />
+      <BatchProgressModal state={batchProgress} onClose={closeBatchProgress} />
+      {batchBarVisible && (
+        <BatchActionBar
+          count={batch.count}
+          canShare={batchCanShare}
+          onCompress={handleBatchCompress}
+          onMove={handleBatchMove}
+          onCopy={handleBatchCopy}
+          onShare={handleBatchShare}
+          onDelete={handleBatchDelete}
+        />
+      )}
       <DropzoneOverlay visible={isDragging} />
     </div>
   );

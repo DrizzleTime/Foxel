@@ -908,5 +908,22 @@
   "Extract into a new folder. Existing folders cannot be overwritten.": "解压到新目录，不能覆盖已有目录。",
   "Extraction task queued. View progress in Task Queue.": "解压任务已加入队列，可在任务队列中查看进度。",
   "Extracting": "解压中",
-  "Archive extraction": "文件解压"
+  "Archive extraction": "文件解压",
+  "Batch operations": "批量操作",
+  "Exit batch mode": "退出批量操作",
+  "Selected {n} items": "已选 {n} 项",
+  "Select all": "全选",
+  "Deselect all": "取消全选",
+  "Deselect": "取消选择",
+  "Batch delete": "批量删除",
+  "Batch move": "批量移动",
+  "Batch copy": "批量复制",
+  "Batch download": "批量下载",
+  "{succeeded} succeeded, {failed} failed": "成功 {succeeded} 项，失败 {failed} 项",
+  "{succeeded} succeeded": "成功 {succeeded} 项",
+  "{failed} failed": "失败 {failed} 项",
+  "Task queued": "已加入任务队列",
+  "Task failed": "任务失败",
+  "Task timeout": "任务超时",
+  "Compress": "压缩"
 }

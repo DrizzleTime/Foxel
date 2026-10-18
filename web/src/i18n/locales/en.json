@@ -905,5 +905,22 @@
   "Extract into a new folder. Existing folders cannot be overwritten.": "Extract into a new folder. Existing folders cannot be overwritten.",
   "Extraction task queued. View progress in Task Queue.": "Extraction task queued. View progress in Task Queue.",
   "Extracting": "Extracting",
-  "Archive extraction": "Archive extraction"
+  "Archive extraction": "Archive extraction",
+  "Batch operations": "Batch operations",
+  "Exit batch mode": "Exit batch mode",
+  "Selected {n} items": "Selected {n} items",
+  "Select all": "Select all",
+  "Deselect all": "Deselect all",
+  "Deselect": "Deselect",
+  "Batch delete": "Batch delete",
+  "Batch move": "Batch move",
+  "Batch copy": "Batch copy",
+  "Batch download": "Batch download",
+  "{succeeded} succeeded, {failed} failed": "{succeeded} succeeded, {failed} failed",
+  "{succeeded} succeeded": "{succeeded} succeeded",
+  "{failed} failed": "{failed} failed",
+  "Task queued": "Task queued",
+  "Task failed": "Task failed",
+  "Task timeout": "Task timeout",
+  "Compress": "Compress"
 }

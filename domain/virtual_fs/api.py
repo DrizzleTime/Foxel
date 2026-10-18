@@ -13,7 +13,7 @@ from domain.auth import User, get_current_active_user
 from domain.permission import require_path_permission
 from domain.permission.types import PathAction
 from .service import VirtualFSService
-from .types import CompressRequest, ExtractRequest, MkdirRequest, MoveRequest
+from .types import BatchDeleteRequest, BatchTransferRequest, CompressRequest, ExtractRequest, MkdirRequest, MoveRequest
 from .chunk_uploads import ChunkUploadCreate, ChunkUploadService
 
 router = APIRouter(prefix="/api/fs", tags=["virtual-fs"])
@@ -291,6 +291,38 @@ async def api_copy(
 ):
     result = await VirtualFSService.copy(body.src, body.dst, overwrite)
     return success(result)
+
+
+@router.post("/batch/delete")
+@audit(action=AuditAction.DELETE, description="批量删除", body_fields=["paths"])
+async def api_batch_delete(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    body: BatchDeleteRequest,
+):
+    return success(await VirtualFSService.batch_delete(body.paths, user_id=current_user.id))
+
+
+@router.post("/batch/move")
+@audit(action=AuditAction.UPDATE, description="批量移动", body_fields=["srcs", "dst"])
+async def api_batch_move(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    body: BatchTransferRequest,
+    overwrite: bool = Query(False, description="是否允许覆盖已存在目标"),
+):
+    return success(await VirtualFSService.batch_move(body.srcs, body.dst, overwrite, user_id=current_user.id))
+
+
+@router.post("/batch/copy")
+@audit(action=AuditAction.CREATE, description="批量复制", body_fields=["srcs", "dst"])
+async def api_batch_copy(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    body: BatchTransferRequest,
+    overwrite: bool = Query(False, description="是否允许覆盖已存在目标"),
+):
+    return success(await VirtualFSService.batch_copy(body.srcs, body.dst, overwrite, user_id=current_user.id))
 
 
 @router.post("/upload/{full_path:path}")

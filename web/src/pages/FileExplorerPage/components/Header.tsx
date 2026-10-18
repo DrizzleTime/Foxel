@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Flex, Typography, Divider, Button, Space, Tooltip, Segmented, Breadcrumb, Input, theme, Dropdown } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined, ReloadOutlined, PlusOutlined, UploadOutlined, AppstoreOutlined, UnorderedListOutlined, MoreOutlined, FileAddOutlined } from '@ant-design/icons';
+import { ArrowUpOutlined, ArrowDownOutlined, ReloadOutlined, PlusOutlined, UploadOutlined, AppstoreOutlined, UnorderedListOutlined, MoreOutlined, FileAddOutlined, CheckSquareOutlined, CloseOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import { useI18n } from '../../../i18n';
 import type { ViewMode } from '../types';
@@ -23,6 +23,12 @@ interface HeaderProps {
   onUploadDirectory: () => void;
   onSetViewMode: (mode: ViewMode) => void;
   onSortChange: (sortBy: string, sortOrder: string) => void;
+  batchMode?: boolean;
+  batchCount?: number;
+  batchAllSelected?: boolean;
+  onBatchEnter?: () => void;
+  onBatchExit?: () => void;
+  onBatchToggleAll?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,6 +48,12 @@ export const Header: React.FC<HeaderProps> = ({
   onUploadDirectory,
   onSetViewMode,
   onSortChange,
+  batchMode = false,
+  batchCount = 0,
+  batchAllSelected = false,
+  onBatchEnter,
+  onBatchExit,
+  onBatchToggleAll,
 }) => {
   const { token } = theme.useToken();
   const { t } = useI18n();
@@ -154,6 +166,12 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <UploadOutlined />,
       onClick: onUploadDirectory,
     },
+    ...(onBatchEnter ? [{
+      key: 'batch',
+      label: t('Batch operations'),
+      icon: <CheckSquareOutlined />,
+      onClick: onBatchEnter,
+    }] : []),
     {
       key: 'sort',
       label: t('Sort By') + `: ${t(sortBy === 'mtime' ? 'Modified Time' : sortBy === 'size' ? 'Size' : 'Name')}`,
@@ -188,6 +206,19 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   if (isMobile) {
+    if (batchMode) {
+      return (
+        <Flex align="center" gap={6} style={{ padding: '10px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}`, minWidth: 0 }}>
+          <Button size="small" icon={<CloseOutlined />} onClick={onBatchExit} aria-label={t('Exit batch mode')} />
+          <Typography.Text strong style={{ flex: 1, minWidth: 0 }}>
+            {t('Selected {n} items', { n: batchCount })}
+          </Typography.Text>
+          <Button size="small" onClick={onBatchToggleAll} disabled={!onBatchToggleAll}>
+            {batchAllSelected ? t('Deselect all') : t('Select all')}
+          </Button>
+        </Flex>
+      );
+    }
     return (
       <Flex align="center" gap={6} style={{ padding: '10px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}`, minWidth: 0 }}>
         <Button size="small" icon={<ArrowUpOutlined />} onClick={onGoUp} disabled={path === '/'} />

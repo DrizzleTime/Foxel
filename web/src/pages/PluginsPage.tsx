@@ -28,6 +28,7 @@ type CenterCardProps = {
   metaLeft?: ReactNode;
   metaRight?: ReactNode;
   pills?: string[];
+  footerPrimary?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
   onIconClick?: () => void;
@@ -51,6 +52,7 @@ const CenterCard = memo(function CenterCard(props: CenterCardProps) {
     metaLeft,
     metaRight,
     pills,
+    footerPrimary,
     footerLeft,
     footerRight,
     onIconClick,
@@ -123,10 +125,13 @@ const CenterCard = memo(function CenterCard(props: CenterCardProps) {
         {description ? <div className="fx-center-card-desc">{description}</div> : null}
       </div>
 
-      {footerLeft || footerRight ? (
+      {footerPrimary || footerLeft || footerRight ? (
         <div className="fx-center-card-footer">
-          <div className="fx-center-card-footerLeft">{footerLeft}</div>
-          <div className="fx-center-card-footerRight">{footerRight}</div>
+          {footerPrimary ? <div className="fx-center-card-primaryActions">{footerPrimary}</div> : null}
+          <div className="fx-center-card-footerControls">
+            <div className="fx-center-card-footerLeft">{footerLeft}</div>
+            <div className="fx-center-card-footerRight">{footerRight}</div>
+          </div>
         </div>
       ) : null}
     </div>
@@ -531,8 +536,8 @@ const PluginsPage = memo(function PluginsPage() {
             ) : null}
           </div>
         ) : null}
-        footerRight={
-          <div className="fx-center-card-actions">
+        footerPrimary={updateAvailable || canOpenApp ? (
+          <>
             {updateAvailable ? (
               <Button
                 type="primary"
@@ -545,22 +550,28 @@ const PluginsPage = memo(function PluginsPage() {
                 {t('Update App')}
               </Button>
             ) : null}
-            <Button
-              type="primary"
-              size="small"
-              disabled={!canOpenApp}
-              onClick={async () => {
-                let target = app || getAppByKey(appKey);
-                if (!target) {
-                  await reloadPluginApps();
-                  target = getAppByKey(appKey);
-                }
-                if (target?.openAppComponent) openApp(target);
-              }}
-            >
-              {t('Open App')}
-            </Button>
-            <Button type="text" size="small" disabled={busy || !p.version}
+            {canOpenApp ? (
+              <Button
+                type="primary"
+                size="small"
+                disabled={busy}
+                onClick={async () => {
+                  let target = app || getAppByKey(appKey);
+                  if (!target) {
+                    await reloadPluginApps();
+                    target = getAppByKey(appKey);
+                  }
+                  if (target?.openAppComponent) openApp(target);
+                }}
+              >
+                {t('Open App')}
+              </Button>
+            ) : null}
+          </>
+        ) : null}
+        footerRight={
+          <div className="fx-center-card-actions">
+            <Button size="small" disabled={busy || !p.version}
               onClick={async () => {
                 try {
                   await pluginsApi.setEnabled(p.key, p.status !== 'active');
@@ -571,7 +582,7 @@ const PluginsPage = memo(function PluginsPage() {
               {t(p.status === 'active' ? 'Disable' : 'Enable')}
             </Button>
             <Popconfirm disabled={busy} title={t('Confirm delete this plugin?')} onConfirm={async () => { await pluginsApi.remove(p.key); await reload(); await reloadPluginApps(); }}>
-              <Button type="text" danger size="small" disabled={busy}>{t('Uninstall')}</Button>
+              <Button danger size="small" disabled={busy}>{t('Uninstall')}</Button>
             </Popconfirm>
           </div>
         }

@@ -50,6 +50,9 @@ body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe
 .fx-fade-text { color: var(--ant-color-text-secondary, #555); }
 
 .fx-center-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--ant-color-bg-container, #fff);
   border: 1px solid var(--ant-color-border, #eaeaea);
   border-radius: 16px;
@@ -121,6 +124,7 @@ body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe
   color: var(--ant-color-success, #52c41a);
 }
 .fx-center-card-body {
+  flex: 1;
   padding: 14px 14px 12px;
   display: flex;
   flex-direction: column;
@@ -178,6 +182,17 @@ body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe
   border-top: 1px solid var(--ant-color-border-secondary, #f0f0f0);
   background: var(--ant-color-fill-tertiary, #fafafa);
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fx-center-card-primaryActions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.fx-center-card-footerControls {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -199,7 +214,7 @@ body { margin: 0; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe
   gap: 8px;
 }
 .fx-center-card-actions {
-  flex-wrap: wrap;
+  flex-shrink: 0;
   justify-content: flex-end;
 }
 .fx-center-card-iconLink {

@@ -23,18 +23,26 @@ from .types import AgentChatRequest
 logger = logging.getLogger(__name__)
 
 
-def _build_system_prompt(current_path: str | None) -> str:
+def _build_system_prompt(current_path: str | None, current_page: str | None = None) -> str:
     text = (
         "你是 Foxel 的 AI 助手。使用提供的 MCP 工具查询、读取、写入、移动、复制、删除文件，"
-        "抓取网页、获取时间或提交处理器任务。回答语言跟随用户，尽量简洁。\n"
+        "抓取网页、获取时间、提交处理器任务、创建存储适配器或自动化任务。回答语言跟随用户，尽量简洁。\n"
         "查询工具可直接执行。web_fetch 的所有 HTTP 方法均免审批，但可能修改外部系统。\n"
-        "文件写入、创建、删除、移动、复制、重命名和 processors_run 默认需要用户确认；"
+        "文件写入、创建、删除、移动、复制、重命名、processors_run、adapters_create 和 tasks_create 默认需要用户确认；"
         "开启自动执行时可直接执行。审批不授予路径权限。\n"
         "路径必须是以 / 开头的绝对路径；未提供明确路径时追问，或基于当前文件管理目录补全。\n"
         "修改文本前先读取并说明改动，再申请写入。processors_run 返回 task_id 只代表已提交，"
-        "请用户到任务队列查看进度。当前不提供任务查询、外部 MCP、后台持续 Agent 或长期记忆。"
+        "请用户到任务队列查看进度。当前不提供队列任务查询、外部 MCP、后台持续 Agent 或长期记忆。\n"
+        "创建存储适配器前调用 adapters_available 获取真实类型和配置字段，使用 adapters_list 检查已有挂载；"
+        "追问缺失的类型、挂载路径和必填配置，不得编造密码或令牌，区分 Foxel 挂载路径和存储端目录。\n"
+        "创建自动化任务前调用 processors_list 获取处理器及配置，可用 tasks_list 检查已有规则。"
+        "tasks_create 创建长期生效的自动化规则，processors_run 只提交一次处理；根据用户意图区分。"
+        "确认触发事件、范围、处理器配置及启用状态。定时任务使用服务器本地时间，Cron 支持五段或秒在首位的六段表达式。"
+        "创建前用简洁语言说明配置；缺少关键信息先追问。创建成功以工具结果为准。"
     )
-    return text + (f"\n当前文件管理目录：{current_path}" if current_path else "")
+    page_label = {"adapters": "存储适配器", "tasks": "自动化任务"}.get(current_page)
+    return (text + (f"\n当前文件管理目录：{current_path}" if current_path else "")
+            + (f"\n当前用户所在页面：{page_label}。结合该页面理解用户所说的创建操作。" if page_label else ""))
 
 
 def _ensure_mcp_call_ids(message: dict[str, Any]) -> dict[str, Any]:
@@ -200,7 +208,7 @@ class AgentService:
                         return
 
                 ability = await _choose_chat_ability()
-                internal = [{"role": "system", "content": _build_system_prompt(path)}] + history + messages
+                internal = [{"role": "system", "content": _build_system_prompt(path, req.context.current_page if req.context else None)}] + history + messages
                 for _ in range(8):
                     event_id = str(uuid.uuid4())
                     yield "assistant_start", {"id": event_id}

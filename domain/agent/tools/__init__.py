@@ -1,13 +1,14 @@
 from typing import Any, Dict, List, Optional
 
 from .base import McpToolDescriptor, ToolSpec, tool_result_to_content, tool_spec_to_mcp_descriptor
+from .management import TOOLS as MANAGEMENT_TOOLS
 from .processors import TOOLS as PROCESSOR_TOOLS
 from .time import TOOLS as TIME_TOOLS
 from .vfs import TOOLS as VFS_TOOLS
 from .web_fetch import TOOLS as WEB_FETCH_TOOLS
 
 TOOLS: Dict[str, ToolSpec] = {}
-for group in (TIME_TOOLS, WEB_FETCH_TOOLS, PROCESSOR_TOOLS, VFS_TOOLS):
+for group in (TIME_TOOLS, WEB_FETCH_TOOLS, PROCESSOR_TOOLS, VFS_TOOLS, MANAGEMENT_TOOLS):
     TOOLS.update(group)
 
 AGENT_ONLY_TOOL_NAMES = frozenset({"time", "web_fetch"})

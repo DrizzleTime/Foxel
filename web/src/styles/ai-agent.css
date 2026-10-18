@@ -1,11 +1,42 @@
+.fx-agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.fx-agent-heading {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--ant-color-fill-tertiary);
+  color: var(--ant-color-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.fx-agent-header .ant-btn {
+  width: 28px;
+  height: 28px;
+  color: var(--ant-color-text-tertiary);
+}
+
+.fx-agent-header .ant-btn:disabled {
+  color: var(--ant-color-text-quaternary);
+}
+
 .fx-agent-container {
   height: 100%;
 }
 
 .fx-agent-chat-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 8px 4px 12px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 12px 8px 24px;
   border-radius: 0;
   background: transparent;
   border: 0;
@@ -19,6 +50,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 14px;
+  color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+}
+
+.fx-agent-empty-icon {
+  color: var(--ant-color-text-quaternary);
+  font-size: 44px;
 }
 
 .fx-agent-messages {
@@ -47,19 +86,14 @@
 .fx-agent-user-block {
   max-width: 85%;
   padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--ant-color-border-secondary);
-  background: var(--ant-color-fill-quaternary);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  border-radius: 18px;
+  background: var(--ant-color-fill-secondary);
 }
 
 .fx-agent-assistant-block {
-  max-width: 92%;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid var(--ant-color-border-secondary);
-  background: var(--ant-color-bg-container);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+  max-width: 100%;
+  min-width: 0;
+  padding: 4px 2px;
 }
 
 .fx-agent-tool-block {
@@ -68,11 +102,11 @@
   border-radius: 12px;
   border: 1px solid var(--ant-color-border-secondary);
   background: var(--ant-color-bg-container);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
 }
 
 .fx-agent-tool-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -287,6 +321,7 @@
 
 .fx-agent-pending-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -303,14 +338,82 @@
 }
 
 .fx-agent-composer {
-  padding: 8px 0 0;
-  background: transparent;
-  border-top: 1px solid var(--ant-color-border-secondary);
+  flex-shrink: 0;
+  padding: 14px 14px 10px;
+  border: 1px solid var(--ant-color-border);
+  border-radius: 24px;
+  background: var(--ant-color-bg-container);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+  transition: border-color 0.2s ease;
 }
 
-.fx-agent-composer .ant-input {
+.fx-agent-composer:focus-within {
+  border-color: var(--ant-color-text-quaternary);
+}
+
+.fx-agent-composer .fx-agent-input {
+  padding: 0;
   font-size: 14px;
   line-height: 1.7;
+}
+
+.fx-agent-composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.fx-agent-context {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--ant-color-fill-quaternary);
+  color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+}
+
+.fx-agent-context > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fx-agent-composer-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.fx-agent-auto-execute {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.fx-agent-composer .fx-agent-send {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  box-shadow: none;
+  font-size: 18px;
+}
+
+.fx-agent-composer .fx-agent-send:disabled {
+  border-color: transparent;
+  background: var(--ant-color-text-quaternary);
+  color: var(--ant-color-text-light-solid);
 }
 
 .fx-agent-running {

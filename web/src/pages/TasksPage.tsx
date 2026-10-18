@@ -7,7 +7,7 @@ import { ProcessorConfigForm } from '../components/ProcessorConfigForm';
 import { useI18n } from '../i18n';
 import PathSelectorModal from '../components/PathSelectorModal';
 
-const TasksPage = memo(function TasksPage() {
+const TasksPage = memo(function TasksPage({ refreshVersion = 0 }: { refreshVersion?: number }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AutomationTask[]>([]);
   const [open, setOpen] = useState(false);
@@ -33,7 +33,7 @@ const TasksPage = memo(function TasksPage() {
     }
   }, []);
 
-  useEffect(() => { fetchList(); }, [fetchList]);
+  useEffect(() => { fetchList(); }, [fetchList, refreshVersion]);
 
   const openCreate = () => {
     setEditing(null);

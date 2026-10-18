@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class AgentChatContext(BaseModel):
     current_path: Optional[str] = None
+    current_page: Optional[str] = None
 
 
 class AgentChatRequest(BaseModel):

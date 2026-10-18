@@ -1,8 +1,9 @@
-import { Layout, Flex } from 'antd';
+import { Layout, Flex, theme } from 'antd';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import SideNav from '../layout/SideNav.tsx';
 import TopHeader from '../layout/TopHeader.tsx';
+import { primaryNav } from '../layout/nav';
 import FileExplorerPage from '../pages/FileExplorerPage/FileExplorerPage.tsx';
 import AdaptersPage from '../pages/AdaptersPage.tsx';
 import SharePage from '../pages/SharePage.tsx';
@@ -19,6 +20,7 @@ import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext
 import { AppWindowsLayer } from '../apps/AppWindowsLayer';
 import AiAgentWidget from '../components/AiAgentWidget';
 import useResponsive from '../hooks/useResponsive';
+import { useI18n } from '../i18n';
 
 const ShellBody = memo(function ShellBody() {
   const params = useParams<{ navKey?: string; '*': string }>();
@@ -26,11 +28,18 @@ const ShellBody = memo(function ShellBody() {
   const subPath = params['*'] ?? '';
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
+  const { token } = theme.useToken();
+  const { t } = useI18n();
   const COLLAPSED_KEY = 'layout.siderCollapsed';
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+  const [resourceVersions, setResourceVersions] = useState({ adapters: 0, tasks: 0 });
+  const handleResourceCreated = useCallback((resource: 'adapters' | 'tasks') => {
+    setResourceVersions((previous) => ({ ...previous, [resource]: previous[resource] + 1 }));
+  }, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const agentWidth = isMobile ? '100vw' : 'clamp(320px, 32vw, 480px)';
 
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
@@ -50,6 +59,7 @@ const ShellBody = memo(function ShellBody() {
     }
   }, [navigate]);
   const agentCurrentPath = navKey === 'files' ? ('/' + subPath).replace(/\/+/g, '/').replace(/\/+$/, '') || '/' : null;
+  const agentCurrentPage = primaryNav.find((item) => item.key === navKey);
   const handleToggleNav = () => {
     if (isMobile) {
       setMobileNavOpen(true);
@@ -59,7 +69,13 @@ const ShellBody = memo(function ShellBody() {
   };
 
   return (
-    <Layout style={{ height: '100dvh', overflow: 'hidden', background: 'var(--ant-color-bg-layout)' }}>
+    <Layout style={{
+      height: '100dvh',
+      overflow: 'hidden',
+      background: 'var(--ant-color-bg-layout)',
+      paddingRight: agentOpen && !isMobile ? agentWidth : 0,
+      transition: `padding-right ${token.motionDurationSlow} ${token.motionEaseInOut}`,
+    }}>
       {!isMobile && (
         <SideNav
           collapsed={collapsed}
@@ -101,10 +117,10 @@ const ShellBody = memo(function ShellBody() {
         >
           <div style={{ flex: 1, minHeight: 0, background: 'var(--ant-color-bg-layout)', overflow: 'hidden' }}>
             <Flex vertical style={{ minHeight: 0, height: '100%' }}>
-              {navKey === 'adapters' && <AdaptersPage />}
+              {navKey === 'adapters' && <AdaptersPage refreshVersion={resourceVersions.adapters} />}
               {navKey === 'files' && <FileExplorerPage />}
               {navKey === 'share' && <SharePage />}
-              {navKey === 'tasks' && <TasksPage />}
+              {navKey === 'tasks' && <TasksPage refreshVersion={resourceVersions.tasks} />}
               {navKey === 'task-queue' && <TaskQueuePage />}
               {navKey === 'processors' && <ProcessorsPage />}
               {navKey === 'offline' && <OfflineDownloadPage />}
@@ -127,7 +143,14 @@ const ShellBody = memo(function ShellBody() {
         onBringToFront={bringToFront}
         onUpdateWindow={updateWindow}
       />
-      <AiAgentWidget currentPath={agentCurrentPath} open={agentOpen} onOpenChange={setAgentOpen} />
+      <AiAgentWidget
+        currentPath={agentCurrentPath}
+        currentPage={agentCurrentPage && { key: agentCurrentPage.key, label: t(agentCurrentPage.label), icon: agentCurrentPage.icon }}
+        onResourceCreated={handleResourceCreated}
+        open={agentOpen}
+        onOpenChange={setAgentOpen}
+        width={agentWidth}
+      />
     </Layout>
   );
 });

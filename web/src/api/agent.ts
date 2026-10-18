@@ -4,6 +4,7 @@ export type AgentChatMessage = Record<string, any>;
 
 export interface AgentChatContext {
   current_path?: string | null;
+  current_page?: string | null;
 }
 
 export interface AgentChatRequest {

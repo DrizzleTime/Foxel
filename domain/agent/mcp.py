@@ -160,12 +160,15 @@ class FoxelMcpTokenVerifier:
 MCP_SERVER = FoxelMCPServer(
     name="Foxel MCP",
     instructions=(
-        "Foxel MCP provides private-cloud file browsing, search, text reading and writing, file organization, and processor tasks."
+        "Foxel MCP provides private-cloud file browsing, search, text reading and writing, file organization, processor tasks, storage adapter creation, and automation rules."
         " All file paths are absolute paths in the Foxel virtual filesystem (e.g. /photos/a.jpg), not server-local paths."
+        " Storage adapter config fields may instead use provider-native paths as specified by their config_schema."
         " File operations enforce the authenticated account's path permissions."
         " Use vfs_list_dir for known directories, vfs_search for unknown file locations, vfs_stat for metadata, and vfs_read_text for text."
         " Read existing text and verify that it is complete before editing. Choose vfs_copy to preserve the source or vfs_move to relocate it."
         " Before running a processor, use processors_list to discover available types, supported formats, and configuration."
+        " Before creating storage adapters, use adapters_available for configuration schemas and adapters_list to check mount paths. Never invent credentials."
+        " Use tasks_create for persistent automation rules and processors_run for one-off jobs; discover processor settings with processors_list first."
         " Tool results include ok; inspect error on failure. A task_id or queued=true indicates submission, not completion."
         " Check progress in the Foxel task queue; this service does not provide a task-status tool."
         " External MCP clients handle confirmation for file mutations. The built-in agent uses its own tool approval policy."

@@ -20,7 +20,7 @@ const formatUsage = (usage?: AdapterUsage) => {
   return `${used} / ${formatBytes(usage.total_bytes)}`;
 };
 
-const AdaptersPage = memo(function AdaptersPage() {
+const AdaptersPage = memo(function AdaptersPage({ refreshVersion = 0 }: { refreshVersion?: number }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AdapterItem[]>([]);
   const [usageMap, setUsageMap] = useState<Record<number, AdapterUsage>>({});
@@ -48,7 +48,7 @@ const AdaptersPage = memo(function AdaptersPage() {
     }
   }, [t]);
 
-  useEffect(() => { fetchList(); }, [fetchList]);
+  useEffect(() => { fetchList(); }, [fetchList, refreshVersion]);
 
   const openCreate = () => {
     setEditing(null);

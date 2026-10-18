@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Avatar, Button, Divider, Flex, Input, List, Modal, Space, Switch, Tag, Typography, message, theme } from 'antd';
-import { RobotOutlined, SendOutlined, DeleteOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Button, Divider, Drawer, Flex, Input, List, Space, Switch, Tag, Tooltip, Typography, message, theme } from 'antd';
+import { RobotOutlined, ArrowUpOutlined, FormOutlined, CloseOutlined, FolderOpenOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import type { TextAreaRef } from 'antd/es/input/TextArea';
 import { agentApi, type AgentChatMessage, type PendingMcpCall } from '../api/agent';
@@ -97,11 +97,14 @@ function parseToolPayload(raw: string): ToolPayload | null {
 
 interface AiAgentWidgetProps {
   currentPath?: string | null;
+  currentPage?: { key: string; label: string; icon: ReactNode };
+  onResourceCreated?(resource: 'adapters' | 'tasks'): void;
   open: boolean;
   onOpenChange(open: boolean): void;
+  width: string;
 }
 
-const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenChange }: AiAgentWidgetProps) {
+const AiAgentWidget = memo(function AiAgentWidget({ currentPath, currentPage, onResourceCreated, open, onOpenChange, width }: AiAgentWidgetProps) {
   const { t } = useI18n();
   const { token } = theme.useToken();
   const [autoExecute, setAutoExecute] = useState(false);
@@ -122,6 +125,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
   const toolNameByIdRef = useRef<Record<string, string>>({});
 
   const effectivePath = useMemo(() => normalizePath(currentPath), [currentPath]);
+  const contextLabel = effectivePath === '/' ? t('Root Directory') : effectivePath || currentPage?.label;
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -134,14 +138,6 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
     const t = window.setTimeout(scrollToBottom, 0);
     return () => window.clearTimeout(t);
   }, [messages, open, pending, scrollToBottom]);
-
-  useEffect(() => {
-    if (!open || loading || pending.length > 0) return;
-    const t = window.setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [open, loading, messages.length, pending.length]);
 
   useEffect(() => {
     return () => {
@@ -195,7 +191,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
           messages: payload.messages,
           auto_execute: autoExecute,
           approval_batch_id: approvalBatchId,
-          context: effectivePath ? { current_path: effectivePath } : undefined,
+          context: { current_path: effectivePath, current_page: currentPage?.key },
           approved_mcp_call_ids: payload.approved_mcp_call_ids,
           rejected_mcp_call_ids: payload.rejected_mcp_call_ids,
         },
@@ -263,6 +259,11 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
               }
               if (msg && typeof msg === 'object') {
                 setMessages((prev) => [...prev, msg]);
+                const result = parseToolPayload(extractTextContent(msg.content));
+                if (result?.ok === true) {
+                  if (name === 'adapters_create') onResourceCreated?.('adapters');
+                  if (name === 'tasks_create') onResourceCreated?.('tasks');
+                }
               }
               return;
             }
@@ -301,7 +302,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
         }
       }
     }
-  }, [autoExecute, approvalBatchId, effectivePath, t]);
+  }, [autoExecute, approvalBatchId, effectivePath, currentPage?.key, onResourceCreated, t]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -613,37 +614,60 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
 
   return (
     <>
-      <Modal
+      <Drawer
         title={(
-          <Flex align="center" justify="space-between" gap={12} wrap>
-            <Text strong>{t('AI Agent')}</Text>
-            <Space align="center">
-              <Text type="secondary">{t('Auto execute')}</Text>
-              <Switch size="small" checked={autoExecute} onChange={setAutoExecute} disabled={loading || pending.length > 0} />
-              <Button
-                type="text"
-                size="small"
-                icon={<DeleteOutlined />}
-                onClick={clearChat}
-                disabled={loading || messageItems.length === 0}
-              >
-                {t('Clear')}
-              </Button>
+          <div className="fx-agent-header">
+            <span className="fx-agent-heading">{t('AI Agent')}</span>
+            <Space size={2}>
+              <Tooltip title={t('Clear')}>
+                <Button
+                  type="text"
+                  icon={<FormOutlined />}
+                  aria-label={t('Clear')}
+                  onClick={clearChat}
+                  disabled={loading || messageItems.length === 0}
+                />
+              </Tooltip>
+              <Tooltip title={t('Close')}>
+                <Button
+                  type="text"
+                  icon={<CloseOutlined />}
+                  aria-label={t('Close')}
+                  onClick={() => { streamControllerRef.current?.abort(); onOpenChange(false); }}
+                />
+              </Tooltip>
             </Space>
-          </Flex>
+          </div>
         )}
-        open={open}
-        onCancel={() => { streamControllerRef.current?.abort(); onOpenChange(false); }}
-        width={720}
-        centered
         closable={false}
+        open={open}
+        onClose={() => { streamControllerRef.current?.abort(); onOpenChange(false); }}
+        placement="right"
+        size={width}
+        mask={false}
+        push={false}
+        aria-modal={false}
+        autoFocus={false}
+        focusable={{ trap: false }}
+        afterOpenChange={(visible) => {
+          if (visible) inputRef.current?.focus({ preventScroll: true });
+        }}
         destroyOnHidden
-        footer={null}
         styles={{
+          wrapper: {
+            boxShadow: 'none',
+          },
+          section: {
+            borderLeft: `1px solid ${token.colorBorderSecondary}`,
+            background: token.colorBgLayout,
+          },
+          header: {
+            minHeight: 56,
+            padding: '10px 16px',
+            borderBottom: 0,
+          },
           body: {
-            padding: 8,
-            background: token.colorBgContainer,
-            height: '70vh',
+            padding: '0 12px 12px',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -657,10 +681,8 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
           >
             {messageItems.length === 0 ? (
               <div className="fx-agent-empty">
-                <Avatar size={36} icon={<RobotOutlined />} style={{ background: token.colorPrimary }} />
-                <div style={{ marginTop: 8 }}>
-                  <Text type="secondary">{t('Start a conversation')}</Text>
-                </div>
+                <RobotOutlined className="fx-agent-empty-icon" />
+                <span>{t('Start a conversation')}</span>
               </div>
             ) : (
               <div className="fx-agent-messages">
@@ -849,44 +871,58 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, open, onOpenCha
           </div>
 
           <div className="fx-agent-composer">
-            <Flex vertical gap={8}>
-              <Space wrap>
-                {effectivePath && (
-                  <Tag variant="filled" color="blue">{t('Current')}: {effectivePath}</Tag>
-                )}
-              </Space>
-
-              <Input.TextArea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={t('Type a message')}
-                autoSize={{ minRows: 2, maxRows: 6 }}
-                autoFocus
-                disabled={loading || pending.length > 0}
-                variant="borderless"
-                onPressEnter={(e) => {
-                  if (e.shiftKey) return;
-                  e.preventDefault();
-                  void handleSend();
-                }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<SendOutlined />}
-                  onClick={handleSend}
-                  loading={loading}
-                  disabled={loading || pending.length > 0 || !input.trim()}
-                >
-                  {t('Send')}
-                </Button>
+            <Input.TextArea
+              ref={inputRef}
+              className="fx-agent-input"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={t('Type a message')}
+              aria-label={t('Type a message')}
+              autoSize={{ minRows: 2, maxRows: 6 }}
+              disabled={loading || pending.length > 0}
+              variant="borderless"
+              style={{ border: 0, outline: 'none', boxShadow: 'none', background: 'transparent' }}
+              onPressEnter={(e) => {
+                if (e.shiftKey || e.nativeEvent.isComposing) return;
+                e.preventDefault();
+                void handleSend();
+              }}
+            />
+            <div className="fx-agent-composer-toolbar">
+              {contextLabel && (
+                <div className="fx-agent-context" title={`${t('Current')}: ${effectivePath || contextLabel}`}>
+                  {effectivePath ? <FolderOpenOutlined /> : currentPage?.icon}
+                  <span>{contextLabel}</span>
+                </div>
+              )}
+              <div className="fx-agent-composer-actions">
+                <label className="fx-agent-auto-execute">
+                  <span>{t('Auto execute')}</span>
+                  <Switch
+                    size="small"
+                    checked={autoExecute}
+                    onChange={setAutoExecute}
+                    disabled={loading || pending.length > 0}
+                    aria-label={t('Auto execute')}
+                  />
+                </label>
+                <Tooltip title={t('Send')}>
+                  <Button
+                    className="fx-agent-send"
+                    type="primary"
+                    shape="circle"
+                    icon={<ArrowUpOutlined />}
+                    aria-label={t('Send')}
+                    onClick={handleSend}
+                    loading={loading}
+                    disabled={loading || pending.length > 0 || !input.trim()}
+                  />
+                </Tooltip>
               </div>
-            </Flex>
+            </div>
           </div>
         </Flex>
-      </Modal>
+      </Drawer>
     </>
   );
 });

@@ -213,6 +213,10 @@ async def prepare_scope(name: str, args: dict[str, Any], user: User) -> dict[str
                 if not target:
                     raise ExecutionError("permission_scope_unverifiable")
                 await output_path(target)
+    elif name == "adapters_create":
+        # Mount creation uses adapter.create, checked by the handler. The mount
+        # need not exist or be readable in the current virtual filesystem.
+        pass
     else:
         action = PathAction.WRITE if name in {"vfs_write_text", "vfs_mkdir"} else PathAction.READ
         if "path" in args:

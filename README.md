@@ -156,6 +156,12 @@ We welcome contributions from the community! Whether it's submitting bugs, sugge
 
 Before you start, please read our [`CONTRIBUTING.md`](CONTRIBUTING.md) file, which explains the development environment and submission process. A Simplified Chinese translation is available in [`CONTRIBUTING_zh.md`](CONTRIBUTING_zh.md).
 
+## ❤️ Contributors
+
+Thanks to all these wonderful people who have contributed to Foxel!
+
+[![Contributors](https://contrib.rocks/image?repo=DrizzleTime/Foxel)](https://github.com/DrizzleTime/Foxel/graphs/contributors)
+
 ## 🌐 Community
 
 Join our community on [Telegram](https://t.me/+thDsBfyqJxZkNTU1) to discuss with developers and other users!

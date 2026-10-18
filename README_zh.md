@@ -156,6 +156,12 @@ docker-compose up -d
 
 在开始之前，请先阅读我们的 [`CONTRIBUTING_zh.md`](CONTRIBUTING_zh.md) 文件，它会指导你如何设置开发环境以及提交流程。
 
+## ❤️ 贡献者
+
+感谢所有为 Foxel 做出贡献的朋友！
+
+[![贡献者](https://contrib.rocks/image?repo=DrizzleTime/Foxel)](https://github.com/DrizzleTime/Foxel/graphs/contributors)
+
 ## 🌐 社区
 
 加入我们的交流社区：[Telegram 群组](https://t.me/+thDsBfyqJxZkNTU1)，与开发者和用户一起讨论！

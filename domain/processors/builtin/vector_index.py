@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import mimetypes
 import os
@@ -5,6 +6,7 @@ import re
 from io import BytesIO
 from typing import Dict, Any, List, NamedTuple, Tuple
 
+from fastapi import HTTPException
 from fastapi.responses import Response
 from PIL import Image
 
@@ -16,8 +18,11 @@ from domain.ai import (
     VectorDBService,
     describe_image_base64,
     get_text_embedding,
+    get_text_embeddings,
     provider_service,
 )
+from domain.virtual_fs.search.lexical import LexicalChunk, get_lexical_index
+from .extractors import DOCUMENT_EXTENSIONS, ExtractError, Section, extension_of, extract_document
 
 
 # Qwen3-Embedding-8B 上下文是 32k。检索仍用远小于上下文的窗口，避免一篇文档收成一个向量。
@@ -28,6 +33,9 @@ CHUNK_MIN_TOKENS = 120
 CHUNK_FORCE_OVERLAP_TOKENS = 150
 MAX_IMAGE_EDGE = 1600
 JPEG_QUALITY = 85
+MAX_INDEX_BYTES = 40 * 1024 * 1024
+MAX_CHUNKS = 800
+IMAGE_EXTENSIONS = ("jpg", "jpeg", "png", "bmp")
 
 _HEADING_RE = re.compile(r"^( {0,3})(#{1,6})[ \t]+(\S.*?)[ \t]*$")
 _FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})")
@@ -424,6 +432,72 @@ def _chunk_text(
     return _merge_short(content, preliminary, max_tokens, min_tokens)
 
 
+class IndexPiece(NamedTuple):
+    text: str
+    heading: str
+    start: int
+    end: int
+    kind: str
+    locator: Dict[str, Any]
+
+
+def build_index_pieces(sections: List[Section], max_chunks: int = MAX_CHUNKS) -> Tuple[List[IndexPiece], bool]:
+    """每节单独分块，不把相邻页、工作表或幻灯片并到一起。"""
+    pieces: List[IndexPiece] = []
+    truncated = False
+    for section in sections:
+        chunks = _chunk_text(section.text)
+        if not chunks:
+            stripped = section.text.strip()
+            if section.kind == "text" or stripped:
+                chunks = [TextChunk(0, section.text, 0, len(section.text), "")]
+            else:
+                continue
+        for chunk in chunks:
+            if len(pieces) >= max_chunks:
+                truncated = True
+                break
+            heading = section.heading
+            if chunk.heading:
+                heading = f"{section.heading} > {chunk.heading}" if section.heading else chunk.heading
+            pieces.append(IndexPiece(
+                text=chunk.text,
+                heading=heading,
+                start=chunk.start,
+                end=chunk.end,
+                kind=section.kind,
+                locator=dict(section.locator),
+            ))
+        if truncated:
+            break
+    return pieces, truncated
+
+
+def _index_message(pieces: List[IndexPiece], sections: List[Section], truncated: bool, warnings: List[str]) -> str:
+    kind = pieces[0].kind if pieces else "text"
+    if kind == "pdf":
+        pages = {section.locator.get("page") for section in sections if section.locator.get("page") is not None}
+        detail = f"pdf，{len(pages)} 页"
+    elif kind == "sheet":
+        names: List[str] = []
+        for section in sections:
+            name = section.locator.get("sheet")
+            if name and name not in names:
+                names.append(str(name))
+        detail = f"sheet，{len(names)} 个工作表"
+    elif kind == "slide":
+        slides = {section.locator.get("slide") for section in sections if section.locator.get("slide") is not None}
+        detail = f"slide，{len(slides)} 页"
+    else:
+        detail = kind
+    message = f"已索引 {len(pieces)} 个文本块（{detail}）"
+    if truncated:
+        message += f"，已达到单文件 {MAX_CHUNKS} 块上限"
+    if warnings:
+        message += "。" + "；".join(warnings)
+    return message
+
+
 def _embed_text(path: str, heading: str, text: str) -> str:
     """embedding 输入带上文件名和标题路径，存进向量库的正文不含这段前缀。"""
     head = [os.path.basename(path) or path]
@@ -439,6 +513,52 @@ def _embed_text(path: str, heading: str, text: str) -> str:
 def _guess_mime(path: str) -> str:
     mime, _ = mimetypes.guess_type(path)
     return mime or "application/octet-stream"
+
+
+def _as_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _lexical_chunk(
+    path: str,
+    *,
+    chunk_id: str,
+    text: str,
+    heading: str = "",
+    mime: str = "",
+    kind: str = "",
+    locator: Dict[str, Any] | None = None,
+) -> LexicalChunk:
+    locator = locator or {}
+    sheet = locator.get("sheet")
+    return LexicalChunk(
+        source_path=path,
+        chunk_id=str(chunk_id),
+        name=os.path.basename(path) or path,
+        heading=heading or "",
+        text=text or "",
+        mime=mime or "",
+        kind=kind or "",
+        page=_as_int(locator.get("page")),
+        sheet=str(sheet) if sheet else None,
+        slide=_as_int(locator.get("slide")),
+    )
+
+
+async def _drop_partial_index(vector_db: VectorDBService, collection: str, path: str) -> None:
+    try:
+        await vector_db.delete_vector(collection, path)
+    except Exception:
+        pass
+    try:
+        await get_lexical_index().delete_all(path)
+    except Exception:
+        pass
 
 
 def _chunk_key(path: str, chunk_id: str) -> str:
@@ -482,7 +602,7 @@ def _compress_image_for_embedding(input_bytes: bytes) -> Tuple[bytes, Dict[str, 
 
 class VectorIndexProcessor:
     name = "向量索引"
-    supported_exts: List[str] = []  # 留空表示不限扩展名
+    supported_exts: List[str] = [*IMAGE_EXTENSIONS, *DOCUMENT_EXTENSIONS]
     config_schema = [
         {
             "key": "action", "label": "操作", "type": "select", "required": True, "default": "create",
@@ -518,117 +638,136 @@ class VectorIndexProcessor:
         if action == "destroy":
             target_collection = file_collection if index_type == "simple" else vector_collection
             await vector_db.delete_vector(target_collection, path)
+            lexical = get_lexical_index()
+            if index_type == "simple":
+                await lexical.delete_filename(path)
+            else:
+                await lexical.delete_content(path)
             return Response(content=f"文件 {path} 的 {index_type} 索引已销毁", media_type="text/plain")
 
         mime_type = _guess_mime(path)
 
         if index_type == "simple":
             await vector_db.ensure_collection(file_collection, vector=False)
-            await vector_db.delete_vector(file_collection, path)
-            await vector_db.upsert_vector(file_collection, {
-                "path": path,
-                "source_path": path,
-                "chunk_id": "filename",
-                "mime": mime_type,
-                "type": "filename",
-                "name": os.path.basename(path),
-            })
+            filename = os.path.basename(path) or path
+            try:
+                await vector_db.delete_vector(file_collection, path)
+                await vector_db.upsert_vector(file_collection, {
+                    "path": path,
+                    "source_path": path,
+                    "chunk_id": "filename",
+                    "mime": mime_type,
+                    "type": "filename",
+                    "name": filename,
+                })
+                await get_lexical_index().replace_filename(_lexical_chunk(
+                    path, chunk_id="filename", text=filename, mime=mime_type, kind="filename",
+                ))
+            except Exception:
+                try:
+                    await vector_db.delete_vector(file_collection, path)
+                except Exception:
+                    pass
+                raise
             return Response(content=f"文件 {path} 的普通索引已创建", media_type="text/plain")
 
-        file_ext = path.split('.')[-1].lower()
-        details: Dict[str, Any] = {"path": path, "action": "create", "index_type": "vector"}
+        file_ext = extension_of(path)
 
-        embedding_model = await provider_service.get_default_model("embedding")
-        vector_dim = DEFAULT_VECTOR_DIMENSION
-        if embedding_model and getattr(embedding_model, "embedding_dimensions", None):
-            try:
-                vector_dim = int(embedding_model.embedding_dimensions)
-            except (TypeError, ValueError):
-                vector_dim = DEFAULT_VECTOR_DIMENSION
-            if vector_dim <= 0:
-                vector_dim = DEFAULT_VECTOR_DIMENSION
+        async def ensure_vector_collection() -> None:
+            embedding_model = await provider_service.get_default_model("embedding")
+            vector_dim = DEFAULT_VECTOR_DIMENSION
+            if embedding_model and getattr(embedding_model, "embedding_dimensions", None):
+                try:
+                    vector_dim = int(embedding_model.embedding_dimensions)
+                except (TypeError, ValueError):
+                    vector_dim = DEFAULT_VECTOR_DIMENSION
+                if vector_dim <= 0:
+                    vector_dim = DEFAULT_VECTOR_DIMENSION
+            await vector_db.ensure_collection(vector_collection, vector=True, dim=vector_dim)
 
-        await vector_db.ensure_collection(vector_collection, vector=True, dim=vector_dim)
-        await vector_db.delete_vector(vector_collection, path)
-
-        if file_ext in ["jpg", "jpeg", "png", "bmp"]:
+        if file_ext in IMAGE_EXTENSIONS:
+            await ensure_vector_collection()
             file_bytes = await ensure_input_bytes()
             processed_bytes, compression = _compress_image_for_embedding(file_bytes)
             base64_image = base64.b64encode(processed_bytes).decode("utf-8")
             description = await describe_image_base64(base64_image)
             embedding = await get_text_embedding(description)
             image_mime = "image/jpeg" if compression else mime_type
-            await vector_db.upsert_vector(vector_collection, {
-                "path": _chunk_key(path, "image"),
-                "source_path": path,
-                "chunk_id": "image",
-                "embedding": embedding,
-                "text": description,
-                "mime": image_mime,
-                "type": "image",
-            })
-            details["description"] = description
-            if compression:
-                details["image_compression"] = compression
+            try:
+                await vector_db.delete_vector(vector_collection, path)
+                await get_lexical_index().delete_all(path)
+                await vector_db.upsert_vector(vector_collection, {
+                    "path": _chunk_key(path, "image"),
+                    "source_path": path,
+                    "chunk_id": "image",
+                    "embedding": embedding,
+                    "text": description,
+                    "mime": image_mime,
+                    "type": "image",
+                })
+                await get_lexical_index().replace_content(path, [
+                    _lexical_chunk(path, chunk_id="image", text=description or "", mime=image_mime, kind="image"),
+                ])
+            except Exception:
+                await _drop_partial_index(vector_db, vector_collection, path)
+                raise
             return Response(content=f"图片已索引，描述：{description}", media_type="text/plain")
 
-        if file_ext in ["txt", "md"]:
+        if file_ext in DOCUMENT_EXTENSIONS:
+            file_bytes = await ensure_input_bytes()
+            if len(file_bytes) > MAX_INDEX_BYTES:
+                raise HTTPException(status_code=400, detail="文件超过 40 MB，无法建立向量索引")
             try:
-                file_bytes = await ensure_input_bytes()
-                text = file_bytes.decode("utf-8")
-            except UnicodeDecodeError:
-                return Response(content="文本文件解码失败", status_code=400)
+                extracted = await asyncio.to_thread(extract_document, path, file_bytes)
+            except ExtractError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            pieces, truncated = build_index_pieces(extracted.sections)
+            if not pieces:
+                raise HTTPException(status_code=400, detail="没有可索引的文本")
+            await ensure_vector_collection()
+            embed_inputs = [_embed_text(path, piece.heading, piece.text) for piece in pieces]
+            try:
+                await vector_db.delete_vector(vector_collection, path)
+                await get_lexical_index().delete_all(path)
+                vectors = await get_text_embeddings(embed_inputs)
+                if len(vectors) != len(pieces):
+                    raise RuntimeError("嵌入结果数量与输入不一致")
+                lexical_chunks: List[LexicalChunk] = []
+                for index, (piece, embedding) in enumerate(zip(pieces, vectors)):
+                    payload: Dict[str, Any] = {
+                        "path": _chunk_key(path, str(index)),
+                        "source_path": path,
+                        "chunk_id": str(index),
+                        "embedding": embedding,
+                        "text": piece.text,
+                        "mime": mime_type,
+                        "type": piece.kind,
+                        "start_offset": piece.start,
+                        "end_offset": piece.end,
+                    }
+                    if piece.heading:
+                        payload["heading"] = piece.heading
+                    for key, value in piece.locator.items():
+                        if value is not None and value != "":
+                            payload[key] = value
+                    await vector_db.upsert_vector(vector_collection, payload)
+                    lexical_chunks.append(_lexical_chunk(
+                        path,
+                        chunk_id=str(index),
+                        text=piece.text,
+                        heading=piece.heading,
+                        mime=mime_type,
+                        kind=piece.kind,
+                        locator=piece.locator,
+                    ))
+                await get_lexical_index().replace_content(path, lexical_chunks)
+            except Exception:
+                await _drop_partial_index(vector_db, vector_collection, path)
+                raise
+            message = _index_message(pieces, extracted.sections, truncated, extracted.warnings)
+            return Response(content=message, media_type="text/plain")
 
-            chunks = _chunk_text(text)
-            if not chunks:
-                await vector_db.upsert_vector(vector_collection, {
-                    "path": _chunk_key(path, "0"),
-                    "source_path": path,
-                    "chunk_id": "0",
-                    "embedding": await get_text_embedding(_embed_text(path, "", text)),
-                    "text": text,
-                    "mime": mime_type,
-                    "type": "text",
-                    "start_offset": 0,
-                    "end_offset": len(text),
-                })
-                details["chunks"] = 1
-                return Response(content="文本文件已索引", media_type="text/plain")
-
-            chunk_count = 0
-            for chunk in chunks:
-                payload = {
-                    "path": _chunk_key(path, str(chunk.chunk_id)),
-                    "source_path": path,
-                    "chunk_id": str(chunk.chunk_id),
-                    "embedding": await get_text_embedding(_embed_text(path, chunk.heading, chunk.text)),
-                    "text": chunk.text,
-                    "mime": mime_type,
-                    "type": "text",
-                    "start_offset": chunk.start,
-                    "end_offset": chunk.end,
-                }
-                if chunk.heading:
-                    payload["heading"] = chunk.heading
-                await vector_db.upsert_vector(vector_collection, payload)
-                chunk_count += 1
-
-            details["chunks"] = chunk_count
-            details["sample"] = chunks[0].text[:120]
-            return Response(content="文本文件已索引", media_type="text/plain")
-
-        # 其他类型暂未支持向量索引，回退为文件名索引
-        await vector_db.ensure_collection(file_collection, vector=False)
-        await vector_db.delete_vector(file_collection, path)
-        await vector_db.upsert_vector(file_collection, {
-            "path": path,
-            "source_path": path,
-            "chunk_id": "filename",
-            "mime": mime_type,
-            "type": "filename",
-            "name": os.path.basename(path),
-        })
-        return Response(content="暂不支持该类型的向量索引，已创建文件名索引", media_type="text/plain")
+        raise HTTPException(status_code=400, detail="暂不支持该类型的向量索引")
 
 
 PROCESSOR_TYPE = "vector_index"

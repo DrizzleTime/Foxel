@@ -248,6 +248,10 @@ class VirtualFSListingMixin(VirtualFSResolverMixin):
                     heading = entity.get("heading")
                     if heading:
                         entry["heading"] = heading
+                    for key in ("page", "sheet", "slide"):
+                        value = entity.get(key)
+                        if value is not None and value != "":
+                            entry[key] = value
                     text = entity.get("text") or entity.get("description")
                     if text:
                         preview_limit = 400

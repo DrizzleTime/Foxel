@@ -4,6 +4,7 @@ from .inference import (
     chat_completion_stream,
     describe_image_base64,
     get_text_embedding,
+    get_text_embeddings,
     provider_service,
     rerank_texts,
 )
@@ -44,6 +45,7 @@ __all__ = [
     "chat_completion_stream",
     "describe_image_base64",
     "get_text_embedding",
+    "get_text_embeddings",
     "provider_service",
     "rerank_texts",
     "AIProviderService",

@@ -261,20 +261,11 @@ export const vfsApi = {
       xhr.send(fd);
     });
   },
-  searchFiles: (
-    q: string,
-    top_k: number = 10,
-    mode: 'vector' | 'filename' = 'vector',
-    page?: number,
-    page_size?: number,
-  ) => {
+  searchFiles: (q: string, top_k: number = 20) => {
     const params = new URLSearchParams({
       q,
       top_k: String(top_k),
-      mode,
     });
-    if (page !== undefined) params.set('page', String(page));
-    if (page_size !== undefined) params.set('page_size', String(page_size));
     return request<SearchResponse>(`/fs/search?${params.toString()}`);
   },
 };

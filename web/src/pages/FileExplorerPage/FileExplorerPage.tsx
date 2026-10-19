@@ -92,19 +92,13 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     isSearching,
     actionPath,
     loading: searchLoading,
-    mode: searchMode,
     query: searchQuery,
-    page: searchPage,
-    pageSize: searchPageSize,
     displayItems: searchItems,
     selectedPaths: searchSelectedPaths,
     selectedNames: searchSelectedNames,
     contextEntries: searchContextEntries,
     entrySnapshot: searchEntrySnapshot,
-    showPagination: showSearchPagination,
-    totalItems: searchTotalItems,
     clearSearchParams,
-    updateSearchPage,
     refreshSearch,
     openResult: openSearchResult,
     selectResult: selectSearchResult,
@@ -321,7 +315,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
 
   const showFsPagination = !isSearching && pagination.mode === 'paged' && pagination.total > 0;
   const showCursorPagination = !isSearching && pagination.mode === 'cursor' && (pagination.cursorHistory.length > 0 || pagination.hasNext);
-  const shouldReserveBottomBar = showSearchPagination || showFsPagination;
+  const shouldReserveBottomBar = showFsPagination;
   const shouldReserveAnyBottomBar = shouldReserveBottomBar || showCursorPagination;
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -437,7 +431,6 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           <SearchResultsView
             viewMode={viewMode}
             loading={searchLoading}
-            mode={searchMode}
             query={searchQuery}
             items={searchItems}
             selectedPaths={searchSelectedPaths}
@@ -506,19 +499,6 @@ const FileExplorerPage = memo(function FileExplorerPage() {
               下一页
             </Button>
           </Space>
-        </div>
-      )}
-
-      {showSearchPagination && (
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
-          <Pagination
-            current={searchPage}
-            pageSize={searchPageSize}
-            total={Math.max(searchTotalItems, 1)}
-            showSizeChanger={false}
-            size="small"
-            onChange={(nextPage) => updateSearchPage(nextPage)}
-          />
         </div>
       )}
 

@@ -272,7 +272,7 @@ async def vfs_dir_resource(path: str, ctx: Context) -> dict[str, Any]:
     "foxel://vfs/search/{query}",
     name="vfs_search_resource",
     title="VFS Search",
-    description="Read to run default semantic search using a natural-language content description. URL-encode query. Requires a content vector index; use vfs_search for filename search or custom limits.",
+    description="Read to search files by keywords and meaning. URL-encode the query. Fuses keyword (BM25) and semantic matches. Requires an existing index; use vfs_search to set top_k.",
     mime_type="application/json",
 )
 async def vfs_search_resource(query: str, ctx: Context) -> dict[str, Any]:
@@ -291,7 +291,7 @@ def inspect_file_prompt(path: Annotated[str, Field(description="Absolute Foxel t
 
 @MCP_SERVER.prompt(name="search_files", title="Search Files", description="Use to find and summarize relevant files with vfs_search when their locations are unknown.")
 def search_files_prompt(query: Annotated[str, Field(description="Content description or filename keywords to search for.")]) -> list[dict[str, Any]]:
-    return [{"role": "user", "content": f"Search for files related to `{query}` and summarize them by relevance. Use vfs_search with the appropriate search mode."}]
+    return [{"role": "user", "content": f"Search for files related to `{query}` and summarize them by relevance. Use vfs_search."}]
 
 
 @MCP_SERVER.prompt(name="edit_file_safely", title="Edit File Safely", description="Use to review an edit plan before replacing existing text: read first, explain changes, and wait for confirmation before writing.")

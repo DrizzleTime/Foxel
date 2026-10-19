@@ -13,13 +13,13 @@ router = APIRouter(prefix="/api/fs/search", tags=["search"])
 async def search_files(
     q: str = Query(..., description="搜索查询"),
     top_k: int = Query(10, description="返回结果数量"),
-    mode: str = Query("vector", description="搜索模式: 'vector' 或 'filename'"),
-    page: int = Query(1, description="分页页码，仅在文件名搜索模式下生效"),
-    page_size: int = Query(10, description="分页大小，仅在文件名搜索模式下生效"),
+    mode: str = Query("hybrid", description="已忽略，始终用 BM25 与向量做 RRF 融合"),
+    page: int = Query(1, description="已忽略"),
+    page_size: int = Query(10, description="已忽略"),
     user: User = Depends(get_current_active_user),
 ):
     if not q.strip():
-        return success({"items": [], "query": q, "mode": mode})
+        return success({"items": [], "query": q, "mode": "hybrid"})
 
     top_k = max(top_k, 1)
     page = max(page, 1)

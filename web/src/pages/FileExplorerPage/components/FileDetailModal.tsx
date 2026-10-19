@@ -3,6 +3,7 @@ import { Modal, Typography, Spin, theme, Card, Descriptions, Divider, Badge, Spa
 import { FileOutlined, FolderOutlined, CameraOutlined, InfoCircleOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { useI18n } from '../../../i18n';
 import type { VfsEntry } from '../../../api/client';
+import { formatIndexLocation } from './indexLocation';
 
 interface Props {
   entry: VfsEntry | null;
@@ -92,6 +93,7 @@ export const FileDetailModal: React.FC<Props> = ({ entry, loading, data, onClose
     const hasOffsets = entry?.start_offset !== undefined || entry?.end_offset !== undefined;
     const previewText = entry?.preview;
     const previewTruncated = Boolean(entry?.preview_truncated && previewText);
+    const locationText = formatIndexLocation(entry, t);
 
     return (
       <div
@@ -116,6 +118,11 @@ export const FileDetailModal: React.FC<Props> = ({ entry, loading, data, onClose
               <Tag color="purple">{entry.name}</Tag>
             )}
           </Space>
+          {locationText ? (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {locationText}
+            </Typography.Text>
+          ) : null}
           {hasOffsets && (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               {t('Offset Range')}: {entry?.start_offset ?? '-'} ~ {entry?.end_offset ?? '-'}

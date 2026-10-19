@@ -131,11 +131,8 @@ async def _vfs_search(args: Dict[str, Any]) -> Dict[str, Any]:
     q = str(args.get("q") or "").strip()
     if not q:
         raise ValueError("missing_q")
-    mode = str(args.get("mode") or "vector")
     top_k = int(args.get("top_k") or 10)
-    page = int(args.get("page") or 1)
-    page_size = int(args.get("page_size") or 10)
-    result = await VirtualFSSearchService.search(q, top_k, mode, page, page_size)
+    result = await VirtualFSSearchService.search(q, top_k, "hybrid", 1, 10)
     from domain.permission.service import PermissionService
     allowed = await PermissionService.filter_paths_by_permission(
         current_user_id(), [str(item.path) for item in result.get("items", [])], PathAction.READ
@@ -330,19 +327,19 @@ TOOLS: Dict[str, ToolSpec] = {
         name="vfs_search",
         description=(
             "Use to find files by topic or name when their location is unknown. Returns only matches the current user can read."
-            " Default vector mode supports natural-language semantic queries and requires an embedding model and content vector index."
-            " filename mode matches filename or path keywords and supports page/page_size pagination."
-            " Both modes depend on existing indexes; empty results do not prove a file is absent. Browse known directories with vfs_list_dir."
+            " One search fuses keyword ranking (BM25 over filenames and indexed text) with semantic vector search using reciprocal rank fusion."
+            " Results depend on existing indexes. Files indexed before keyword search existed need a fresh index before their text is included in keyword ranking."
+            " Empty results do not prove a file is absent. Browse known directories with vfs_list_dir."
             " Verify returned paths with vfs_stat or vfs_read_text. Search snippets are not complete file contents."
         ),
         parameters={
             "type": "object",
             "properties": {
-                "q": {"type": "string", "description": "Nonempty query. For vector mode, describe content naturally, e.g. beach photos from last year's trip. For filename mode, use filename or path keywords, e.g. report.pdf."},
-                "mode": {"type": "string", "enum": ["vector", "filename"], "description": "vector for semantic content search (default), filename for filename or path keyword search. Both require existing indexes."},
-                "top_k": {"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum results in vector mode. Default: 10. Limit: 100."},
-                "page": {"type": "integer", "minimum": 1, "description": "Page number in filename mode. Default: 1."},
-                "page_size": {"type": "integer", "minimum": 1, "maximum": 100, "description": "Results per page in filename mode. Default: 10. Limit: 100."},
+                "q": {"type": "string", "description": "Nonempty query. Keywords and natural language both work, for example budget report or beach photos from last year's trip."},
+                "mode": {"type": "string", "enum": ["vector", "filename"], "description": "Ignored. Search always fuses keyword and semantic matches. Kept so older callers remain valid."},
+                "top_k": {"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum number of fused results. Default: 10. Limit: 100."},
+                "page": {"type": "integer", "minimum": 1, "description": "Ignored. Kept so older callers remain valid."},
+                "page_size": {"type": "integer", "minimum": 1, "maximum": 100, "description": "Ignored. Kept so older callers remain valid."},
             },
             "required": ["q"],
             "additionalProperties": False,

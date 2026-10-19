@@ -5,8 +5,6 @@ import { vfsApi, type VfsEntry } from '../../../api/client';
 import type { SearchResultItem } from '../../../api/vfs';
 import { useI18n } from '../../../i18n';
 
-export type SearchMode = 'vector' | 'filename';
-
 export type SearchDisplayItem = {
   item: SearchResultItem;
   fullPath: string;
@@ -14,7 +12,7 @@ export type SearchDisplayItem = {
   name: string;
 };
 
-const PAGE_SIZE = 10;
+const TOP_K = 20;
 
 interface UseFileSearchParams {
   currentPath: string;
@@ -39,13 +37,10 @@ export function useFileSearch({
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const query = (searchParams.get('q') || '').trim();
-  const mode = (searchParams.get('mode') === 'filename' ? 'filename' : 'vector') as SearchMode;
-  const page = Math.max(1, Number(searchParams.get('page') || '1') || 1);
   const isSearching = Boolean(query);
 
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResultItem[]>([]);
-  const [hasMore, setHasMore] = useState(false);
   const requestIdRef = useRef(0);
 
   const entryCacheRef = useRef<Map<string, VfsEntry>>(new Map());
@@ -70,37 +65,24 @@ export function useFileSearch({
 
   const runSearch = useCallback(async (requestId: number) => {
     try {
-      const res = await vfsApi.searchFiles(
-        query,
-        mode === 'filename' ? PAGE_SIZE : 10,
-        mode,
-        mode === 'filename' ? page : undefined,
-        mode === 'filename' ? PAGE_SIZE : undefined,
-      );
+      const res = await vfsApi.searchFiles(query, TOP_K);
       if (requestId !== requestIdRef.current) return;
       setResults(res.items || []);
-      if (mode === 'filename') {
-        setHasMore(Boolean(res.pagination?.has_more));
-      } else {
-        setHasMore(false);
-      }
     } catch (e) {
       if (requestId !== requestIdRef.current) return;
       const msg = e instanceof Error ? e.message : t('Load failed');
       message.error(msg);
       setResults([]);
-      setHasMore(false);
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
       }
     }
-  }, [mode, page, query, t]);
+  }, [query, t]);
 
   useEffect(() => {
     if (!isSearching) {
       setResults([]);
-      setHasMore(false);
       setLoading(false);
       requestIdRef.current += 1;
       setSelectedPaths([]);
@@ -187,14 +169,6 @@ export function useFileSearch({
       }
     });
   }, [ensureEntry, isSearching, itemByPath, selectedPaths]);
-
-  const updateSearchPage = useCallback((nextPage: number) => {
-    const params = new URLSearchParams(location.search);
-    if (nextPage <= 1) params.delete('page');
-    else params.set('page', String(nextPage));
-    const next = params.toString();
-    navigate(`${location.pathname}${next ? `?${next}` : ''}`, { replace: true });
-  }, [location.pathname, location.search, navigate]);
 
   const clearSearchParams = useCallback(() => {
     const params = new URLSearchParams(location.search);
@@ -291,22 +265,11 @@ export function useFileSearch({
     return Array.from(map.values());
   }, [actionPath, activeEntry, entrySnapshot, isSearching, itemByPath, selectedPaths]);
 
-  const totalItems = useMemo(() => {
-    if (mode !== 'filename') return results.length;
-    if (hasMore) return page * PAGE_SIZE + 1;
-    return (page - 1) * PAGE_SIZE + results.length;
-  }, [hasMore, mode, page, results.length]);
-
-  const showPagination = isSearching && mode === 'filename' && results.length > 0;
-
   const clearSelection = useCallback(() => setSelectedPaths([]), []);
 
   return {
     isSearching,
     query,
-    mode,
-    page,
-    pageSize: PAGE_SIZE,
     loading,
     displayItems,
     selectedPaths,
@@ -314,10 +277,7 @@ export function useFileSearch({
     contextEntries,
     entrySnapshot,
     actionPath,
-    showPagination,
-    totalItems,
     clearSearchParams,
-    updateSearchPage,
     refreshSearch,
     openResult,
     selectResult,

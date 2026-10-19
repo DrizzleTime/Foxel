@@ -1,6 +1,23 @@
 from typing import Any, Dict, List
 
 
+VECTOR_ENTITY_FIELDS = [
+    "path",
+    "source_path",
+    "chunk_id",
+    "mime",
+    "text",
+    "start_offset",
+    "end_offset",
+    "type",
+    "name",
+    "heading",
+    "page",
+    "sheet",
+    "slide",
+]
+
+
 class BaseVectorProvider:
     """向量数据库提供者基础类，所有实际实现需继承该类"""
 

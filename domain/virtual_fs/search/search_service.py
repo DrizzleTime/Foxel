@@ -1,7 +1,15 @@
-from typing import Any, Dict, List, Tuple
+import asyncio
+from typing import Any, Dict, List
 
-from domain.ai import FILE_COLLECTION_NAME, VECTOR_COLLECTION_NAME, VectorDBService, get_text_embedding
+from domain.ai import VECTOR_COLLECTION_NAME, VectorDBService, get_text_embedding
 from ..types import SearchResultItem
+from .lexical import LexicalHit, get_lexical_index
+
+RRF_K = 60
+
+
+def _candidate_limit(top_k: int) -> int:
+    return min(max(top_k * 5, 50), 100)
 
 
 def _normalize_result(raw: Dict[str, Any], source: str, fallback_score: float = 0.0) -> SearchResultItem:
@@ -30,6 +38,10 @@ def _normalize_result(raw: Dict[str, Any], source: str, fallback_score: float = 
     heading = entity.get("heading")
     if heading:
         metadata["heading"] = heading
+    for key in ("page", "sheet", "slide"):
+        value = entity.get(key)
+        if value is not None and value != "":
+            metadata[key] = value
 
     return SearchResultItem(
         id=str(raw.get("id")),
@@ -43,6 +55,74 @@ def _normalize_result(raw: Dict[str, Any], source: str, fallback_score: float = 
         end_offset=end_offset,
         metadata=metadata,
     )
+
+
+def _from_lexical(hit: LexicalHit) -> SearchResultItem:
+    metadata: Dict[str, Any] = {
+        "retrieval_source": "bm25",
+        "bm25_score": hit.score,
+    }
+    if hit.heading:
+        metadata["heading"] = hit.heading
+    if hit.page is not None:
+        metadata["page"] = hit.page
+    if hit.sheet:
+        metadata["sheet"] = hit.sheet
+    if hit.slide is not None:
+        metadata["slide"] = hit.slide
+    return SearchResultItem(
+        id=f"bm25:{hit.source_path}:{hit.chunk_id}",
+        path=hit.source_path,
+        score=0.0,
+        chunk_id=hit.chunk_id or None,
+        snippet=hit.snippet or None,
+        mime=hit.mime or None,
+        source_type=hit.kind or "bm25",
+        metadata=metadata,
+    )
+
+
+def _channel(item: SearchResultItem) -> str:
+    source = (item.metadata or {}).get("retrieval_source")
+    if source in {"bm25", "vector"}:
+        return str(source)
+    return "vector"
+
+
+def reciprocal_rank_fusion(ranked_lists: List[List[SearchResultItem]], k: int = RRF_K) -> List[SearchResultItem]:
+    """RRF。rank 从 1 开始，score += 1/(k+rank)。同一路径只留名次更好的那条摘要。"""
+    fused: Dict[str, Dict[str, Any]] = {}
+    for items in ranked_lists:
+        for rank, item in enumerate(items, start=1):
+            path = item.path
+            if not path:
+                continue
+            channel = _channel(item)
+            bonus = 1.0 / (k + rank)
+            slot = fused.get(path)
+            if slot is None:
+                fused[path] = {"item": item, "score": bonus, "best_rank": rank, "channels": [channel]}
+                continue
+            slot["score"] += bonus
+            if channel not in slot["channels"]:
+                slot["channels"].append(channel)
+            if rank < slot["best_rank"]:
+                slot["item"] = item
+                slot["best_rank"] = rank
+
+    results: List[SearchResultItem] = []
+    for slot in fused.values():
+        item = slot["item"].model_copy(deep=True)
+        channels = list(slot["channels"])
+        metadata = dict(item.metadata or {})
+        metadata["channels"] = channels
+        metadata["rrf_score"] = slot["score"]
+        metadata["retrieval_source"] = "hybrid" if len(channels) > 1 else channels[0]
+        item.metadata = metadata
+        item.score = slot["score"]
+        results.append(item)
+    results.sort(key=lambda item: item.score, reverse=True)
+    return results
 
 
 async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
@@ -69,58 +149,28 @@ async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
     return sorted(results_by_path.values(), key=lambda item: item.score, reverse=True)
 
 
-async def _filename_search(query: str, page: int, page_size: int) -> Tuple[List[SearchResultItem], bool]:
-    vector_db = VectorDBService()
-    limit = max(page * page_size + 1, page_size * (page + 2))
-    limit = min(limit, 2000)
-    records: List[Dict[str, Any]] = []
-    for collection_name in (FILE_COLLECTION_NAME, VECTOR_COLLECTION_NAME):
-        try:
-            raw_results = await vector_db.search_by_path(collection_name, query, limit)
-        except Exception:
-            continue
-        if raw_results:
-            records.extend(raw_results[0] or [])
+async def _bm25_search(query: str, limit: int) -> List[SearchResultItem]:
+    try:
+        hits = await get_lexical_index().search(query, limit)
+    except Exception:
+        return []
+    return [_from_lexical(hit) for hit in hits]
 
-    deduped: List[SearchResultItem] = []
-    seen_paths: set[str] = set()
-    for record in records or []:
-        item = _normalize_result(record, "filename", fallback_score=1.0)
-        stored_path = item.metadata.get("stored_path") if item.metadata else None
-        key = item.path or stored_path or ""
-        if key in seen_paths:
-            continue
-        seen_paths.add(key)
-        deduped.append(item)
 
-    start = max(page - 1, 0) * page_size
-    end = start + page_size
-    page_items = deduped[start:end]
-    for offset, item in enumerate(page_items):
-        if item.metadata is None:
-            item.metadata = {}
-        item.metadata.setdefault("retrieval_rank", start + offset)
-    has_more = len(deduped) > end
-    return page_items, has_more
+async def _hybrid_search(query: str, top_k: int) -> List[SearchResultItem]:
+    top_k = max(int(top_k), 1)
+    limit = _candidate_limit(top_k)
+    vector_items, bm25_items = await asyncio.gather(
+        _vector_search(query, limit),
+        _bm25_search(query, limit),
+    )
+    return reciprocal_rank_fusion([vector_items, bm25_items])[:top_k]
 
 
 class VirtualFSSearchService:
     @staticmethod
-    async def search(query: str, top_k: int, mode: str, page: int, page_size: int):
-        if mode == "vector":
-            items = (await _vector_search(query, top_k))[:top_k]
-            return {"items": items, "query": query, "mode": mode}
-        if mode == "filename":
-            items, has_more = await _filename_search(query, page, page_size)
-            return {
-                "items": items,
-                "query": query,
-                "mode": mode,
-                "pagination": {
-                    "page": page,
-                    "page_size": page_size,
-                    "has_more": has_more,
-                },
-            }
-        items = (await _vector_search(query, top_k))[:top_k]
-        return {"items": items, "query": query, "mode": mode}
+    async def search(query: str, top_k: int, mode: str = "hybrid", page: int = 1, page_size: int = 10):
+        """mode、page、page_size 保留给旧客户端，搜索始终是 BM25 与向量的 RRF 融合。"""
+        del mode, page, page_size
+        items = await _hybrid_search(query, top_k)
+        return {"items": items, "query": query, "mode": "hybrid"}

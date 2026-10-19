@@ -31,6 +31,11 @@ dependencies = [
     "websockets>=17.1",
     "smbprotocol>=1.17.0",
     "gunicorn>=23.0.0",
+    "pypdf>=6.21.1",
+    "python-docx>=1.2.0",
+    "python-pptx>=1.0.2",
+    "openpyxl>=3.1.5",
+    "xlrd>=2.0.2",
 ]
 
 [dependency-groups]

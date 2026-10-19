@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
 
-from .base import BaseVectorProvider
+from .base import VECTOR_ENTITY_FIELDS, BaseVectorProvider
 
 
 class MilvusServerProvider(BaseVectorProvider):
@@ -129,18 +129,7 @@ class MilvusServerProvider(BaseVectorProvider):
 
     def search_vectors(self, collection_name: str, query_embedding, top_k: int):
         search_params = {"metric_type": "COSINE"}
-        output_fields = [
-            "path",
-            "source_path",
-            "chunk_id",
-            "mime",
-            "text",
-            "start_offset",
-            "end_offset",
-            "type",
-            "name",
-            "heading",
-        ]
+        output_fields = VECTOR_ENTITY_FIELDS
         raw_results = self._get_client().search(
             collection_name,
             data=[query_embedding],
@@ -172,18 +161,7 @@ class MilvusServerProvider(BaseVectorProvider):
             collection_name,
             filter=filter_expr,
             limit=top_k,
-            output_fields=[
-                "path",
-                "source_path",
-                "chunk_id",
-                "mime",
-                "text",
-                "start_offset",
-                "end_offset",
-                "type",
-                "name",
-                "heading",
-            ],
+            output_fields=VECTOR_ENTITY_FIELDS,
         )
         formatted = []
         for row in results:

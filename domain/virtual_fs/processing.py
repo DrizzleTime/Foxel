@@ -1,5 +1,7 @@
+from pathlib import Path
 from typing import Any
 
+import aiofiles
 from fastapi import HTTPException
 from fastapi.responses import Response
 
@@ -19,6 +21,7 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
         overwrite: bool = False,
     ) -> Any:
         from domain.processors import get_processor
+        from domain.processors.base import ProcessorOutput
 
         await guard_path(path, PathAction.READ)
 
@@ -52,6 +55,38 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
             if isinstance(result, str):
                 return result.encode("utf-8")
             raise HTTPException(500, detail="Processor must return bytes/Response when produces_file=True")
+
+        def output_path(source_path: str) -> str:
+            adjust = getattr(processor, "adjust_output_path", None)
+            if not callable(adjust):
+                return source_path
+            adjusted = adjust(source_path, config or {})
+            if isinstance(adjusted, str) and adjusted.strip():
+                return adjusted
+            return source_path
+
+        async def iter_file(file_path: str):
+            async with aiofiles.open(file_path, "rb") as source:
+                while True:
+                    chunk = await source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    yield chunk
+
+        async def store_result(destination: str, result: Any) -> Any:
+            produces_file = bool(getattr(processor, "produces_file", False))
+            if isinstance(result, ProcessorOutput):
+                try:
+                    target = output_path(destination) if produces_file else destination
+                    await cls.write_file_stream(target, iter_file(result.path))
+                    return {"saved_to": target}
+                finally:
+                    result.cleanup()
+            target = output_path(destination) if produces_file else destination
+            if produces_file:
+                await cls.write_file(target, coerce_result_bytes(result))
+                return {"saved_to": target}
+            return result
 
         if actual_is_dir:
             if save_to:
@@ -90,9 +125,8 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
                         if requires_input_bytes:
                             data = await cls.read_file(absolute_path)
                         result = await processor.process(data, absolute_path, config)
-                        if getattr(processor, "produces_file", False):
-                            result_bytes = coerce_result_bytes(result)
-                            await cls.write_file(absolute_path, result_bytes)
+                        if isinstance(result, ProcessorOutput) or getattr(processor, "produces_file", False):
+                            await store_result(absolute_path, result)
                         processed_count += 1
 
                     if total is None or page * page_size >= total:
@@ -110,9 +144,14 @@ class VirtualFSProcessingMixin(VirtualFSTransferMixin):
         if overwrite and not target_path:
             target_path = path
 
-        if target_path and getattr(processor, "produces_file", False):
-            result_bytes = coerce_result_bytes(result)
-            await cls.write_file(target_path, result_bytes)
-            return {"saved_to": target_path}
+        if target_path and (isinstance(result, ProcessorOutput) or getattr(processor, "produces_file", False)):
+            return await store_result(target_path, result)
+
+        if isinstance(result, ProcessorOutput):
+            try:
+                payload = Path(result.path).read_bytes()
+            finally:
+                result.cleanup()
+            return Response(content=payload, media_type=result.media_type)
 
         return result

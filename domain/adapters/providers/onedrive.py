@@ -172,9 +172,16 @@ class OneDriveAdapter:
         if not api_path:
             raise IsADirectoryError("不能将根目录作为文件读取")
 
+        # Graph answers GET :/content with 302. The file bytes are at Location,
+        # a short-lived pre-authenticated URL. Do not send the Graph bearer
+        # token there; the download host rejects it.
         resp = await self._request("GET", api_path_segment=f"{api_path}:/content")
         if resp.status_code == 404:
             raise FileNotFoundError(rel)
+        if resp.has_redirect_location:
+            location = httpx.URL(resp.url).join(resp.headers["Location"])
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+                resp = await client.get(location)
         resp.raise_for_status()
         return resp.content
 

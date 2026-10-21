@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Drawer, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type { VfsEntry } from '../../../api/client';
-import type { ProcessorTypeMeta } from '../../../api/processors';
+import { processorSupportsEntry, type ProcessorTypeMeta } from '../../../api/processors';
 import { getAppsForEntry, getDefaultAppForEntry, usePluginApps } from '../../../apps/registry';
 import { useI18n } from '../../../i18n';
 import {
@@ -27,7 +27,7 @@ interface ContextMenuProps {
   onRename: (entry: VfsEntry) => void;
   onDelete: (entries: VfsEntry[]) => void;
   onDetail: (entry: VfsEntry) => void;
-  onProcess: (entry: VfsEntry, processorType: string) => void;
+  onProcess: (entries: VfsEntry[], processorType: string) => void;
   onUploadFile: () => void;
   onUploadDirectory: () => void;
   onCreateFile: () => void;
@@ -116,31 +116,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
     const targetNames = selectedEntries.includes(entry.name) ? selectedEntries : [entry.name];
     const targetEntries = entries.filter(e => targetNames.includes(e.name));
 
-    let processorSubMenu: ActionMenuItem[] = [];
-    if (processorTypes.length > 0) {
-      if (entry.is_dir) {
-        processorSubMenu = processorTypes
-          .filter(pt => !!pt.supports_directory)
-          .map(pt => ({
-            key: 'processor-' + pt.type,
-            label: pt.name,
-            onClick: () => actions.onProcess(entry, pt.type),
-          }));
-      } else {
-        const ext = entry.name.split('.').pop()?.toLowerCase() || '';
-        processorSubMenu = processorTypes
-          .filter(pt => {
-            const exts = pt.supported_exts;
-            if (!Array.isArray(exts) || exts.length === 0) return true;
-            return exts.includes(ext);
-          })
-          .map(pt => ({
-            key: 'processor-' + pt.type,
-            label: pt.name,
-            onClick: () => actions.onProcess(entry, pt.type),
-          }));
-      }
-    }
+    const processorSubMenu: ActionMenuItem[] = processorTypes
+      .filter(pt => targetEntries.length > 0 && targetEntries.every(target => processorSupportsEntry(pt, target)))
+      .map(pt => ({
+        key: 'processor-' + pt.type,
+        label: pt.name,
+        onClick: () => actions.onProcess(targetEntries, pt.type),
+      }));
 
     const menuItems: (ActionMenuItem | null)[] = [
       (entry.is_dir || apps.length > 0) ? {

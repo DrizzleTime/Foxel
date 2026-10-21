@@ -20,6 +20,12 @@ export interface ProcessorTypeMeta {
   module_path?: string | null;
 }
 
+export function processorSupportsEntry(processor: ProcessorTypeMeta, entry: { name: string; is_dir: boolean }): boolean {
+  if (entry.is_dir) return !!processor.supports_directory;
+  const ext = entry.name.split('.').pop()?.toLowerCase() || '';
+  return !processor.supported_exts?.length || processor.supported_exts.includes(ext);
+}
+
 export const processorsApi = {
   list: () => request<ProcessorTypeMeta[]>('/processors', {
     method: 'GET'

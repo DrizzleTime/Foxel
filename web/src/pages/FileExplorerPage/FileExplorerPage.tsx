@@ -566,7 +566,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onCancel={() => setVideoRoomEntry(null)}
       />
       <ProcessorModal
-        entry={processorHook.processorModal.entry}
+        entries={processorHook.processorModal.entries}
         visible={processorHook.processorModal.visible}
         loading={processorHook.processorLoading}
         processorTypes={processorTypes}
@@ -602,9 +602,8 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           onRename={setRenaming}
           onDelete={(entriesToDelete) => doDelete(entriesToDelete)}
           onDetail={openDetail}
-          onProcess={(entry, type) => {
-            processorHook.setSelectedProcessor(type);
-            processorHook.openProcessorModal(entry);
+          onProcess={(entriesToProcess, type) => {
+            processorHook.openProcessorModal(entriesToProcess, type);
           }}
           onUploadFile={openFilePicker}
           onUploadDirectory={openDirectoryPicker}

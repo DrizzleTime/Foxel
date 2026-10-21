@@ -934,5 +934,7 @@
   "Task timeout": "任务超时",
   "Compress": "压缩",
   "Semantic search failed": "语义检索失败",
-  "Keyword search failed": "关键词检索失败"
+  "Keyword search failed": "关键词检索失败",
+  "Output directory": "输出目录",
+  "Save each file to this directory; leave blank to only return results": "将各文件保存到此目录，留空则仅返回结果"
 }

@@ -243,7 +243,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
       },
     ];
 
-    return menuItems.filter((item): item is ActionMenuItem => item !== null);
+    return menuItems.filter((item): item is ActionMenuItem => item !== null && !item.disabled);
   };
 
   const actionItems = getContextMenuItems();

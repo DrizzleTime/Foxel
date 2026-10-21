@@ -1,10 +1,11 @@
 import React from 'react';
-import { Empty, Flex, Spin, Tag, Typography, theme, Button } from 'antd';
+import { Alert, Empty, Flex, Spin, Tag, Typography, theme, Button } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import { useI18n } from '../../../i18n';
 import type { VfsEntry } from '../../../api/client';
 import type { ViewMode } from '../types';
 import type { SearchDisplayItem } from '../hooks/useFileSearch';
+import type { SearchWarning } from '../../../api/vfs';
 import { formatIndexLocation } from './indexLocation';
 
 function formatScore(score: number): string {
@@ -31,6 +32,7 @@ interface SearchResultsViewProps {
   loading: boolean;
   query: string;
   items: SearchDisplayItem[];
+  warnings: SearchWarning[];
   selectedPaths: string[];
   entrySnapshot: Record<string, VfsEntry>;
   mobile?: boolean;
@@ -46,6 +48,7 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
   loading,
   query,
   items,
+  warnings,
   selectedPaths,
   entrySnapshot,
   mobile = false,
@@ -85,6 +88,17 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
           </Tag>
         </Flex>
       </Flex>
+
+      {warnings.map((warning) => (
+        <Alert
+          key={warning.source}
+          type="warning"
+          showIcon
+          title={warning.source === 'vector' ? t('Semantic search failed') : t('Keyword search failed')}
+          description={warning.message}
+          style={{ marginBottom: 12, overflowWrap: 'anywhere' }}
+        />
+      ))}
 
       {loading ? (
         <Flex align="center" justify="center" style={{ padding: 48 }}>

@@ -929,5 +929,7 @@
   "Task queued": "Task queued",
   "Task failed": "Task failed",
   "Task timeout": "Task timeout",
-  "Compress": "Compress"
+  "Compress": "Compress",
+  "Semantic search failed": "Semantic search failed",
+  "Keyword search failed": "Keyword search failed"
 }

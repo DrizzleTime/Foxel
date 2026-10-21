@@ -932,5 +932,7 @@
   "Task queued": "已加入任务队列",
   "Task failed": "任务失败",
   "Task timeout": "任务超时",
-  "Compress": "压缩"
+  "Compress": "压缩",
+  "Semantic search failed": "语义检索失败",
+  "Keyword search failed": "关键词检索失败"
 }

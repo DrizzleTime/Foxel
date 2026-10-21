@@ -252,8 +252,8 @@ export default function VectorDbSettingsTab({ isActive }: VectorDbSettingsTabPro
                                     <span>{index.index_name || t('Unnamed index')}</span>
                                     <span>{' · '}{index.index_type || '-'}</span>
                                     <span>{' · '}{index.metric_type || '-'}</span>
-                                    <span>{' · '}{t('Indexed rows')}: {index.indexed_rows}</span>
-                                    <span>{' · '}{t('Pending rows')}: {index.pending_index_rows}</span>
+                                    <span>{' · '}{t('Indexed rows')}: {index.indexed_rows ?? '-'}</span>
+                                    <span>{' · '}{t('Pending rows')}: {index.pending_index_rows ?? '-'}</span>
                                     <span>{' · '}{t('Status')}: {index.state || '-'}</span>
                                   </li>
                                 ))}

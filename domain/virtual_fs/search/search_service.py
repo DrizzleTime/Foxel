@@ -1,4 +1,6 @@
 import asyncio
+import logging
+from collections.abc import Awaitable
 from typing import Any, Dict, List
 
 from domain.ai import VECTOR_COLLECTION_NAME, VectorDBService, get_text_embedding
@@ -6,6 +8,7 @@ from ..types import SearchResultItem
 from .lexical import LexicalHit, get_lexical_index
 
 RRF_K = 60
+logger = logging.getLogger(__name__)
 
 
 def _candidate_limit(top_k: int) -> int:
@@ -127,17 +130,11 @@ def reciprocal_rank_fusion(ranked_lists: List[List[SearchResultItem]], k: int = 
 
 async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
     vector_db = VectorDBService()
-    try:
-        embedding = await get_text_embedding(query)
-    except Exception:
-        embedding = None
+    embedding = await get_text_embedding(query)
     if not embedding:
-        return []
+        raise ValueError("Embedding model returned an empty vector")
 
-    try:
-        raw_results = await vector_db.search_vectors(VECTOR_COLLECTION_NAME, embedding, max(top_k, 10))
-    except Exception:
-        return []
+    raw_results = await vector_db.search_vectors(VECTOR_COLLECTION_NAME, embedding, max(top_k, 10))
 
     results_by_path: Dict[str, SearchResultItem] = {}
     for bucket in raw_results or []:
@@ -150,21 +147,28 @@ async def _vector_search(query: str, top_k: int) -> List[SearchResultItem]:
 
 
 async def _bm25_search(query: str, limit: int) -> List[SearchResultItem]:
-    try:
-        hits = await get_lexical_index().search(query, limit)
-    except Exception:
-        return []
+    hits = await get_lexical_index().search(query, limit)
     return [_from_lexical(hit) for hit in hits]
 
 
-async def _hybrid_search(query: str, top_k: int) -> List[SearchResultItem]:
+async def _hybrid_search(query: str, top_k: int) -> tuple[List[SearchResultItem], List[Dict[str, str]]]:
     top_k = max(int(top_k), 1)
     limit = _candidate_limit(top_k)
+    warnings: List[Dict[str, str]] = []
+
+    async def run_channel(source: str, search: Awaitable[List[SearchResultItem]]) -> List[SearchResultItem]:
+        try:
+            return await search
+        except Exception as exc:
+            logger.exception("Search channel failed (source=%s)", source)
+            warnings.append({"source": source, "message": str(exc) or type(exc).__name__})
+            return []
+
     vector_items, bm25_items = await asyncio.gather(
-        _vector_search(query, limit),
-        _bm25_search(query, limit),
+        run_channel("vector", _vector_search(query, limit)),
+        run_channel("bm25", _bm25_search(query, limit)),
     )
-    return reciprocal_rank_fusion([vector_items, bm25_items])[:top_k]
+    return reciprocal_rank_fusion([vector_items, bm25_items])[:top_k], warnings
 
 
 class VirtualFSSearchService:
@@ -172,5 +176,5 @@ class VirtualFSSearchService:
     async def search(query: str, top_k: int, mode: str = "hybrid", page: int = 1, page_size: int = 10):
         """mode、page、page_size 保留给旧客户端，搜索始终是 BM25 与向量的 RRF 融合。"""
         del mode, page, page_size
-        items = await _hybrid_search(query, top_k)
-        return {"items": items, "query": query, "mode": "hybrid"}
+        items, warnings = await _hybrid_search(query, top_k)
+        return {"items": items, "query": query, "mode": "hybrid", "warnings": warnings}

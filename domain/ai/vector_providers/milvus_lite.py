@@ -120,9 +120,11 @@ class MilvusLiteProvider(BaseVectorProvider):
         client.delete(collection_name, filter=f'source_path == "{escaped}"')
 
     def search_vectors(self, collection_name: str, query_embedding, top_k: int):
+        client = self._get_client()
+        client.load_collection(collection_name)
         search_params = {"metric_type": "COSINE"}
         output_fields = VECTOR_ENTITY_FIELDS
-        raw_results = self._get_client().search(
+        raw_results = client.search(
             collection_name,
             data=[query_embedding],
             anns_field="embedding",
@@ -144,12 +146,16 @@ class MilvusLiteProvider(BaseVectorProvider):
         return formatted
 
     def search_by_path(self, collection_name: str, query_path: str, top_k: int):
+        client = self._get_client()
+        if not client.has_collection(collection_name):
+            return [[]]
+        client.load_collection(collection_name)
         if query_path:
             escaped = query_path.replace('"', '\\"')
             filter_expr = f'source_path like \"%{escaped}%\"'
         else:
             filter_expr = "source_path like '%%'"
-        results = self._get_client().query(
+        results = client.query(
             collection_name,
             filter=filter_expr,
             limit=top_k,
@@ -213,7 +219,7 @@ class MilvusLiteProvider(BaseVectorProvider):
 
             for index_name in index_names:
                 try:
-                    detail = client.describe_index(name) or {}
+                    detail = client.describe_index(name, index_name=index_name) or {}
                 except Exception:
                     detail = {}
                 indexes.append(
@@ -221,8 +227,8 @@ class MilvusLiteProvider(BaseVectorProvider):
                         "index_name": index_name,
                         "index_type": detail.get("index_type"),
                         "metric_type": detail.get("metric_type"),
-                        "indexed_rows": self._to_int(detail.get("indexed_rows")),
-                        "pending_index_rows": self._to_int(detail.get("pending_index_rows")),
+                        "indexed_rows": self._to_int(detail["indexed_rows"]) if detail.get("indexed_rows") is not None else None,
+                        "pending_index_rows": self._to_int(detail["pending_index_rows"]) if detail.get("pending_index_rows") is not None else None,
                         "state": detail.get("state"),
                     }
                 )
@@ -241,7 +247,10 @@ class MilvusLiteProvider(BaseVectorProvider):
         db_file_size = None
         try:
             if self.db_path.exists():
-                db_file_size = self.db_path.stat().st_size
+                if self.db_path.is_dir():
+                    db_file_size = sum(path.stat().st_size for path in self.db_path.rglob("*") if path.is_file())
+                else:
+                    db_file_size = self.db_path.stat().st_size
         except OSError:
             db_file_size = None
 

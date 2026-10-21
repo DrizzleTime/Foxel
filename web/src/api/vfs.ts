@@ -64,11 +64,17 @@ export interface SearchPagination {
   has_more: boolean;
 }
 
+export interface SearchWarning {
+  source: 'vector' | 'bm25';
+  message: string;
+}
+
 export interface SearchResponse {
   items: SearchResultItem[];
   query: string;
   mode?: string;
   pagination?: SearchPagination;
+  warnings?: SearchWarning[];
 }
 
 export const vfsApi = {

@@ -4,8 +4,8 @@ export interface VectorDBIndexInfo {
   index_name: string;
   index_type?: string;
   metric_type?: string;
-  indexed_rows: number;
-  pending_index_rows: number;
+  indexed_rows: number | null;
+  pending_index_rows: number | null;
   state?: string;
 }
 

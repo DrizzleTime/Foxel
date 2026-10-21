@@ -433,6 +433,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             loading={searchLoading}
             query={searchQuery}
             items={searchItems}
+            warnings={fileSearch.warnings}
             selectedPaths={searchSelectedPaths}
             entrySnapshot={searchEntrySnapshot}
             mobile={isMobile}

@@ -2,7 +2,7 @@ import { message } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { vfsApi, type VfsEntry } from '../../../api/client';
-import type { SearchResultItem } from '../../../api/vfs';
+import type { SearchResultItem, SearchWarning } from '../../../api/vfs';
 import { useI18n } from '../../../i18n';
 
 export type SearchDisplayItem = {
@@ -41,6 +41,7 @@ export function useFileSearch({
 
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResultItem[]>([]);
+  const [warnings, setWarnings] = useState<SearchWarning[]>([]);
   const requestIdRef = useRef(0);
 
   const entryCacheRef = useRef<Map<string, VfsEntry>>(new Map());
@@ -68,11 +69,13 @@ export function useFileSearch({
       const res = await vfsApi.searchFiles(query, TOP_K);
       if (requestId !== requestIdRef.current) return;
       setResults(res.items || []);
+      setWarnings(res.warnings || []);
     } catch (e) {
       if (requestId !== requestIdRef.current) return;
       const msg = e instanceof Error ? e.message : t('Load failed');
       message.error(msg);
       setResults([]);
+      setWarnings([]);
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
@@ -83,6 +86,7 @@ export function useFileSearch({
   useEffect(() => {
     if (!isSearching) {
       setResults([]);
+      setWarnings([]);
       setLoading(false);
       requestIdRef.current += 1;
       setSelectedPaths([]);
@@ -94,6 +98,7 @@ export function useFileSearch({
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setLoading(true);
+    setWarnings([]);
     setSelectedPaths([]);
     closeContextMenus();
     void runSearch(requestId);
@@ -131,6 +136,7 @@ export function useFileSearch({
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setLoading(true);
+    setWarnings([]);
     void runSearch(requestId);
   }, [isSearching, runSearch]);
 
@@ -271,6 +277,7 @@ export function useFileSearch({
     isSearching,
     query,
     loading,
+    warnings,
     displayItems,
     selectedPaths,
     selectedNames,

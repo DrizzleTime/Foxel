@@ -1,7 +1,9 @@
 import json
+import logging
+import math
 
 import httpx
-from typing import Any, AsyncIterator, Dict, List, Sequence, Tuple
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Sequence, Tuple
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from models.database import AIModel, AIProvider
@@ -10,6 +12,7 @@ from .types import OPENAI_PROTOCOL_RESPONSES, normalize_openai_protocol
 
 
 provider_service = AIProviderService
+logger = logging.getLogger(__name__)
 
 
 class MissingModelError(RuntimeError):
@@ -1203,65 +1206,113 @@ async def _describe_with_gemini(provider: AIProvider, model: AIModel, base64_ima
         return "\n".join(text_parts)
 
 
+class EmbeddingResponseError(RuntimeError):
+    """嵌入接口返回的数据无法与输入一一对应。"""
+
+
+def _embedding_values(values: Any, label: str) -> List[float]:
+    if not isinstance(values, list) or not values:
+        raise EmbeddingResponseError(f"{label} 必须是非空数值数组")
+    try:
+        vector = [float(value) for value in values]
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise EmbeddingResponseError(f"{label} 包含无效数值") from exc
+    if not all(math.isfinite(value) for value in vector):
+        raise EmbeddingResponseError(f"{label} 包含非有限数值")
+    return vector
+
+
 def _embedding_vectors_from_openai(body: Any, expected: int) -> List[List[float]]:
     data = body.get("data") if isinstance(body, dict) else None
-    if not isinstance(data, list) or len(data) != expected:
-        raise RuntimeError("嵌入结果数量与输入不一致")
+    if not isinstance(data, list):
+        raise EmbeddingResponseError("嵌入响应缺少 data 数组")
+    if len(data) != expected:
+        raise EmbeddingResponseError(f"嵌入结果数量与输入不一致：期望 {expected}，实际 {len(data)}")
     ordered: List[List[float] | None] = [None] * expected
     for fallback, item in enumerate(data):
         if not isinstance(item, dict):
-            raise RuntimeError("嵌入结果数量与输入不一致")
+            raise EmbeddingResponseError(f"嵌入响应 data[{fallback}] 必须是对象")
         index = item.get("index", fallback)
         try:
+            if isinstance(index, bool) or not isinstance(index, (int, str)):
+                raise ValueError
             index = int(index)
         except (TypeError, ValueError):
-            index = fallback
-        embedding = item.get("embedding")
-        if not isinstance(embedding, list) or not 0 <= index < expected:
-            raise RuntimeError("嵌入结果数量与输入不一致")
-        ordered[index] = [float(value) for value in embedding]
-    if any(vector is None for vector in ordered):
-        raise RuntimeError("嵌入结果数量与输入不一致")
+            raise EmbeddingResponseError(f"嵌入响应 data[{fallback}].index 必须是整数") from None
+        if not 0 <= index < expected:
+            raise EmbeddingResponseError(f"嵌入响应 index={index} 越界：期望 0 至 {expected - 1}")
+        if ordered[index] is not None:
+            raise EmbeddingResponseError(f"嵌入响应 index={index} 重复，无法对应输入")
+        ordered[index] = _embedding_values(item.get("embedding"), f"嵌入响应 data[{fallback}].embedding")
     return [vector for vector in ordered if vector is not None]
 
 
-async def _embeddings_with_openai(provider: AIProvider, model: AIModel, texts: Sequence[str]) -> List[List[float]]:
-    if len(texts) == 1:
-        return [await _embedding_with_openai(provider, model, texts[0])]
-    url = _openai_endpoint(provider, "/embeddings")
+async def _embed_in_batches(
+    texts: Sequence[str],
+    embed_batch: Callable[[Sequence[str]], Awaitable[List[List[float]]]],
+    embed_single: Callable[[str], Awaitable[List[float]]],
+) -> List[List[float]]:
     vectors: List[List[float]] = []
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        for start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
-            batch = list(texts[start:start + EMBEDDING_BATCH_SIZE])
-            payload = {"model": model.name, "input": batch}
-            response = await client.post(url, headers=_openai_headers(provider), json=payload)
-            response.raise_for_status()
-            vectors.extend(_embedding_vectors_from_openai(response.json(), len(batch)))
+    batch_supported = True
+    for start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+        batch = list(texts[start:start + EMBEDDING_BATCH_SIZE])
+        if batch_supported and len(batch) > 1:
+            try:
+                batch_vectors = await embed_batch(batch)
+            except (EmbeddingResponseError, httpx.HTTPStatusError) as exc:
+                if isinstance(exc, httpx.HTTPStatusError):
+                    status = exc.response.status_code
+                    if status not in {400, 404, 405, 413, 415, 422, 501}:
+                        raise
+                    reason = f"HTTP {status}"
+                else:
+                    reason = str(exc)
+                logger.warning("批量嵌入不可用，当前调用改为逐条请求：%s", reason)
+                batch_supported = False
+            else:
+                vectors.extend(batch_vectors)
+                continue
+        for text in batch:
+            vectors.append(await embed_single(text))
     return vectors
 
 
-async def _embedding_with_openai(provider: AIProvider, model: AIModel, text: str) -> List[float]:
+async def _embeddings_with_openai(provider: AIProvider, model: AIModel, texts: Sequence[str]) -> List[List[float]]:
+    url = _openai_endpoint(provider, "/embeddings")
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        async def embed_batch(batch: Sequence[str]) -> List[List[float]]:
+            payload = {"model": model.name, "input": list(batch)}
+            response = await client.post(url, headers=_openai_headers(provider), json=payload)
+            response.raise_for_status()
+            return _embedding_vectors_from_openai(response.json(), len(batch))
+
+        async def embed_single(text: str) -> List[float]:
+            return await _embedding_with_openai(provider, model, text, client=client)
+
+        return await _embed_in_batches(texts, embed_batch, embed_single)
+
+
+async def _embedding_with_openai(
+    provider: AIProvider, model: AIModel, text: str, *, client: httpx.AsyncClient | None = None,
+) -> List[float]:
+    if client is None:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            return await _embedding_with_openai(provider, model, text, client=client)
     url = _openai_endpoint(provider, "/embeddings")
     payload = {
         "model": model.name,
         "input": text,
     }
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(url, headers=_openai_headers(provider), json=payload)
-        response.raise_for_status()
-        body = response.json()
-        return _embedding_vectors_from_openai(body, 1)[0]
+    response = await client.post(url, headers=_openai_headers(provider), json=payload)
+    response.raise_for_status()
+    return _embedding_vectors_from_openai(response.json(), 1)[0]
 
 
 async def _embeddings_with_gemini(provider: AIProvider, model: AIModel, texts: Sequence[str]) -> List[List[float]]:
-    if len(texts) == 1:
-        return [await _embedding_with_gemini(provider, model, texts[0])]
     model_name = model.name if model.name.startswith("models/") else f"models/{model.name}"
     url = _gemini_endpoint(provider, f"{model_name}:batchEmbedContents")
-    vectors: List[List[float]] = []
     async with httpx.AsyncClient(timeout=60.0) as client:
-        for start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
-            batch = list(texts[start:start + EMBEDDING_BATCH_SIZE])
+        async def embed_batch(batch: Sequence[str]) -> List[List[float]]:
             payload = {
                 "requests": [
                     {"model": model_name, "content": {"parts": [{"text": text}]}}
@@ -1272,17 +1323,28 @@ async def _embeddings_with_gemini(provider: AIProvider, model: AIModel, texts: S
             response.raise_for_status()
             body = response.json()
             embeddings = body.get("embeddings") if isinstance(body, dict) else None
-            if not isinstance(embeddings, list) or len(embeddings) != len(batch):
-                raise RuntimeError("嵌入结果数量与输入不一致")
-            for item in embeddings:
-                values = item.get("values") if isinstance(item, dict) else None
-                if not isinstance(values, list):
-                    raise RuntimeError("嵌入结果数量与输入不一致")
-                vectors.append([float(value) for value in values])
-    return vectors
+            if not isinstance(embeddings, list):
+                raise EmbeddingResponseError("嵌入响应缺少 embeddings 数组")
+            if len(embeddings) != len(batch):
+                raise EmbeddingResponseError(f"嵌入结果数量与输入不一致：期望 {len(batch)}，实际 {len(embeddings)}")
+            return [
+                _embedding_values(item.get("values") if isinstance(item, dict) else None,
+                                  f"嵌入响应 embeddings[{index}].values")
+                for index, item in enumerate(embeddings)
+            ]
+
+        async def embed_single(text: str) -> List[float]:
+            return await _embedding_with_gemini(provider, model, text, client=client)
+
+        return await _embed_in_batches(texts, embed_batch, embed_single)
 
 
-async def _embedding_with_gemini(provider: AIProvider, model: AIModel, text: str) -> List[float]:
+async def _embedding_with_gemini(
+    provider: AIProvider, model: AIModel, text: str, *, client: httpx.AsyncClient | None = None,
+) -> List[float]:
+    if client is None:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            return await _embedding_with_gemini(provider, model, text, client=client)
     model_name = model.name if model.name.startswith("models/") else f"models/{model.name}"
     url = _gemini_endpoint(provider, f"{model_name}:embedContent")
     payload = {
@@ -1291,12 +1353,12 @@ async def _embedding_with_gemini(provider: AIProvider, model: AIModel, text: str
             "parts": [{"text": text}],
         },
     }
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(url, json=payload)
-        response.raise_for_status()
-        body = response.json()
-        embedding = body.get("embedding") or {}
-        return embedding.get("values") or []
+    response = await client.post(url, json=payload)
+    response.raise_for_status()
+    body = response.json()
+    embedding = body.get("embedding") if isinstance(body, dict) else None
+    return _embedding_values(embedding.get("values") if isinstance(embedding, dict) else None,
+                             "嵌入响应 embedding.values")
 
 
 async def _embeddings_with_ollama(provider: AIProvider, model: AIModel, texts: Sequence[str]) -> List[List[float]]:

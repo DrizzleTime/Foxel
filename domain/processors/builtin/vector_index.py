@@ -726,12 +726,12 @@ class VectorIndexProcessor:
                 raise HTTPException(status_code=400, detail="没有可索引的文本")
             await ensure_vector_collection()
             embed_inputs = [_embed_text(path, piece.heading, piece.text) for piece in pieces]
+            vectors = await get_text_embeddings(embed_inputs)
+            if len(vectors) != len(pieces):
+                raise RuntimeError(f"嵌入结果数量与输入不一致：期望 {len(pieces)}，实际 {len(vectors)}")
             try:
                 await vector_db.delete_vector(vector_collection, path)
                 await get_lexical_index().delete_all(path)
-                vectors = await get_text_embeddings(embed_inputs)
-                if len(vectors) != len(pieces):
-                    raise RuntimeError("嵌入结果数量与输入不一致")
                 lexical_chunks: List[LexicalChunk] = []
                 for index, (piece, embedding) in enumerate(zip(pieces, vectors)):
                     payload: Dict[str, Any] = {

@@ -184,7 +184,7 @@ const TaskQueuePage = memo(function TaskQueuePage() {
     {
       title: t('Error'),
       dataIndex: 'error',
-      render: (error: string | undefined) => error ? <Typography.Text type="danger">{error}</Typography.Text> : '--',
+      render: (error: string | undefined) => error ? <Typography.Text type="danger">{t(error)}</Typography.Text> : '--',
     },
   ]), [progressLabel, t]);
 

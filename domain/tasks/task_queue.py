@@ -1,9 +1,15 @@
 import asyncio
+import logging
+import traceback
 from typing import Dict, Any
+import httpx
 from pydantic import BaseModel, Field
 import uuid
 from enum import Enum
 from domain.permission.execution import execution_context, execution_scope, validate_scope
+
+
+logger = logging.getLogger(__name__)
 
 
 class TaskStatus(str, Enum):
@@ -152,8 +158,26 @@ class TaskQueueService:
             task.status = TaskStatus.SUCCESS
 
         except Exception as e:
+            from domain.ai import MissingModelError
+
             task.status = TaskStatus.FAILED
-            task.error = str(e)
+            if isinstance(e, MissingModelError):
+                task.error = "AI model configuration is incomplete. Please check the system settings."
+            elif isinstance(e, httpx.TimeoutException):
+                task.error = "Task request timed out. Please try again later."
+            else:
+                task.error = "Task execution failed. Please check the server logs."
+            # Exception messages and chained tracebacks may contain API keys in URLs.
+            # Keep only the exception type, status and stack frames for diagnostics.
+            upstream_status = e.response.status_code if isinstance(e, httpx.HTTPStatusError) else None
+            logger.error(
+                "Task %s (%s) failed: %s (upstream status: %s)\n%s",
+                task.id,
+                task.name,
+                type(e).__name__,
+                upstream_status,
+                "".join(traceback.format_tb(e.__traceback__)),
+            )
 
     def _cleanup_workers(self):
         self._worker_tasks = [task for task in self._worker_tasks if not task.done()]

@@ -116,27 +116,23 @@ def _openai_wire_message_to_mcp(message: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def describe_image_base64(base64_image: str, detail: str = "high") -> str:
-    """
-    传入 base64 图片并返回描述文本。缺省时返回错误提示。
-    """
-    try:
-        model, provider = await _require_model("vision")
-        fmt = str(provider.api_format or "").lower()
-        if fmt == "openai":
-            return await _describe_with_openai(provider, model, base64_image, detail)
-        if fmt == "gemini":
-            return await _describe_with_gemini(provider, model, base64_image, detail)
-        if fmt == "anthropic":
-            return await _describe_with_anthropic(provider, model, base64_image, detail)
-        if fmt == "ollama":
-            return await _describe_with_ollama(provider, model, base64_image)
+    """返回图片描述；请求失败或描述为空时抛出异常，避免将错误信息写入索引。"""
+    model, provider = await _require_model("vision")
+    fmt = str(provider.api_format or "").lower()
+    if fmt == "openai":
+        description = await _describe_with_openai(provider, model, base64_image, detail)
+    elif fmt == "gemini":
+        description = await _describe_with_gemini(provider, model, base64_image, detail)
+    elif fmt == "anthropic":
+        description = await _describe_with_anthropic(provider, model, base64_image, detail)
+    elif fmt == "ollama":
+        description = await _describe_with_ollama(provider, model, base64_image)
+    else:
         raise MissingModelError(f"不支持的视觉模型接口类型: {provider.api_format}")
-    except MissingModelError as exc:
-        return str(exc)
-    except httpx.ReadTimeout:
-        return "请求超时，请稍后重试。"
-    except Exception as exc:  # noqa: BLE001
-        return f"请求失败: {exc}"
+
+    if not isinstance(description, str) or not description.strip():
+        raise ValueError("视觉模型未返回有效的图片描述")
+    return description.strip()
 
 
 EMBEDDING_BATCH_SIZE = 32

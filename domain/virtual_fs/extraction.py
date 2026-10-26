@@ -34,13 +34,21 @@ class VirtualFSExtractionMixin(ExtractionTaskMixin):
         return {"formats": ["zip"] if supported else [], "native": False}
 
     @classmethod
-    async def extract(cls, src, dst, user_id):
+    async def extract(cls, src, dst, user_id, cleanup_on_failure=False):
         from domain.tasks import task_queue_service
 
         context = await cls._prepare_extraction(src, dst, user_id)
+        if cleanup_on_failure:
+            # Cleanup removes paths under the destination, so require DELETE up front
+            # instead of discovering a missing permission only after a failure.
+            await PermissionService.require_path_permission(user_id, context["dst"], PathAction.DELETE)
+            await guard_path(context["dst"], PathAction.DELETE)
+            if not callable(getattr(context["adapter"], "delete", None)):
+                raise HTTPException(501, "Storage adapter does not support deleting extracted files")
         task = await task_queue_service.add_task("extract_archive", {
             "src": context["src"], "dst": context["dst"], "user_id": user_id,
             "bindings": cls._extraction_bindings(context),
+            "cleanup_on_failure": bool(cleanup_on_failure),
         })
         await task_queue_service.update_progress(task.id, {"stage": "preparing", "percent": 0.0})
         return {"path": context["dst"], "extracted": False, "queued": True,

@@ -87,6 +87,8 @@ class CompressRequest(BaseModel):
 class ExtractRequest(BaseModel):
     src: str
     dst: str
+    # Opt-in: if the task fails after creating destination paths, remove only those paths.
+    cleanup_on_failure: bool = False
 
     @field_validator("src", "dst")
     @classmethod

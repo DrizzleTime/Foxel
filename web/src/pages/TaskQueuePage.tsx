@@ -184,7 +184,23 @@ const TaskQueuePage = memo(function TaskQueuePage() {
     {
       title: t('Error'),
       dataIndex: 'error',
-      render: (error: string | undefined) => error ? <Typography.Text type="danger">{t(error)}</Typography.Text> : '--',
+      render: (error: string | undefined, record) => {
+        const cleanup = record.meta?.cleanup as { removed?: number; kept?: { path: string; reason: string }[]; kept_total?: number } | undefined;
+        if (!error && !cleanup) return '--';
+        const kept = cleanup?.kept ?? [];
+        return (
+          <>
+            {error ? <Typography.Text type="danger">{t(error)}</Typography.Text> : null}
+            {cleanup ? (
+              <Tooltip title={kept.length ? kept.map(item => <div key={item.path}>{item.path}: {t(item.reason)}</div>) : undefined}>
+                <Typography.Text type={kept.length ? 'warning' : 'secondary'} style={{ display: 'block', fontSize: 12 }}>
+                  {t('Cleanup: {removed} removed, {kept} kept', { removed: cleanup.removed ?? 0, kept: cleanup.kept_total ?? kept.length })}
+                </Typography.Text>
+              </Tooltip>
+            ) : null}
+          </>
+        );
+      },
     },
   ]), [progressLabel, t]);
 

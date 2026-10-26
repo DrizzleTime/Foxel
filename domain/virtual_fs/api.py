@@ -50,7 +50,7 @@ async def extraction_capabilities(
 
 
 @router.post("/extract")
-@audit(action=AuditAction.CREATE, description="Extract archive", body_fields=["src", "dst"])
+@audit(action=AuditAction.CREATE, description="Extract archive", body_fields=["src", "dst", "cleanup_on_failure"])
 @require_path_permission(PathAction.READ, "body.src")
 @require_path_permission(PathAction.WRITE, "body.dst")
 async def extract_archive(
@@ -58,7 +58,8 @@ async def extract_archive(
     current_user: Annotated[User, Depends(get_current_active_user)],
     body: ExtractRequest,
 ):
-    return success(await VirtualFSService.extract(body.src, body.dst, current_user.id))
+    return success(await VirtualFSService.extract(body.src, body.dst, current_user.id,
+                                                  cleanup_on_failure=body.cleanup_on_failure))
 
 
 @router.post("/uploads")

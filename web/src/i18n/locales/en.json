@@ -915,6 +915,7 @@
   "Cleanup: {removed} removed, {kept} kept": "Cleanup: {removed} removed, {kept} kept",
   "Directory contains files not created by this task": "Directory contains files not created by this task",
   "Path type changed after it was created": "Path type changed after it was created",
+  "Path still exists after delete": "Path still exists after delete",
   "Storage adapter does not support deleting files": "Storage adapter does not support deleting files",
   "Storage adapter does not support deleting extracted files": "Storage adapter does not support deleting extracted files",
   "Extraction task queued. View progress in Task Queue.": "Extraction task queued. View progress in Task Queue.",

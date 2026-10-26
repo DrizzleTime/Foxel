@@ -172,7 +172,7 @@ class ExtractionTaskMixin:
         permission, path guards and the storage mount, so permission or mount changes after
         the task was queued leave the path in place.
         """
-        removed, kept = [], []
+        removed, kept = 0, []
         seen, ordered = set(), []
         for item in reversed(created):
             if item["path"] not in seen:
@@ -184,8 +184,8 @@ class ExtractionTaskMixin:
         try:
             await cls._extraction_user(user_id)
         except HTTPException as exc:
-            return {"removed": [], "kept": [{"path": item["path"], "reason": str(exc.detail)}
-                                            for item in files + dirs]}
+            kept = [{"path": item["path"], "reason": str(exc.detail)} for item in files + dirs]
+            return cls._cleanup_report(0, kept)
         for item in files + dirs:
             path = item["path"]
             try:
@@ -196,24 +196,32 @@ class ExtractionTaskMixin:
                 # Adapter errors can embed URLs or credentials; report the error type only.
                 reason = f"Delete failed ({type(exc).__name__})"
             if reason is None:
-                removed.append(path)
+                removed += 1
             elif reason:
                 kept.append({"path": path, "reason": reason})
-        return {"removed": removed, "kept": kept}
+        return cls._cleanup_report(removed, kept)
+
+    # Archives may hold up to 100k entries and task meta is polled by the UI, so the report
+    # counts removed paths and lists at most this many kept ones.
+    CLEANUP_REPORT_LIMIT = 100
+
+    @classmethod
+    def _cleanup_report(cls, removed, kept):
+        return {"removed": removed, "kept": kept[:cls.CLEANUP_REPORT_LIMIT], "kept_total": len(kept)}
 
     @classmethod
     async def _remove_extracted_path(cls, context, path, is_dir, user_id):
         """Delete one created path. Returns None when removed, "" when it is already gone,
         or the reason it was kept."""
-        await PermissionService.require_path_permission(user_id, path, PathAction.DELETE)
-        await guard_path(path, PathAction.DELETE)
         adapter, model, root, rel = await cls.resolve_adapter_and_rel(path)
         if [model.id, root] != [context["model"].id, context["root"]]:
             return "Storage mounts changed during extraction"
         try:
             stat = await adapter.stat_file(root, rel)
         except FileNotFoundError:
-            return ""
+            return ""   # never written (the failing step) or already gone: nothing to report
+        await PermissionService.require_path_permission(user_id, path, PathAction.DELETE)
+        await guard_path(path, PathAction.DELETE)
         if not isinstance(stat, dict) or stat.get("is_symlink") or bool(stat.get("is_dir")) != is_dir:
             return "Path type changed after it was created"
         if is_dir and not await cls._extraction_dir_empty(adapter, root, rel):
@@ -222,7 +230,13 @@ class ExtractionTaskMixin:
         if not callable(delete):
             return "Storage adapter does not support deleting files"
         await delete(root, rel)
-        return None
+        # Some adapters report success without removing the path (e.g. a directory marker
+        # addressed without its trailing slash), so only report what is actually gone.
+        try:
+            await adapter.stat_file(root, rel)
+        except FileNotFoundError:
+            return None
+        return "Path still exists after delete"
 
     @staticmethod
     async def _extraction_dir_empty(adapter, root, rel):

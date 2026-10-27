@@ -38,3 +38,18 @@ class CompressionCapableAdapter(Protocol):
 class ExtractionCapableAdapter(Protocol):
     async def get_extraction_capabilities(self, root: str, rel: str) -> Dict: ...
     async def extract(self, root: str, src_rel: str, dst_rel: str) -> Dict: ...
+
+
+@runtime_checkable
+class ExtractionCleanupAdapter(Protocol):
+    """Optional exclusive creation and guarded, nonrecursive extraction cleanup.
+
+    Creation fills an opaque receipt only after acquiring the new path. File receipts
+    must also cover partial writes on failure. Cleanup preserves changed objects and
+    returns a public reason, None for removal, or "" for an already missing path.
+    An adapter without these guarantees must leave extraction output in place.
+    """
+    supports_safe_extraction_cleanup: bool
+    async def create_extraction_directory(self, root: str, rel: str, receipt: dict): ...
+    async def write_extraction_file(self, root: str, rel: str, incoming, receipt: dict): ...
+    async def cleanup_extraction_path(self, root: str, rel: str, receipt: dict) -> str | None: ...

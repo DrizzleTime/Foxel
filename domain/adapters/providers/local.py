@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse, Response
 from models import StorageAdapter
 from domain.adapters.archive import zip_entries, MAX_EXTRACTED_BYTES
+from ._local_extraction import LocalExtractionMixin
 
 
 def _safe_join(root: str, rel: str) -> Path:
@@ -32,7 +33,7 @@ def _apply_mode(path: Path, mode: int):
         pass
 
 
-class LocalAdapter:
+class LocalAdapter(LocalExtractionMixin):
     def __init__(self, record: StorageAdapter):
         self.record = record
         self.root = self.record.config.get("root")

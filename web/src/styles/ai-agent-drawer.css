@@ -1,0 +1,27 @@
+.fx-agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.fx-agent-heading {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--ant-color-fill-tertiary);
+  color: var(--ant-color-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.fx-agent-header .ant-btn {
+  width: 28px;
+  height: 28px;
+  color: var(--ant-color-text-tertiary);
+}
+
+.fx-agent-header .ant-btn:disabled {
+  color: var(--ant-color-text-quaternary);
+}

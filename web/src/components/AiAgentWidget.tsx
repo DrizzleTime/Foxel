@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Button, Divider, Drawer, Flex, Input, List, Space, Switch, Tag, Tooltip, Typography, message, theme } from 'antd';
-import { RobotOutlined, ArrowUpOutlined, FormOutlined, CloseOutlined, FolderOpenOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Button, Divider, Flex, Input, List, Space, Switch, Tag, Tooltip, Typography, message, theme } from 'antd';
+import { RobotOutlined, ArrowUpOutlined, FolderOpenOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
+import AiAgentDrawer from './AiAgentDrawer';
 import ReactMarkdown from './Markdown';
 import type { TextAreaRef } from 'antd/es/input/TextArea';
 import { agentApi, type AgentChatMessage, type PendingMcpCall } from '../api/agent';
@@ -614,64 +615,14 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, currentPage, on
 
   return (
     <>
-      <Drawer
-        title={(
-          <div className="fx-agent-header">
-            <span className="fx-agent-heading">{t('AI Agent')}</span>
-            <Space size={2}>
-              <Tooltip title={t('Clear')}>
-                <Button
-                  type="text"
-                  icon={<FormOutlined />}
-                  aria-label={t('Clear')}
-                  onClick={clearChat}
-                  disabled={loading || messageItems.length === 0}
-                />
-              </Tooltip>
-              <Tooltip title={t('Close')}>
-                <Button
-                  type="text"
-                  icon={<CloseOutlined />}
-                  aria-label={t('Close')}
-                  onClick={() => { streamControllerRef.current?.abort(); onOpenChange(false); }}
-                />
-              </Tooltip>
-            </Space>
-          </div>
-        )}
-        closable={false}
+      <AiAgentDrawer
+        onClear={clearChat}
+        clearDisabled={loading || messageItems.length === 0}
         open={open}
         onClose={() => { streamControllerRef.current?.abort(); onOpenChange(false); }}
-        placement="right"
-        size={width}
-        mask={false}
-        push={false}
-        aria-modal={false}
-        autoFocus={false}
-        focusable={{ trap: false }}
+        width={width}
         afterOpenChange={(visible) => {
           if (visible) inputRef.current?.focus({ preventScroll: true });
-        }}
-        destroyOnHidden
-        styles={{
-          wrapper: {
-            boxShadow: 'none',
-          },
-          section: {
-            borderLeft: `1px solid ${token.colorBorderSecondary}`,
-            background: token.colorBgLayout,
-          },
-          header: {
-            minHeight: 56,
-            padding: '10px 16px',
-            borderBottom: 0,
-          },
-          body: {
-            padding: '0 12px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          },
         }}
       >
         <Flex vertical gap={0} style={{ flex: 1, minHeight: 0 }} className="fx-agent-container">
@@ -922,7 +873,7 @@ const AiAgentWidget = memo(function AiAgentWidget({ currentPath, currentPage, on
             </div>
           </div>
         </Flex>
-      </Drawer>
+      </AiAgentDrawer>
     </>
   );
 });

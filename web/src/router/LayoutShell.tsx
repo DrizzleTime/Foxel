@@ -1,4 +1,4 @@
-import { Drawer, Layout, Flex, Modal, theme } from 'antd';
+import { Layout, Flex, Modal, theme } from 'antd';
 import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import SideNav from '../layout/SideNav.tsx';
@@ -7,6 +7,7 @@ import { primaryNav } from '../layout/nav';
 import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext';
 import { AppWindowsLayer } from '../apps/AppWindowsLayer';
 import PageLoading from '../components/PageLoading';
+import AiAgentDrawer from '../components/AiAgentDrawer';
 import useResponsive from '../hooks/useResponsive';
 import { useI18n } from '../i18n';
 
@@ -169,19 +170,13 @@ const ShellBody = memo(function ShellBody() {
       />
       {agentMounted && (
         <Suspense fallback={(
-          <Drawer
-            title={t('AI Agent')}
+          <AiAgentDrawer
             open={agentOpen}
             onClose={() => setAgentOpen(false)}
-            size={agentWidth}
-            mask={false}
-            push={false}
-            aria-modal={false}
-            autoFocus={false}
-            focusable={{ trap: false }}
+            width={agentWidth}
           >
             <PageLoading />
-          </Drawer>
+          </AiAgentDrawer>
         )}>
           <AiAgentWidget
             currentPath={agentCurrentPath}

@@ -1,15 +1,18 @@
 import { Navigate, Routes, Route, useLocation } from 'react-router';
 import type { RouteObject } from 'react-router';
-import LayoutShell from './LayoutShell.tsx';
+import { lazy, Suspense } from 'react';
 import LoginPage from '../pages/LoginPage.tsx';
-import RegisterPage from '../pages/RegisterPage.tsx';
-import SetupPage from '../pages/SetupPage.tsx';
-import PublicSharePage from '../pages/PublicSharePage';
-import VideoRoomPage from '../pages/VideoRoomPage';
-import ForgotPasswordPage from '../pages/ForgotPasswordPage';
-import ResetPasswordPage from '../pages/ResetPasswordPage';
+import PageLoading from '../components/PageLoading';
 import { useAuth } from '../contexts/AuthContext';
 import type { JSX } from 'react';
+
+const LayoutShell = lazy(() => import('./LayoutShell.tsx'));
+const RegisterPage = lazy(() => import('../pages/RegisterPage.tsx'));
+const SetupPage = lazy(() => import('../pages/SetupPage.tsx'));
+const PublicSharePage = lazy(() => import('../pages/PublicSharePage'));
+const VideoRoomPage = lazy(() => import('../pages/VideoRoomPage'));
+const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage'));
 
 export const routes: RouteObject[] = [
   { path: '/', element: <Navigate to="/files" replace /> },
@@ -38,15 +41,17 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 export function AppRouter() {
   return (
     <RequireAuth>
-      <Routes>
-        {routes.map(r => (
-          <Route
-            key={r.path}
-            path={r.path}
-            element={r.element}
-          />
-        ))}
-      </Routes>
+      <Suspense fallback={<PageLoading fullPage />}>
+        <Routes>
+          {routes.map(r => (
+            <Route
+              key={r.path}
+              path={r.path}
+              element={r.element}
+            />
+          ))}
+        </Routes>
+      </Suspense>
     </RequireAuth>
   );
 }

@@ -1,6 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router';
-import { message } from 'antd';
 import { vfsApi, type VfsEntry } from '../../../api/client';
 
 type ExplorerSnapshot = {
@@ -28,6 +27,9 @@ export function useFileExplorer(navKey: string) {
 
   const [path, setPath] = useState<string>("/");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [processorsUnavailable, setProcessorsUnavailable] = useState(false);
+  const requestSequence = useRef(0);
   const [entries, setEntries] = useState<VfsEntry[]>([]);
   const [processorTypes, setProcessorTypes] = useState<ProcessorTypeMeta[]>([]);
   const [pagination, setPagination] = useState({
@@ -41,7 +43,6 @@ export function useFileExplorer(navKey: string) {
     hasNext: false,
     showSizeChanger: true,
     showQuickJumper: true,
-    showTotal: (total: number, range: [number, number]) => `${total} ${'items'} ${range[0]}-${range[1]}`,
     pageSizeOptions: ['20', '50', '100', '200']
   });
   const [sortBy, setSortBy] = useState('name');
@@ -49,13 +50,21 @@ export function useFileExplorer(navKey: string) {
 
   const load = useCallback(async (p: string, page: number = 1, pageSize: number = 50, sb = sortBy, so = sortOrder, cursor?: string | null, cursorHistory: (string | null)[] = []) => {
     const canonical = p === '' ? '/' : (p.startsWith('/') ? p : '/' + p);
+    const sequence = ++requestSequence.current;
     setLoading(true);
+    setError(null);
+    void processorsApi.list().then(processors => {
+      if (sequence !== requestSequence.current) return;
+      setProcessorTypes(processors);
+      setProcessorsUnavailable(false);
+    }).catch(() => {
+      if (sequence !== requestSequence.current) return;
+      setProcessorTypes([]);
+      setProcessorsUnavailable(true);
+    });
     try {
-      // Load entries and processor types concurrently
-      const [res, processors] = await Promise.all([
-        vfsApi.list(canonical === '/' ? '' : canonical, page, pageSize, sb, so, cursor),
-        processorsApi.list()
-      ]);
+      const res = await vfsApi.list(canonical === '/' ? '' : canonical, page, pageSize, sb, so, cursor);
+      if (sequence !== requestSequence.current) return;
       setEntries(res.entries);
       const resolvedPath = res.path || canonical;
       setPath(resolvedPath);
@@ -71,7 +80,6 @@ export function useFileExplorer(navKey: string) {
         hasNext: Boolean(res.pagination?.has_next),
         cursorHistory: pageMode === 'cursor' ? cursorHistory : [],
       }));
-      setProcessorTypes(processors);
       if (typeof window !== 'undefined') {
         const snapshot: ExplorerSnapshot = {
           path: resolvedPath,
@@ -86,18 +94,20 @@ export function useFileExplorer(navKey: string) {
         window.dispatchEvent(new CustomEvent<ExplorerSnapshot>('foxel:file-explorer-page', { detail: snapshot }));
       }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Load failed';
-      message.error(msg);
+      if (sequence !== requestSequence.current) return;
+      setPath(canonical);
+      setEntries([]);
+      setError(e instanceof Error ? e.message : 'Load failed');
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
   }, [sortBy, sortOrder]);
 
   const navigateTo = useCallback((p: string) => {
     const canonical = p === '' || p === '/' ? '/' : (p.startsWith('/') ? p : '/' + p);
     const target = `/${navKey}${canonical === '/' ? '' : canonical}`;
-    if (location.pathname !== target) navigate(target);
-  }, [navKey, navigate, location.pathname]);
+    if (location.pathname !== target || location.search) navigate(target);
+  }, [navKey, navigate, location.pathname, location.search]);
 
   const goUp = useCallback(() => {
     if (path === '/') return;
@@ -146,6 +156,8 @@ export function useFileExplorer(navKey: string) {
     path,
     entries,
     loading,
+    error,
+    processorsUnavailable,
     pagination,
     processorTypes,
     sortBy,

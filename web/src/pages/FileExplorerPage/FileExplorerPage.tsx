@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
-import { Button, Space, theme, Pagination } from 'antd';
+import { Alert, Button, Space, theme, Pagination } from 'antd';
 import { useFileExplorer } from './hooks/useFileExplorer';
 import { useFileSelection } from './hooks/useFileSelection';
 import { useFileActions } from './hooks/useFileActions.tsx';
@@ -13,7 +13,6 @@ import { useUploader } from './hooks/useUploader';
 import { useBatchMode, type BatchItem } from './hooks/useBatchMode';
 import { Header } from './components/Header';
 import { GridView } from './components/GridView';
-import { FileListView } from './components/FileListView';
 import { EmptyState } from './components/EmptyState';
 import { ContextMenu } from './components/ContextMenu';
 import { DropzoneOverlay } from './components/DropzoneOverlay';
@@ -38,23 +37,29 @@ import type { BatchOpResult } from '../../api/vfs';
 import { getPublicConfig } from '../../api/config';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import useResponsive from '../../hooks/useResponsive';
+import { useI18n } from '../../i18n';
+
+const FileListView = lazy(() => import('./components/FileListView').then(module => ({ default: module.FileListView })));
 
 const FileExplorerPage = memo(function FileExplorerPage() {
   const { navKey = 'files', '*': restPath = '' } = useParams();
   const { token } = theme.useToken();
+  const { t } = useI18n();
   const { isMobile } = useResponsive();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isDragging, setIsDragging] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(false);
+  const fileRegionRef = useRef<HTMLDivElement>(null);
+  const restoreFileFocus = useRef(false);
   const dragCounter = useRef(0);
   const skeletonTimerRef = useRef<number | null>(null);
 
   // --- Hooks ---
-  const { path, entries, loading, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange, goCursorNext, goCursorPrev } = useFileExplorer(navKey);
+  const { path, entries, loading, error: loadError, processorsUnavailable, pagination, processorTypes, sortBy, sortOrder, load, navigateTo, goUp, handlePaginationChange, refresh, handleSortChange, goCursorNext, goCursorPrev } = useFileExplorer(navKey);
   const { selectedEntries, handleSelect, handleSelectRange, clearSelection, setSelectedEntries } = useFileSelection();
   const batch = useBatchMode(path);
   const { openFileWithDefaultApp, confirmOpenWithApp } = useAppWindows();
-  const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, openContextMenuAt, closeContextMenus } = useContextMenu();
+  const { ctxMenu, blankCtxMenu, openContextMenu, openBlankContextMenu, openContextMenuAt, openBlankContextMenuAt, closeContextMenus } = useContextMenu();
   const uploader = useUploader(path, refresh);
   const { handleFileDrop, openFilePicker, openDirectoryPicker, handleFileInputChange, handleDirectoryInputChange } = uploader;
   const { thumbs } = useThumbnails(entries, path);
@@ -79,9 +84,13 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const [batchCompressSources, setBatchCompressSources] = useState<string[] | null>(null);
 
   // --- Search ---
+  const navigateFromSearch = useCallback((nextPath: string) => {
+    restoreFileFocus.current = !!document.activeElement?.closest('[data-file-item]');
+    navigateTo(nextPath);
+  }, [navigateTo]);
   const fileSearch = useFileSearch({
     currentPath: path,
-    navigateTo,
+    navigateTo: navigateFromSearch,
     openFileWithDefaultApp,
     openContextMenu,
     closeContextMenus,
@@ -137,6 +146,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
 
   // --- Effects ---
   const routePath = '/' + (restPath || '').replace(/^\/+/, '');
+  const directoryPending = loading || path !== routePath;
 
   useEffect(() => {
     load(routePath, 1, pagination.pageSize, sortBy, sortOrder);
@@ -194,6 +204,16 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     clearSearchSelection();
   }, [clearSearchSelection, clearSelection]);
 
+  useEffect(() => { clearSelection(); }, [path, clearSelection]);
+
+  useLayoutEffect(() => {
+    if (loading || !restoreFileFocus.current) return;
+    const target = fileRegionRef.current?.querySelector<HTMLElement>('[data-file-item], [data-folder-retry]')
+      ?? document.querySelector<HTMLElement>('.fx-file-toolbar [aria-current="page"]');
+    target?.focus();
+    restoreFileFocus.current = false;
+  }, [loading, entries, loadError]);
+
   const removeBatchPaths = batch.removePaths;
   const handleBatchResult = useCallback((result: BatchOpResult) => {
     removeBatchPaths(result.results.filter(item => item.ok).map(item => item.src));
@@ -221,6 +241,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
 
   const handleOpenEntry = (entry: VfsEntry) => {
     if (entry.is_dir) {
+      restoreFileFocus.current = !!document.activeElement?.closest('[data-file-item]');
       const next = (entryBasePath === '/' ? '' : entryBasePath) + '/' + entry.name;
       navigateTo(next.replace(/\/+/g, '/'));
     } else {
@@ -313,14 +334,15 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     setCopyingEntries([]);
   }, []);
 
-  const showFsPagination = !isSearching && pagination.mode === 'paged' && pagination.total > 0;
-  const showCursorPagination = !isSearching && pagination.mode === 'cursor' && (pagination.cursorHistory.length > 0 || pagination.hasNext);
+  const showFsPagination = !isSearching && !loadError && pagination.mode === 'paged' && pagination.total > 0;
+  const showCursorPagination = !isSearching && !loadError && pagination.mode === 'cursor' && (pagination.cursorHistory.length > 0 || pagination.hasNext);
   const shouldReserveBottomBar = showFsPagination;
   const shouldReserveAnyBottomBar = shouldReserveBottomBar || showCursorPagination;
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (directoryPending || loadError) return;
     dragCounter.current++;
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       setIsDragging(true);
@@ -330,7 +352,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    dragCounter.current--;
+    dragCounter.current = Math.max(0, dragCounter.current - 1);
     if (dragCounter.current === 0) {
       setIsDragging(false);
     }
@@ -346,6 +368,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
     e.stopPropagation();
     setIsDragging(false);
     dragCounter.current = 0;
+    if (directoryPending || loadError) return;
     void handleFileDrop(e.dataTransfer);
   };
 
@@ -388,12 +411,13 @@ const FileExplorerPage = memo(function FileExplorerPage() {
       <Header
         navKey={navKey}
         path={path}
-        loading={isSearching ? searchLoading : loading}
+        loading={isSearching ? searchLoading : directoryPending}
         viewMode={viewMode}
         sortBy={sortBy}
         sortOrder={sortOrder}
         paginationMode={pagination.mode}
         isMobile={isMobile}
+        actionsDisabled={directoryPending || !!loadError}
         batchMode={batchBarVisible}
         batchCount={batch.count}
         batchAllSelected={batchAllSelected}
@@ -411,6 +435,11 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onSortChange={handleSortChange}
       />
 
+      {processorsUnavailable && (
+        <Alert type="warning" showIcon title={t('File processors are unavailable. File browsing is still available.')} />
+      )}
+      <span className="fx-sr-only" role="status">{(isSearching ? searchLoading : directoryPending) ? t('Loading...') : ''}</span>
+
       <input
         ref={uploader.fileInputRef}
         type="file"
@@ -426,7 +455,28 @@ const FileExplorerPage = memo(function FileExplorerPage() {
         onChange={handleDirectoryInputChange}
       />
 
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: batchBarVisible ? 0 : shouldReserveAnyBottomBar ? '80px' : '0' }} onContextMenu={isMobile ? undefined : openBlankContextMenu}>
+      <div
+        ref={fileRegionRef}
+        data-file-scroll
+        role="region"
+        tabIndex={0}
+        aria-label={isSearching ? t('Search Results') : t('All Files')}
+        aria-busy={!isSearching && directoryPending}
+        inert={!isSearching && directoryPending}
+        onKeyDown={event => {
+          if (event.target !== event.currentTarget || isSearching) return;
+          if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+            event.preventDefault();
+            const point = event.currentTarget.getBoundingClientRect();
+            openBlankContextMenuAt(point.left + 16, point.top + 16);
+          } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            event.currentTarget.querySelector<HTMLElement>('[data-file-item]')?.focus();
+          }
+        }}
+        style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingBottom: batchBarVisible ? 0 : shouldReserveAnyBottomBar ? '80px' : '0' }}
+        onContextMenu={isMobile ? undefined : openBlankContextMenu}
+      >
         {isSearching ? (
           <SearchResultsView
             viewMode={viewMode}
@@ -443,10 +493,19 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             onContextMenu={(e, fullPath) => { void openSearchContextMenu(e, fullPath); }}
             onOpenMenu={openSearchMenuFromAnchor}
           />
+        ) : loadError ? (
+          <Alert
+            type="error"
+            showIcon
+            title={t('Unable to load this folder')}
+            description={t(loadError)}
+            action={<Button data-folder-retry onClick={refresh}>{t('Retry')}</Button>}
+            style={{ margin: 16, overflowWrap: 'anywhere' }}
+          />
         ) : showSkeleton && loading && (entries.length === 0 || path !== routePath) ? (
           <LoadingSkeleton mode={viewMode} />
         ) : !loading && entries.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40 }}><EmptyState isRoot={path === '/'} /></div>
+          <EmptyState isRoot={path === '/'} />
         ) : viewMode === 'grid' ? (
           <GridView
             entries={entries}
@@ -464,40 +523,42 @@ const FileExplorerPage = memo(function FileExplorerPage() {
             onBatchToggle={handleBatchToggle}
           />
         ) : (
-          <FileListView
-            entries={entries}
-            mobile={isMobile}
-            thumbs={thumbs}
-            selectedEntries={selectedEntries}
-            onRowClick={(r, e) => handleSelect(r, e.ctrlKey || e.metaKey)}
-            onSelectionChange={setSelectedEntries}
-            onOpen={handleOpenEntry}
-            onOpenWith={(entry, appKey) => confirmOpenWithApp(entry, appKey, path)}
-            onRename={setRenaming}
-            onDelete={(entry) => doDelete([entry])}
-            onContextMenu={openContextMenu}
-            onOpenMenu={openEntryMenuFromAnchor}
-            batchMode={batchBarVisible}
-            batchSelectedNames={batch.currentDirNames}
-            onBatchToggle={handleBatchToggle}
-          />
+          <Suspense fallback={<div role="status" aria-label={t('Loading...')}><LoadingSkeleton mode="list" /></div>}>
+            <FileListView
+              entries={entries}
+              mobile={isMobile}
+              thumbs={thumbs}
+              selectedEntries={selectedEntries}
+              onRowClick={(r, e) => handleSelect(r, e.ctrlKey || e.metaKey)}
+              onSelectionChange={setSelectedEntries}
+              onOpen={handleOpenEntry}
+              onOpenWith={(entry, appKey) => confirmOpenWithApp(entry, appKey, path)}
+              onRename={setRenaming}
+              onDelete={(entry) => doDelete([entry])}
+              onContextMenu={openContextMenu}
+              onOpenMenu={openEntryMenuFromAnchor}
+              batchMode={batchBarVisible}
+              batchSelectedNames={batch.currentDirNames}
+              onBatchToggle={handleBatchToggle}
+            />
+          </Suspense>
         )}
       </div>
 
       {showFsPagination && (
         <div style={{ position: batchBarVisible ? 'relative' : 'absolute', flexShrink: 0, bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
-          <Pagination {...pagination} onChange={handlePaginationChange} onShowSizeChange={handlePaginationChange} />
+          <Pagination {...pagination} disabled={directoryPending} showTotal={(total, range) => t('{start}–{end} of {total} items', { start: range[0], end: range[1], total })} onChange={handlePaginationChange} />
         </div>
       )}
 
       {showCursorPagination && (
         <div style={{ position: batchBarVisible ? 'relative' : 'absolute', flexShrink: 0, bottom: 0, left: 0, right: 0, padding: '12px 16px', background: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}`, textAlign: 'center', zIndex: 10 }}>
           <Space>
-            <Button size="small" onClick={goCursorPrev} disabled={pagination.cursorHistory.length === 0 || loading}>
-              上一页
+            <Button size="small" onClick={goCursorPrev} disabled={pagination.cursorHistory.length === 0 || directoryPending}>
+              {t('Previous page')}
             </Button>
-            <Button size="small" type="primary" onClick={goCursorNext} disabled={!pagination.hasNext || loading}>
-              下一页
+            <Button size="small" type="primary" onClick={goCursorNext} disabled={!pagination.hasNext || directoryPending}>
+              {t('Next page')}
             </Button>
           </Space>
         </div>
@@ -667,7 +728,7 @@ const FileExplorerPage = memo(function FileExplorerPage() {
           onDelete={handleBatchDelete}
         />
       )}
-      <DropzoneOverlay visible={isDragging} />
+      <DropzoneOverlay visible={isDragging && !directoryPending && !loadError} />
     </div>
   );
 });

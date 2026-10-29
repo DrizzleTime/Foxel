@@ -6,6 +6,8 @@ import { getFileIcon } from './FileIcons';
 import { EmptyState } from './EmptyState';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useI18n } from '../../../i18n';
+import FileThumbnail from '../../../components/FileThumbnail';
+import { handleFileItemKeyDown } from './fileItemKeyboard';
 
 interface Props {
   entries: VfsEntry[];
@@ -146,8 +148,8 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, pa
   };
 
   return (
-    <div className="fx-grid" style={{ padding: mobile ? 12 : 16 }} ref={containerRef} onMouseDown={handleMouseDown}>
-      {entries.map((ent) => {
+    <div data-file-items className="fx-grid" style={{ padding: mobile ? 12 : 16 }} ref={containerRef} onMouseDown={handleMouseDown}>
+      {entries.map((ent, index) => {
         const isImg = thumbs[ent.name];
         const ext = ent.name.split('.').pop()?.toLowerCase();
         const isPictureType = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext || '');
@@ -212,7 +214,7 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, pa
                 size="small"
                 type="text"
                 icon={<MoreOutlined />}
-                aria-label={t('More')}
+                aria-label={t('More actions for {name}', { name: ent.name })}
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenMenu(ent, e.currentTarget);
@@ -220,23 +222,37 @@ export const GridView: React.FC<Props> = ({ entries, thumbs, selectedEntries, pa
                 style={{ position: 'absolute', top: 4, right: 4, zIndex: 2 }}
               />
             )}
-            <div className="thumb" style={{ background: 'var(--ant-color-bg-container, #fff)' }}>
-              {ent.is_dir && (
-                <FolderFilled
-                  style={{
-                    fontSize: 32,
-                    color: resolvedMode === 'dark' ? lightenColor(String(token.colorPrimary || '#111111'), 0.72) : token.colorPrimary,
-                  }}
-                />
-              )}
-              {!ent.is_dir && (isImg ? <img src={isImg} alt={ent.name} style={{ maxWidth: '100%', maxHeight: '100%' }} /> : isPictureType ? <PictureOutlined style={{ fontSize: 32, color: resolvedMode === 'dark' ? lightenColor(String(token.colorPrimary || '#111111'), 0.72) : 'var(--ant-color-text-tertiary, #8c8c8c)' }} /> : getFileIcon(ent.name, 32, resolvedMode))}
-              {ent.type === 'mount' && <span className="badge">M</span>}
-            </div>
-            <Tooltip title={ent.name}>
-              <div className="name ellipsis" style={{ userSelect: 'none' }}>{ent.name}</div>
-            </Tooltip>
-            <div className="meta ellipsis" style={{ fontSize: 11, color: token.colorTextSecondary, userSelect: 'none' }}>
-              {ent.is_dir ? t('Folder') : formatSize(ent.size)}
+            <div
+              className="fx-file-card-action"
+              data-file-item
+              role="button"
+              tabIndex={0}
+              aria-label={ent.name}
+              aria-pressed={isSelected || batchChecked}
+              onKeyDown={(event) => handleFileItemKeyDown(event, {
+                open: () => mobile && batchMode ? onBatchToggle?.(ent) : onOpen(ent),
+                select: () => mobile ? (batchMode ? onBatchToggle?.(ent) : onOpen(ent)) : onSelect(ent, true),
+                menu: onOpenMenu ? () => onOpenMenu(ent, event.currentTarget) : undefined,
+              })}
+            >
+              <div className="thumb" style={{ background: 'var(--ant-color-bg-container, #fff)' }}>
+                {ent.is_dir && (
+                  <FolderFilled
+                    style={{
+                      fontSize: 32,
+                      color: resolvedMode === 'dark' ? lightenColor(String(token.colorPrimary || '#111111'), 0.72) : token.colorPrimary,
+                    }}
+                  />
+                )}
+                {!ent.is_dir && (isImg ? <FileThumbnail src={isImg} alt={ent.name} eager={index < 12} fallback={getFileIcon(ent.name, 32, resolvedMode)} style={{ maxWidth: '100%', maxHeight: '100%' }} /> : isPictureType ? <PictureOutlined style={{ fontSize: 32, color: resolvedMode === 'dark' ? lightenColor(String(token.colorPrimary || '#111111'), 0.72) : 'var(--ant-color-text-tertiary, #8c8c8c)' }} /> : getFileIcon(ent.name, 32, resolvedMode))}
+                {ent.type === 'mount' && <span className="badge">M</span>}
+              </div>
+              <Tooltip title={ent.name}>
+                <div className="name ellipsis" style={{ userSelect: 'none' }}>{ent.name}</div>
+              </Tooltip>
+              <div className="meta ellipsis" style={{ fontSize: 11, color: token.colorTextSecondary, userSelect: 'none' }}>
+                {ent.is_dir ? t('Folder') : formatSize(ent.size)}
+              </div>
             </div>
           </div>
         );

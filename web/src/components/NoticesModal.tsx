@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { Modal, List, Typography, theme, Flex, Button, Empty, message, Divider, Spin } from 'antd';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown from './Markdown';
 import { format } from 'date-fns';
 import { noticesApi, type NoticeItem } from '../api/notices';
 import { useI18n } from '../i18n';

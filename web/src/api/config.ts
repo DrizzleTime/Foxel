@@ -31,8 +31,8 @@ export interface SystemStatus {
   file_domain?: string;
 }
 
-export async function status() {
-  return request<SystemStatus>('/config/status');
+export async function status(signal?: AbortSignal) {
+  return request<SystemStatus>('/config/status', { signal });
 }
 
 export async function getLatestVersion() {

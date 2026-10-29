@@ -1,14 +1,16 @@
-import { memo, useState, useEffect } from 'react';
+import { lazy, memo, Suspense, useState, useEffect } from 'react';
 import { Card, Spin, Button, Typography, Empty } from 'antd';
 import { DownloadOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { shareApi, type ShareInfo } from '../../api/share';
 import { type VfsEntry } from '../../api/vfs';
 import { format, parseISO } from 'date-fns';
-import ReactMarkdown from 'react-markdown';
-import { VideoViewer } from './VideoViewer';
+import ReactMarkdown from '../../components/Markdown';
+import PageLoading from '../../components/PageLoading';
 import { useI18n } from '../../i18n';
 
 const { Title, Text } = Typography;
+
+const VideoViewer = lazy(() => import('./VideoViewer').then(module => ({ default: module.VideoViewer })));
 
 const isImageViewer = (name: string) => /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(name);
 const isVideoViewable = (name: string) => /\.(mp4|webm|ogg|m4v|mov)$/i.test(name);
@@ -69,7 +71,11 @@ export const FileViewer = memo(function FileViewer({ token, shareInfo, entry, pa
     }
 
     if (isVideoViewable(entry.name)) {
-      return <VideoViewer token={token} entry={entry} password={password} path={path} />;
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <VideoViewer token={token} entry={entry} password={password} path={path} />
+        </Suspense>
+      );
     }
 
     if (entry.name.endsWith('.md')) {
@@ -96,9 +102,9 @@ export const FileViewer = memo(function FileViewer({ token, shareInfo, entry, pa
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: 960, margin: 'auto' }}>
+    <main style={{ padding: '24px', maxWidth: 960, margin: 'auto' }}>
       <Card>
-        <Title level={4}>{entry.name}</Title>
+        <Title level={1} style={{ fontSize: 20, marginTop: 0 }}>{entry.name}</Title>
         <Text type="secondary">
           {t('Created on {date}', { date: format(parseISO(shareInfo.created_at), 'yyyy-MM-dd') })}
           {shareInfo?.expires_at ? (
@@ -129,6 +135,6 @@ export const FileViewer = memo(function FileViewer({ token, shareInfo, entry, pa
           {renderContent()}
         </Card>
       </Card>
-    </div>
+    </main>
   );
 });

@@ -103,6 +103,7 @@ export function MoveCopyModal({ mode, entries, open, defaultPath, destinationIsD
           autoFocus
           value={value}
           placeholder={t('Destination path')}
+          aria-label={t('Destination path')}
           onChange={(e) => setValue(e.target.value)}
           onPressEnter={handleOk}
         />

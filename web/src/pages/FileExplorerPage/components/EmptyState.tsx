@@ -13,7 +13,7 @@ export const EmptyState: React.FC<Props> = ({ isRoot }) => {
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:isRoot? '80px 40px':'60px 40px', minHeight: isRoot? '400px':'300px', color: token.colorTextSecondary }}>
       <FolderOpenOutlined style={{ fontSize:64, color: token.colorTextQuaternary, marginBottom:16 }} />
-      <Typography.Title level={4} style={{ color: token.colorTextSecondary, marginBottom:8, fontWeight:400 }}>
+      <Typography.Title level={2} style={{ fontSize: token.fontSizeHeading4, color: token.colorTextSecondary, marginBottom:8, fontWeight:400 }}>
         {isRoot ? t('No files yet here') : t('This folder is empty')}
       </Typography.Title>
       <Typography.Text style={{ color: token.colorTextTertiary, marginBottom:24, textAlign:'center', maxWidth:300, lineHeight:1.5 }}>

@@ -7,6 +7,8 @@ import type { ViewMode } from '../types';
 import type { SearchDisplayItem } from '../hooks/useFileSearch';
 import type { SearchWarning } from '../../../api/vfs';
 import { formatIndexLocation } from './indexLocation';
+import { handleFileItemKeyDown } from './fileItemKeyboard';
+import { FileOutlined, FolderOutlined } from '@ant-design/icons';
 
 function formatScore(score: number): string {
   if (!Number.isFinite(score)) return '-';
@@ -109,7 +111,7 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
           <Empty description={t('No files found')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
         </Flex>
       ) : viewMode === 'grid' ? (
-        <div className="fx-grid" style={{ padding: 0, gridTemplateColumns: mobile ? 'repeat(auto-fill, minmax(160px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+        <div data-file-items className="fx-grid" style={{ padding: 0, gridTemplateColumns: mobile ? 'repeat(auto-fill, minmax(160px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))' }}>
           {items.map(({ item, fullPath, dir, name }) => {
             const selected = selectedPaths.includes(fullPath);
             const scoreText = formatScore(item.score);
@@ -137,10 +139,11 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
               >
                 {mobile && onOpenMenu && (
                   <Button
+                    className="fx-file-more-button"
                     size="small"
                     type="text"
                     icon={<MoreOutlined />}
-                    aria-label={t('More')}
+                    aria-label={t('More actions for {name}', { name })}
                     onClick={(e) => {
                       e.stopPropagation();
                       onOpenMenu(fullPath, e.currentTarget);
@@ -148,28 +151,42 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
                     style={{ position: 'absolute', top: 4, right: 4, zIndex: 2 }}
                   />
                 )}
-                <div className="thumb" style={{ background: 'var(--ant-color-bg-container, #fff)' }}>
-                  <span className="badge score-badge">{scoreText}</span>
-                  {isDir ? <Typography.Text style={{ fontSize: 32, color: token.colorPrimary }}>📁</Typography.Text> : <Typography.Text style={{ fontSize: 32, color: token.colorTextTertiary }}>📄</Typography.Text>}
-                </div>
-                <div className="name ellipsis">{name}</div>
-                <Typography.Text type="secondary" className="ellipsis" style={{ fontSize: 12 }}>
-                  {dir}
-                </Typography.Text>
-                <Flex align="center" style={{ gap: 4, flexWrap: 'wrap' }}>
-                  {channelTags(item.metadata)}
-                </Flex>
-                {locationText ? (
+                <div
+                  className="fx-file-card-action"
+                  data-file-item
+                  role="button"
+                  tabIndex={0}
+                  aria-label={name}
+                  aria-pressed={selected}
+                  onKeyDown={(event) => handleFileItemKeyDown(event, {
+                    open: () => onOpen(fullPath),
+                    select: () => mobile ? onOpen(fullPath) : onSelect(fullPath, true),
+                    menu: onOpenMenu ? () => onOpenMenu(fullPath, event.currentTarget) : undefined,
+                  })}
+                >
+                  <div className="thumb" style={{ background: 'var(--ant-color-bg-container, #fff)' }}>
+                    <span className="badge score-badge">{scoreText}</span>
+                    {isDir ? <FolderOutlined style={{ fontSize: 32, color: token.colorText }} /> : <FileOutlined style={{ fontSize: 32, color: token.colorTextTertiary }} />}
+                  </div>
+                  <div className="name ellipsis">{name}</div>
                   <Typography.Text type="secondary" className="ellipsis" style={{ fontSize: 12 }}>
-                    {locationText}
+                    {dir}
                   </Typography.Text>
-                ) : null}
+                  <Flex align="center" style={{ gap: 4, flexWrap: 'wrap' }}>
+                    {channelTags(item.metadata)}
+                  </Flex>
+                  {locationText ? (
+                    <Typography.Text type="secondary" className="ellipsis" style={{ fontSize: 12 }}>
+                      {locationText}
+                    </Typography.Text>
+                  ) : null}
+                </div>
               </div>
             );
           })}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div data-file-items style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map(({ item, fullPath, name }) => {
             const selected = selectedPaths.includes(fullPath);
             const scoreText = formatScore(item.score);
@@ -204,10 +221,11 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
               >
                 {mobile && onOpenMenu && (
                   <Button
+                    className="fx-file-more-button"
                     size="small"
                     type="text"
                     icon={<MoreOutlined />}
-                    aria-label={t('More')}
+                    aria-label={t('More actions for {name}', { name })}
                     onClick={(e) => {
                       e.stopPropagation();
                       onOpenMenu(fullPath, e.currentTarget);
@@ -215,7 +233,20 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
                     style={{ position: 'absolute', top: 6, right: 6 }}
                   />
                 )}
-                <Flex vertical style={{ gap: 6, paddingRight: mobile ? 28 : 0 }}>
+                <Flex
+                  vertical
+                  data-file-item
+                  role="button"
+                  tabIndex={0}
+                  aria-label={name}
+                  aria-pressed={selected}
+                  onKeyDown={(event) => handleFileItemKeyDown(event, {
+                    open: () => onOpen(fullPath),
+                    select: () => mobile ? onOpen(fullPath) : onSelect(fullPath, true),
+                    menu: onOpenMenu ? () => onOpenMenu(fullPath, event.currentTarget) : undefined,
+                  })}
+                  style={{ gap: 6, paddingRight: mobile ? 44 : 0 }}
+                >
                   <Typography.Text strong className="ellipsis">{name}</Typography.Text>
                   <Typography.Text type="secondary" className="ellipsis" style={{ fontSize: 12 }}>{fullPath}</Typography.Text>
                   {locationText ? <Typography.Text type="secondary" style={{ fontSize: 12 }}>{locationText}</Typography.Text> : null}

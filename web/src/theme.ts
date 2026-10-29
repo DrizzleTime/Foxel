@@ -10,6 +10,7 @@ export const foxelTheme: ThemeConfig = {
     colorText: '#111',
     colorTextSecondary: '#444',
     colorTextTertiary: '#666',
+    colorTextPlaceholder: '#666',
     colorBgBase: '#fff',
     colorBgLayout: '#f9f9f9',
     colorBgContainer: '#fff',

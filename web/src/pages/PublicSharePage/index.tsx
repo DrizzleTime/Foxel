@@ -1,11 +1,13 @@
-import { memo, useState, useEffect, useCallback } from 'react';
+import { lazy, memo, Suspense, useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router';
 import { Card, message, Spin, Button, Empty, Input, Form } from 'antd';
 import { shareApi, type ShareInfo } from '../../api/share';
 import { type VfsEntry } from '../../api/vfs';
 import { DirectoryViewer } from './DirectoryViewer';
-import { FileViewer } from './FileViewer';
+import PageLoading from '../../components/PageLoading';
 import { useI18n } from '../../i18n';
+
+const FileViewer = lazy(() => import('./FileViewer').then(module => ({ default: module.FileViewer })));
 
 const PublicSharePage = memo(function PublicSharePage() {
   const { token } = useParams<{ token: string }>();
@@ -113,14 +115,16 @@ const PublicSharePage = memo(function PublicSharePage() {
 
   if (previewFile) {
     return (
-      <FileViewer
-        token={token!}
-        shareInfo={shareInfo}
-        entry={previewFile.entry}
-        password={password}
-        onBack={handleBack}
-        path={previewFile.path}
-      />
+      <Suspense fallback={<PageLoading fullPage />}>
+        <FileViewer
+          token={token!}
+          shareInfo={shareInfo}
+          entry={previewFile.entry}
+          password={password}
+          onBack={handleBack}
+          path={previewFile.path}
+        />
+      </Suspense>
     );
   }
   return <DirectoryViewer token={token!} shareInfo={shareInfo} password={password} onFileClick={handleFileClick} />;

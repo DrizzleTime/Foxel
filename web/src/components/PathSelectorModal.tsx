@@ -1,5 +1,5 @@
-import { memo, useEffect, useMemo, useState } from 'react';
-import { Modal, Button, List, Typography, Space, Input, message } from 'antd';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, Button, List, Typography, Space, Flex, Input, message } from 'antd';
 import { FolderOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { useI18n } from '../i18n';
 import { vfsApi, type VfsEntry } from '../api/client';
@@ -32,6 +32,7 @@ const PathSelectorModal = memo(function PathSelectorModal({ open, mode = 'direct
   const [path, setPath] = useState<string>(normalizePath(initialPath));
   const [entries, setEntries] = useState<VfsEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const requestSequence = useRef(0);
   const [selected, setSelected] = useState<string | null>(null); // selected file name within current folder
 
   const title = useMemo(() => {
@@ -41,16 +42,19 @@ const PathSelectorModal = memo(function PathSelectorModal({ open, mode = 'direct
   }, [mode, t]);
 
   const load = async (p: string) => {
+    const sequence = ++requestSequence.current;
     setLoading(true);
     try {
       const listing = await vfsApi.list(p, 1, 500, 'name', 'asc');
+      if (sequence !== requestSequence.current) return;
       setEntries(listing.entries);
       setPath(listing.path || p);
       setSelected(null);
     } catch (e: any) {
+      if (sequence !== requestSequence.current) return;
       message.error(e.message || t('Load failed'));
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
   };
 
@@ -58,6 +62,7 @@ const PathSelectorModal = memo(function PathSelectorModal({ open, mode = 'direct
     if (open) {
       load(normalizePath(initialPath));
     }
+    return () => { requestSequence.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialPath]);
 
@@ -97,17 +102,17 @@ const PathSelectorModal = memo(function PathSelectorModal({ open, mode = 'direct
       open={open}
       onCancel={onCancel}
       onOk={handleOk}
-      okButtonProps={{ disabled: !canOk }}
+      okButtonProps={{ disabled: loading || !canOk }}
       width={720}
     >
-      <Space style={{ width: '100%', marginBottom: 12 }} align="center">
+      <Flex wrap gap={8} style={{ width: '100%', marginBottom: 12 }} align="center">
         <Typography.Text type="secondary">{t('Current')}</Typography.Text>
-        <Input value={path} readOnly />
-        <Button onClick={goUp} icon={<ArrowUpOutlined />} disabled={path === '/'}>{t('Up')}</Button>
+        <Input value={path} aria-label={t('Folder path')} readOnly style={{ flex: '1 1 120px', minWidth: 0 }} />
+        <Button onClick={goUp} icon={<ArrowUpOutlined />} disabled={loading || path === '/'}>{t('Up')}</Button>
         {mode !== 'file' && (
-          <Button type="primary" onClick={() => onOk(normalizePath(path))}>{t('Select Current Folder')}</Button>
+          <Button type="primary" disabled={loading} onClick={() => onOk(normalizePath(path))}>{t('Select Current Folder')}</Button>
         )}
-      </Space>
+      </Flex>
 
       <List
         bordered
@@ -118,19 +123,28 @@ const PathSelectorModal = memo(function PathSelectorModal({ open, mode = 'direct
           const isSelected = selected === item.name && !item.is_dir;
           return (
             <List.Item
-              onClick={() => {
-                if (item.is_dir) {
-                  load(joinPath(path, item.name));
-                } else {
-                  setSelected((prev) => (prev === item.name ? null : item.name));
-                }
-              }}
-              style={{ cursor: 'pointer', background: isSelected ? 'rgba(22,119,255,0.08)' : undefined }}
+              style={{ background: isSelected ? 'var(--ant-color-fill-secondary)' : undefined }}
             >
-              <Space>
-                {item.is_dir ? <FolderOutlined /> : getFileIcon(item.name)}
-                <Typography.Text strong={item.is_dir}>{item.name}</Typography.Text>
-              </Space>
+              <button
+                type="button"
+                className="fx-text-button"
+                aria-label={item.name}
+                aria-pressed={item.is_dir ? undefined : isSelected}
+                disabled={loading}
+                style={{ width: '100%', minHeight: 40 }}
+                onClick={() => {
+                  if (item.is_dir) {
+                    load(joinPath(path, item.name));
+                  } else {
+                    setSelected((prev) => (prev === item.name ? null : item.name));
+                  }
+                }}
+              >
+                <Space>
+                  {item.is_dir ? <FolderOutlined /> : getFileIcon(item.name)}
+                  <Typography.Text strong={item.is_dir}>{item.name}</Typography.Text>
+                </Space>
+              </button>
             </List.Item>
           );
         }}

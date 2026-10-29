@@ -63,7 +63,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
   const { t } = useI18n();
   const { x, y, mobile = false, entry, entries, selectedEntries, processorTypes, canCompress, canExtract, onClose, ...actions } = props;
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const [position, setPosition] = useState({ left: x, top: y });
+
+  useLayoutEffect(() => {
+    if (mobile) return;
+    const container = containerRef.current;
+    const target = container?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')
+      ?? container?.querySelector<HTMLElement>('[role="menu"]');
+    target?.focus();
+  }, [mobile]);
 
   useLayoutEffect(() => {
     setPosition({ left: x, top: y });
@@ -78,7 +87,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
       }
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+        triggerRef.current?.focus();
+      }
     };
 
     document.addEventListener('pointerdown', closeWhenOutside, true);
@@ -293,6 +307,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
       >
         <div onClick={(e) => e.stopPropagation()}>
           <Menu
+            aria-label={entry ? t('More actions for {name}', { name: entry.name }) : t('Quick Actions')}
             items={items}
             mode="inline"
             selectable={false}
@@ -317,6 +332,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
       onClick={(e) => e.stopPropagation()}
     >
       <Menu
+        aria-label={entry ? t('More actions for {name}', { name: entry.name }) : t('Quick Actions')}
         items={items}
         selectable={false}
         getPopupContainer={() => containerRef.current ?? document.body}

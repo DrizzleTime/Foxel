@@ -19,9 +19,10 @@ export interface TopHeaderProps {
   onToggle(): void;
   onOpenAiAgent(): void;
   showMenuButton?: boolean;
+  menuExpanded?: boolean;
 }
 
-const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, showMenuButton }: TopHeaderProps) {
+const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, showMenuButton, menuExpanded }: TopHeaderProps) {
   const { token } = theme.useToken();
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
@@ -90,17 +91,21 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
     >
       {showMenuButton && (
         <Button
+          data-nav-toggle
+          className="fx-header-action"
           type="text"
           icon={<MenuUnfoldOutlined />}
           onClick={onToggle}
           style={{ fontSize: 18, marginRight: isMobile ? 0 : 8 }}
-          aria-label={collapsed ? t('Open menu') : t('Collapse menu')}
+          aria-label={isMobile || collapsed ? t('Open menu') : t('Collapse menu')}
+          aria-expanded={menuExpanded}
         />
       )}
 
       <Button
+        className="fx-header-action"
         icon={<SearchOutlined />}
-        style={{ maxWidth: isMobile ? 40 : 420, minWidth: isMobile ? 40 : undefined, paddingInline: isMobile ? 0 : undefined }}
+        style={{ maxWidth: isMobile ? 44 : 420, minWidth: isMobile ? 44 : undefined, paddingInline: isMobile ? 0 : undefined }}
         onClick={() => setSearchOpen(true)}
         aria-label={t('Search files / tags / types')}
       >
@@ -111,23 +116,25 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
       <Flex style={{ marginLeft: 'auto', minWidth: 0 }} align="center" gap={isMobile ? 4 : 12}>
         <Tooltip title={t('Notices')}>
           <Button
+            className="fx-header-action"
             type="text"
             icon={<BellOutlined />}
             aria-label={t('Notices')}
             onClick={openNotices}
-            style={{ paddingInline: 8, height: 40 }}
+            style={{ paddingInline: 8, height: isMobile ? 44 : 40 }}
           />
         </Tooltip>
         <Tooltip title={t('AI Agent')}>
           <Button
+            className="fx-header-action"
             type="text"
             icon={<RobotOutlined />}
             aria-label={t('AI Agent')}
             onClick={onOpenAiAgent}
-            style={{ paddingInline: 8, height: 40 }}
+            style={{ paddingInline: 8, height: isMobile ? 44 : 40 }}
           />
         </Tooltip>
-        <LanguageSwitcher />
+        <LanguageSwitcher compact={isMobile} />
         <Dropdown
           menu={{
             items: [
@@ -137,9 +144,9 @@ const TopHeader = memo(function TopHeader({ collapsed, onToggle, onOpenAiAgent, 
             ],
           }}
         >
-          <Button type="text" style={{ paddingInline: 8, height: 40 }}>
+          <Button className="fx-header-action" type="text" aria-label={t('Account menu')} style={{ paddingInline: 8, height: isMobile ? 44 : 40 }}>
             <Flex align="center" gap={8}>
-              <Avatar size={28} src={user?.gravatar_url}>
+              <Avatar size={28} src={user?.gravatar_url || undefined} alt="">
                 {(user?.full_name || user?.username || 'A').charAt(0).toUpperCase()}
               </Avatar>
               {!isMobile && (

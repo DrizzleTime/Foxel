@@ -1,26 +1,28 @@
-import { Layout, Flex, theme } from 'antd';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { Drawer, Layout, Flex, Modal, theme } from 'antd';
+import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import SideNav from '../layout/SideNav.tsx';
 import TopHeader from '../layout/TopHeader.tsx';
 import { primaryNav } from '../layout/nav';
-import FileExplorerPage from '../pages/FileExplorerPage/FileExplorerPage.tsx';
-import AdaptersPage from '../pages/AdaptersPage.tsx';
-import SharePage from '../pages/SharePage.tsx';
-import TasksPage from '../pages/TasksPage.tsx';
-import TaskQueuePage from '../pages/TaskQueuePage.tsx';
-import ProcessorsPage from '../pages/ProcessorsPage.tsx';
-import OfflineDownloadPage from '../pages/OfflineDownloadPage.tsx';
-import SystemSettingsPage from '../pages/SystemSettingsPage/SystemSettingsPage.tsx';
-import AuditLogsPage from '../pages/AuditLogsPage.tsx';
-import BackupPage from '../pages/SystemSettingsPage/BackupPage.tsx';
-import PluginsPage from '../pages/PluginsPage.tsx';
-import UsersPage from '../pages/UsersPage/UsersPage.tsx';
 import { AppWindowsProvider, useAppWindows } from '../contexts/AppWindowsContext';
 import { AppWindowsLayer } from '../apps/AppWindowsLayer';
-import AiAgentWidget from '../components/AiAgentWidget';
+import PageLoading from '../components/PageLoading';
 import useResponsive from '../hooks/useResponsive';
 import { useI18n } from '../i18n';
+
+const FileExplorerPage = lazy(() => import('../pages/FileExplorerPage/FileExplorerPage.tsx'));
+const AdaptersPage = lazy(() => import('../pages/AdaptersPage.tsx'));
+const SharePage = lazy(() => import('../pages/SharePage.tsx'));
+const TasksPage = lazy(() => import('../pages/TasksPage.tsx'));
+const TaskQueuePage = lazy(() => import('../pages/TaskQueuePage.tsx'));
+const ProcessorsPage = lazy(() => import('../pages/ProcessorsPage.tsx'));
+const OfflineDownloadPage = lazy(() => import('../pages/OfflineDownloadPage.tsx'));
+const SystemSettingsPage = lazy(() => import('../pages/SystemSettingsPage/SystemSettingsPage.tsx'));
+const AuditLogsPage = lazy(() => import('../pages/AuditLogsPage.tsx'));
+const BackupPage = lazy(() => import('../pages/SystemSettingsPage/BackupPage.tsx'));
+const PluginsPage = lazy(() => import('../pages/PluginsPage.tsx'));
+const UsersPage = lazy(() => import('../pages/UsersPage/UsersPage.tsx'));
+const AiAgentWidget = lazy(() => import('../components/AiAgentWidget'));
 
 const ShellBody = memo(function ShellBody() {
   const params = useParams<{ navKey?: string; '*': string }>();
@@ -34,6 +36,7 @@ const ShellBody = memo(function ShellBody() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+  const [agentMounted, setAgentMounted] = useState(false);
   const [resourceVersions, setResourceVersions] = useState({ adapters: 0, tasks: 0 });
   const handleResourceCreated = useCallback((resource: 'adapters' | 'tasks') => {
     setResourceVersions((previous) => ({ ...previous, [resource]: previous[resource] + 1 }));
@@ -66,6 +69,7 @@ const ShellBody = memo(function ShellBody() {
       return;
     }
     setCollapsed((value) => !value);
+    window.requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-nav-toggle]')?.focus());
   };
 
   return (
@@ -101,8 +105,12 @@ const ShellBody = memo(function ShellBody() {
         <TopHeader
           collapsed={collapsed}
           onToggle={handleToggleNav}
-          onOpenAiAgent={() => setAgentOpen(true)}
+          onOpenAiAgent={() => {
+            setAgentMounted(true);
+            setAgentOpen(true);
+          }}
           showMenuButton={isMobile || collapsed}
+          menuExpanded={isMobile ? mobileNavOpen : !collapsed}
         />
         <Layout.Content
           style={{
@@ -117,24 +125,40 @@ const ShellBody = memo(function ShellBody() {
         >
           <div style={{ flex: 1, minHeight: 0, background: 'var(--ant-color-bg-layout)', overflow: 'hidden' }}>
             <Flex vertical style={{ minHeight: 0, height: '100%' }}>
-              {navKey === 'adapters' && <AdaptersPage refreshVersion={resourceVersions.adapters} />}
-              {navKey === 'files' && <FileExplorerPage />}
-              {navKey === 'share' && <SharePage />}
-              {navKey === 'tasks' && <TasksPage refreshVersion={resourceVersions.tasks} />}
-              {navKey === 'task-queue' && <TaskQueuePage />}
-              {navKey === 'processors' && <ProcessorsPage />}
-              {navKey === 'offline' && <OfflineDownloadPage />}
-              {navKey === 'plugins' && <PluginsPage />}
-              {navKey === 'audit' && <AuditLogsPage />}
-              {navKey === 'backup' && <BackupPage />}
-              {navKey === 'users' && <UsersPage />}
+              <Suspense fallback={<PageLoading />}>
+                {navKey === 'adapters' && <AdaptersPage refreshVersion={resourceVersions.adapters} />}
+                {navKey === 'files' && <FileExplorerPage />}
+                {navKey === 'share' && <SharePage />}
+                {navKey === 'tasks' && <TasksPage refreshVersion={resourceVersions.tasks} />}
+                {navKey === 'task-queue' && <TaskQueuePage />}
+                {navKey === 'processors' && <ProcessorsPage />}
+                {navKey === 'offline' && <OfflineDownloadPage />}
+                {navKey === 'plugins' && <PluginsPage />}
+                {navKey === 'audit' && <AuditLogsPage />}
+                {navKey === 'backup' && <BackupPage />}
+                {navKey === 'users' && <UsersPage />}
+              </Suspense>
             </Flex>
           </div>
         </Layout.Content>
       </Layout>
 
       {settingsOpen && (
-        <SystemSettingsPage onClose={() => setSettingsOpen(false)} />
+        <Suspense fallback={(
+          <Modal
+            title={t('System Settings')}
+            open
+            onCancel={() => setSettingsOpen(false)}
+            width={isMobile ? 'calc(100vw - 24px)' : 1180}
+            style={{ maxWidth: 'calc(100vw - 24px)' }}
+            centered
+            footer={null}
+          >
+            <PageLoading />
+          </Modal>
+        )}>
+          <SystemSettingsPage onClose={() => setSettingsOpen(false)} />
+        </Suspense>
       )}
       <AppWindowsLayer
         windows={windows}
@@ -143,14 +167,32 @@ const ShellBody = memo(function ShellBody() {
         onBringToFront={bringToFront}
         onUpdateWindow={updateWindow}
       />
-      <AiAgentWidget
-        currentPath={agentCurrentPath}
-        currentPage={agentCurrentPage && { key: agentCurrentPage.key, label: t(agentCurrentPage.label), icon: agentCurrentPage.icon }}
-        onResourceCreated={handleResourceCreated}
-        open={agentOpen}
-        onOpenChange={setAgentOpen}
-        width={agentWidth}
-      />
+      {agentMounted && (
+        <Suspense fallback={(
+          <Drawer
+            title={t('AI Agent')}
+            open={agentOpen}
+            onClose={() => setAgentOpen(false)}
+            size={agentWidth}
+            mask={false}
+            push={false}
+            aria-modal={false}
+            autoFocus={false}
+            focusable={{ trap: false }}
+          >
+            <PageLoading />
+          </Drawer>
+        )}>
+          <AiAgentWidget
+            currentPath={agentCurrentPath}
+            currentPage={agentCurrentPage && { key: agentCurrentPage.key, label: t(agentCurrentPage.label), icon: agentCurrentPage.icon }}
+            onResourceCreated={handleResourceCreated}
+            open={agentOpen}
+            onOpenChange={setAgentOpen}
+            width={agentWidth}
+          />
+        </Suspense>
+      )}
     </Layout>
   );
 });

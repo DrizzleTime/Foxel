@@ -72,6 +72,7 @@ function buildThemeConfig(state: ThemeState, systemDark: boolean): ThemeConfig {
         fontSize: baseTheme.token?.fontSize,
         controlHeight: baseTheme.token?.controlHeight,
         boxShadow: baseTheme.token?.boxShadow,
+        colorTextPlaceholder: 'rgba(255,255,255,0.65)',
       }
     : { ...(baseTheme.token as any) };
 

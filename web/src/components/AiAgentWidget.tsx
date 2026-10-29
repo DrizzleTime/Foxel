@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, Divider, Drawer, Flex, Input, List, Space, Switch, Tag, Tooltip, Typography, message, theme } from 'antd';
 import { RobotOutlined, ArrowUpOutlined, FormOutlined, CloseOutlined, FolderOpenOutlined, ToolOutlined, DownOutlined, UpOutlined, CodeOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown from './Markdown';
 import type { TextAreaRef } from 'antd/es/input/TextArea';
 import { agentApi, type AgentChatMessage, type PendingMcpCall } from '../api/agent';
 import { useI18n } from '../i18n';

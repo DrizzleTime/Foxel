@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import type { VfsEntry } from '../../../api/client';
 import { API_BASE_URL } from '../../../api/client';
 
@@ -9,32 +9,16 @@ const buildThumbUrl = (filePath: string, w = 512, h = 512, fit = 'cover') => {
 };
 
 export function useThumbnails(entries: VfsEntry[], path: string) {
-  const [thumbs, setThumbs] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const newThumbs: Record<string, string> = {};
-    const targets = entries.filter(e => !e.is_dir && (e as any).has_thumbnail && !thumbs[e.name]);
-
-    if (targets.length > 0) {
-      targets.forEach(ent => {
-        const fullPath = (path === '/' ? '' : path) + '/' + ent.name;
-        newThumbs[ent.name] = buildThumbUrl(fullPath);
-      });
-      setThumbs(prev => ({ ...prev, ...newThumbs }));
+  const thumbs = useMemo(() => {
+    const urls: Record<string, string> = {};
+    for (const entry of entries) {
+      if (!entry.is_dir && entry.has_thumbnail) {
+        const fullPath = (path === '/' ? '' : path) + '/' + entry.name;
+        urls[entry.name] = buildThumbUrl(fullPath);
+      }
     }
-
-    // Clean up old thumbs
-    const currentEntryNames = new Set(entries.map(e => e.name));
-    const toRemove = Object.keys(thumbs).filter(key => !currentEntryNames.has(key));
-
-    if (toRemove.length > 0) {
-      setThumbs(prev => {
-        const next = { ...prev };
-        toRemove.forEach(key => delete next[key]);
-        return next;
-      });
-    }
-  }, [entries, path, thumbs]);
+    return urls;
+  }, [entries, path]);
 
   return { thumbs };
 }

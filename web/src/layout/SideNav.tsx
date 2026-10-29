@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import '../styles/sider-menu.css';
 import { getLatestVersion } from '../api/config.ts';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown from '../components/Markdown';
 import { useTheme } from '../contexts/ThemeContext';
 import { useI18n } from '../i18n';
 import { useAppWindows } from '../contexts/AppWindowsContext';
@@ -141,7 +141,7 @@ const SideNav = memo(function SideNav({
           )}
         </div>
         {showCollapseButton && !bodyCollapsed && (
-          <Button type="text" icon={<MenuFoldOutlined />} onClick={onToggle} style={{ fontSize: 18 }} />
+          <Button data-nav-toggle type="text" aria-label={t('Collapse menu')} icon={<MenuFoldOutlined />} onClick={onToggle} style={{ fontSize: 18 }} />
         )}
       </div>
 
@@ -163,6 +163,7 @@ const SideNav = memo(function SideNav({
               </div>
             )}
             <Menu
+              aria-label={group.title ? t(group.title) : t('All Files')}
               mode="inline"
               selectable
               inlineIndent={12}

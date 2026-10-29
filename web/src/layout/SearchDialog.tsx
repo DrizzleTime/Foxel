@@ -44,10 +44,11 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ open, onClose }) => {
       footer={null}
       width={720}
       centered
-      title={null}
+      title={<span className="fx-sr-only">{t('Search files / tags / types')}</span>}
       closable={false}
       destroyOnHidden
       styles={{
+        header: { height: 0, margin: 0, padding: 0 },
         container: {
           background: 'transparent',
           boxShadow: 'none',
@@ -63,6 +64,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ open, onClose }) => {
           allowClear
           prefix={<SearchOutlined />}
           placeholder={t('Search files / tags / types')}
+          aria-label={t('Search files / tags / types')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           size="large"

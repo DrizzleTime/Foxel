@@ -6,6 +6,7 @@ import { getFileIcon } from './FileIcons';
 import { getAppsForEntry, getDefaultAppForEntry, usePluginApps } from '../../../apps/registry';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useI18n } from '../../../i18n';
+import FileThumbnail from '../../../components/FileThumbnail';
 
 interface FileListViewProps {
   entries: VfsEntry[];
@@ -101,7 +102,7 @@ export const FileListView: React.FC<FileListViewProps> = ({
   if (mobile) {
     return (
       <div style={{ padding: '0 12px' }}>
-        {entries.map(entry => {
+        {entries.map((entry, index) => {
           const checked = !!batchSelectedNames?.has(entry.name);
           const selectable = entry.type !== 'mount';
           const activate = () => {
@@ -119,18 +120,7 @@ export const FileListView: React.FC<FileListViewProps> = ({
           return (
             <div
               key={entry.name}
-              role="button"
-              tabIndex={0}
-              aria-label={entry.name}
-              aria-pressed={batchMode && selectable ? checked : undefined}
               onClick={activate}
-              onKeyDown={event => {
-                if (event.target !== event.currentTarget) return;
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  activate();
-                }
-              }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12, minWidth: 0,
                 padding: '12px 0', borderBottom: `1px solid ${token.colorBorderSecondary}`,
@@ -147,22 +137,39 @@ export const FileListView: React.FC<FileListViewProps> = ({
                   onChange={() => onBatchToggle?.(entry)}
                 />
               )}
-              <div style={{ width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                {entry.is_dir ? (
-                  <FolderFilled style={{ fontSize: 32, color: resolvedMode === 'dark' ? lightenColor(String(token.colorPrimary || '#111111'), 0.72) : token.colorPrimary }} />
-                ) : thumbs[entry.name] ? (
-                  <img src={thumbs[entry.name]} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: token.borderRadiusSM }} />
-                ) : getFileIcon(entry.name, 32, resolvedMode)}
-                {entry.type === 'mount' && (
-                  <span title={t('Mount Point')} style={{ position: 'absolute', right: 0, bottom: 0, fontSize: 10, padding: '0 3px', background: token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4 }}>M</span>
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="ellipsis" title={entry.name} style={{ color: token.colorText }}>{entry.name}</div>
-                <div className="ellipsis" style={{ marginTop: 4, fontSize: 12, color: token.colorTextSecondary }}>{metadata}</div>
+              <div
+                data-file-item
+                role="button"
+                tabIndex={0}
+                aria-label={entry.name}
+                aria-pressed={batchMode && selectable ? checked : undefined}
+                onKeyDown={event => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    activate();
+                  }
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}
+              >
+                <div style={{ width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  {entry.is_dir ? (
+                    <FolderFilled style={{ fontSize: 32, color: resolvedMode === 'dark' ? lightenColor(String(token.colorPrimary || '#111111'), 0.72) : token.colorPrimary }} />
+                  ) : thumbs[entry.name] ? (
+                    <FileThumbnail src={thumbs[entry.name]} alt="" eager={index < 12} fallback={getFileIcon(entry.name, 32, resolvedMode)} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: token.borderRadiusSM }} />
+                  ) : getFileIcon(entry.name, 32, resolvedMode)}
+                  {entry.type === 'mount' && (
+                    <span title={t('Mount Point')} style={{ position: 'absolute', right: 0, bottom: 0, fontSize: 10, padding: '0 3px', background: token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4 }}>M</span>
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="ellipsis" title={entry.name} style={{ color: token.colorText }}>{entry.name}</div>
+                  <div className="ellipsis" style={{ marginTop: 4, fontSize: 12, color: token.colorTextSecondary }}>{metadata}</div>
+                </div>
               </div>
               {batchMode ? entry.is_dir && (
                 <Button
+                  className="fx-file-more-button"
                   type="text"
                   icon={<RightOutlined />}
                   aria-label={t('Open')}
@@ -174,9 +181,10 @@ export const FileListView: React.FC<FileListViewProps> = ({
                 />
               ) : onOpenMenu && (
                 <Button
+                  className="fx-file-more-button"
                   type="text"
                   icon={<MoreOutlined />}
-                  aria-label={t('More')}
+                  aria-label={t('More actions for {name}', { name: entry.name })}
                   onClick={event => {
                     event.stopPropagation();
                     onOpenMenu(entry, event.currentTarget);
@@ -197,7 +205,19 @@ export const FileListView: React.FC<FileListViewProps> = ({
       dataIndex: 'name',
       key: 'name',
       render: (_: any, r: VfsEntry) => (
-        <span style={{ cursor: 'pointer', userSelect: 'none' }} onDoubleClick={() => onOpen(r)}>
+        <button
+          type="button"
+          className="fx-text-button"
+          data-file-item
+          onClick={event => {
+            if (event.detail === 0) {
+              event.stopPropagation();
+              onOpen(r);
+            }
+          }}
+          onDoubleClick={event => { event.stopPropagation(); onOpen(r); }}
+          style={{ userSelect: 'none' }}
+        >
           {r.is_dir ? (
             <FolderFilled style={{ color: resolvedMode === 'dark' ? lightenColor(String(token.colorPrimary || '#111111'), 0.72) : token.colorPrimary, marginRight: 6 }} />
           ) : (
@@ -205,7 +225,7 @@ export const FileListView: React.FC<FileListViewProps> = ({
           )}
           {r.name}
           {r.type === 'mount' && <Tooltip title={t('Mount Point')}><span style={{ marginLeft: 6, fontSize: 10, padding: '0 4px', border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4 }}>MOUNT</span></Tooltip>}
-        </span>
+        </button>
       )
     },
     { title: t('Type'), key: 'fileType', width: 110, render: (_: any, r: VfsEntry) => getFileTypeLabel(r, t) },
@@ -238,7 +258,7 @@ export const FileListView: React.FC<FileListViewProps> = ({
               ].filter(Boolean) as any[]
             }}
           >
-            <Button size="small" icon={<MoreOutlined />} />
+            <Button size="small" icon={<MoreOutlined />} aria-label={t('More actions for {name}', { name: r.name })} />
           </Dropdown>
         );
       }

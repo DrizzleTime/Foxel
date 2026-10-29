@@ -176,7 +176,7 @@ export const DirectoryViewer = memo(function DirectoryViewer({ token, shareInfo,
                         {i === items.length - 1 ? (
                             <span>{item.title}</span>
                         ) : (
-                            <a onClick={() => handleBreadcrumbClick(item.path)}>{item.title}</a>
+                            <button type="button" className="fx-text-button fx-link-button" onClick={() => handleBreadcrumbClick(item.path)}>{item.title}</button>
                         )}
                     </Breadcrumb.Item>
                 ))}
@@ -192,9 +192,9 @@ export const DirectoryViewer = memo(function DirectoryViewer({ token, shareInfo,
     }
 
     return (
-        <div style={{ padding: '24px', maxWidth: 960, margin: 'auto' }}>
+        <main style={{ padding: '24px', maxWidth: 960, margin: 'auto' }}>
             <Card>
-                <Title level={4}>{shareInfo?.name}</Title>
+                <Title level={1} style={{ fontSize: 20, marginTop: 0 }}>{shareInfo?.name}</Title>
                 <Text type="secondary">
                     {t('Created on {date}', { date: format(parseISO(shareInfo.created_at), 'yyyy-MM-dd') })}
                     {shareInfo?.expires_at ? (
@@ -213,13 +213,17 @@ export const DirectoryViewer = memo(function DirectoryViewer({ token, shareInfo,
                     renderItem={item => (
                         <List.Item
                             actions={[
-                                !item.is_dir ? <Button type="text" icon={<DownloadOutlined />} href={shareApi.downloadUrl(token!, (currentPath === '/' ? '' : currentPath) + '/' + item.name, password)} download /> : null
+                                !item.is_dir ? <Button type="text" icon={<DownloadOutlined />} aria-label={t('Download {name}', { name: item.name })} href={shareApi.downloadUrl(token!, (currentPath === '/' ? '' : currentPath) + '/' + item.name, password)} download /> : null
                             ]}
                         >
                             <List.Item.Meta
                                 avatar={item.is_dir ? <FolderOutlined /> : <FileOutlined />}
-                                title={<a onClick={() => handleEntryClick(item)}>{item.name}</a>}
-                                description={!item.is_dir ? `${(item.size / 1024).toFixed(2)} KB` : ''}
+                                description={(
+                                  <>
+                                    <button type="button" className="fx-text-button fx-link-button" style={{ display: 'block', marginBottom: 4, fontWeight: 500, maxWidth: '100%', overflowWrap: 'anywhere' }} onClick={() => handleEntryClick(item)}>{item.name}</button>
+                                    {!item.is_dir && `${(item.size / 1024).toFixed(2)} KB`}
+                                  </>
+                                )}
                             />
                         </List.Item>
                     )}
@@ -250,6 +254,6 @@ export const DirectoryViewer = memo(function DirectoryViewer({ token, shareInfo,
                     </div>
                 ) : null}
             </Card>
-        </div>
+        </main>
     );
 });

@@ -24,9 +24,12 @@ export function isHostRequest(value: unknown): value is HostRequest {
     && ['close', 'openPath', 'openFile'].includes(data.method || '')
     && !!data.params && typeof data.params === 'object' && !Array.isArray(data.params);
 }
+// eslint-disable-next-line no-control-regex -- VFS paths must reject control characters and backslashes.
+const INVALID_PATH_CHARACTERS = /[\x00-\x1f\\]/;
+
 export function requireVfsPath(value: unknown): string {
   if (typeof value !== 'string' || !value.startsWith('/') || value.length > 8192
-    || /[\x00-\x1f\\]/.test(value) || value.split('/').includes('..')) {
+    || INVALID_PATH_CHARACTERS.test(value) || value.split('/').includes('..')) {
     throw new Error('Invalid VFS path');
   }
   return value.replace(/\/+$/, '') || '/';

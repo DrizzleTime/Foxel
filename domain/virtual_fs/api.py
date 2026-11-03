@@ -163,23 +163,31 @@ async def get_file(
 
 @router.get("/thumb/{full_path:path}")
 @audit(action=AuditAction.READ, description="获取缩略图")
+@require_path_permission(PathAction.READ, "full_path")
 async def get_thumb(
     full_path: str,
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     w: int = Query(256, ge=8, le=1024),
     h: int = Query(256, ge=8, le=1024),
     fit: str = Query("cover"),
 ):
-    return await VirtualFSService.get_thumbnail(full_path, w, h, fit)
+    response = await VirtualFSService.get_thumbnail(full_path, w, h, fit)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @router.get("/stream/{full_path:path}")
 @audit(action=AuditAction.DOWNLOAD, description="流式读取文件")
+@require_path_permission(PathAction.READ, "full_path")
 async def stream_endpoint(
     full_path: str,
     request: Request,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    return await VirtualFSService.stream_response(full_path, request.headers.get("Range"))
+    response = await VirtualFSService.stream_response(full_path, request.headers.get("Range"))
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @router.get("/temp-link/{full_path:path}")

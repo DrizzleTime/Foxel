@@ -41,9 +41,9 @@ export interface FoxelHostApi {
   getTempLink?: (filePath: string) => Promise<string>;
 
   /**
-   * 获取文件流式播放/下载 URL
+   * 获取文件流式播放/下载的限时签名 URL，调用时需要 await
    */
-  getStreamUrl?: (filePath: string) => string;
+  getStreamUrl?: (filePath: string) => Promise<string>;
 }
 
 /**

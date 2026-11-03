@@ -201,7 +201,7 @@ function createHostApi(pluginKey: string): FoxelHostApi {
     getTempLink: async (filePath: string) => {
       return await getTempLinkUrl(filePath);
     },
-    getStreamUrl: (filePath: string) => vfsApi.streamUrl(filePath),
+    getStreamUrl: (filePath: string) => getTempLinkUrl(filePath),
   };
 }
 
@@ -291,7 +291,7 @@ async function buildFileContext(filePath: string, entryOverride: VfsEntry | null
   }
 
   const [entry, downloadUrl] = await Promise.all([entryPromise, downloadUrlPromise]);
-  const streamUrl = vfsApi.streamUrl(filePath);
+  const streamUrl = downloadUrl;
 
   return { entry, urls: { downloadUrl, streamUrl } };
 }

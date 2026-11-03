@@ -187,8 +187,12 @@ export const vfsApi = {
   batchCopy: (srcs: string[], dst: string, options?: { overwrite?: boolean }) =>
     request<BatchOpResult>(`/fs/batch/copy?overwrite=${options?.overwrite ? 'true' : 'false'}`, { method: 'POST', json: { srcs, dst } }),
   thumb: (path: string, w=256, h=256, fit='cover') =>
-    request<ArrayBuffer>(`/fs/thumb/${encodeURI(path.replace(/^\/+/, ''))}?w=${w}&h=${h}&fit=${fit}`),
-  streamUrl: (path: string) => `${API_BASE_URL}/fs/stream/${encodeURI(path.replace(/^\/+/, ''))}`,
+    request<ArrayBuffer>(`/fs/thumb/${encodeFilePath(path)}?w=${w}&h=${h}&fit=${encodeURIComponent(fit)}`),
+  // Native media elements cannot attach the Authorization header.
+  streamUrl: async (path: string): Promise<string> => {
+    const data = await vfsApi.getTempLinkToken(path);
+    return vfsApi.getTempPublicUrl(data.token);
+  },
   stat: (path: string, options?: { verbose?: boolean }) => {
     const params = new URLSearchParams();
     if (options?.verbose) params.set('verbose', 'true');

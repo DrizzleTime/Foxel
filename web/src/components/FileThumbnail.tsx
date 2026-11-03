@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import request from '../api/client';
 
 interface ImageQueue {
   observer: IntersectionObserver;
@@ -62,6 +63,7 @@ export default function FileThumbnail({ src, alt, eager = false, style, fallback
   const imageRef = useRef<HTMLImageElement>(null);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [imageSrc, setImageSrc] = useState<{ source: string; url: string } | null>(null);
 
   useEffect(() => {
     const image = imageRef.current;
@@ -69,12 +71,34 @@ export default function FileThumbnail({ src, alt, eager = false, style, fallback
     return observeImage(image, () => setLoadedSrc(src));
   }, [eager, loadedSrc, src]);
 
+  useEffect(() => {
+    if (!eager && loadedSrc !== src) return;
+    const controller = new AbortController();
+    let objectUrl: string | undefined;
+    void (async () => {
+      try {
+        const response = await request<Response>(src, { rawResponse: true, signal: controller.signal });
+        if (!response.ok) throw new Error(`Thumbnail request failed: ${response.status}`);
+        const blob = await response.blob();
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setImageSrc({ source: src, url: objectUrl });
+      } catch {
+        if (!controller.signal.aborted) setFailedSrc(src);
+      }
+    })();
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [eager, loadedSrc, src]);
+
   if (failedSrc === src) return fallback;
 
   return (
     <img
       ref={imageRef}
-      src={eager || loadedSrc === src ? src : undefined}
+      src={imageSrc?.source === src ? imageSrc.url : undefined}
       alt={alt}
       decoding="async"
       onError={() => setFailedSrc(src)}

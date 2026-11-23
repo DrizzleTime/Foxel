@@ -62,6 +62,17 @@ def validate_arguments(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         for key in ("headers", "params"):
             if key in args and any(not isinstance(value, str) for value in args[key].values()):
                 raise ExecutionError("invalid_arguments")
+    if name == "web_search":
+        raw_queries = args.get("query") or []
+        if not isinstance(raw_queries, list) or any(not isinstance(value, str) for value in raw_queries):
+            raise ExecutionError("invalid_arguments")
+        queries = [value.strip() for value in raw_queries]
+        if not queries or len(queries) > 5 or any(not value or len(value) > 200 for value in queries):
+            raise ExecutionError("invalid_arguments")
+        if "count" in args and not 1 <= args["count"] <= 20:
+            raise ExecutionError("invalid_arguments")
+        if "objective" in args and len(args["objective"]) > 1000:
+            raise ExecutionError("invalid_arguments")
     if "suffix" in args and (not args["suffix"].strip() or any(c in args["suffix"] for c in ("/", "\\", "\x00"))):
         raise ExecutionError("invalid_arguments")
     return args

@@ -170,11 +170,12 @@ def tool_result_to_content(result: Any) -> str:
 
 def tool_spec_to_mcp_descriptor(spec: ToolSpec) -> McpToolDescriptor:
     read_only = not spec.requires_confirmation
+    # web_fetch may write to an external system with its write methods; web_search only reads.
     annotations: Dict[str, Any] = {
         "readOnlyHint": read_only and spec.name != "web_fetch",
         "destructiveHint": bool(spec.requires_confirmation) or spec.name == "web_fetch",
     }
-    if spec.name == "web_fetch":
+    if spec.name in {"web_fetch", "web_search"}:
         annotations["openWorldHint"] = True
     return McpToolDescriptor(
         name=spec.name,

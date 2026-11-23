@@ -14,6 +14,7 @@ import {
   Row,
   Select,
   Space,
+  Switch,
   Tag,
   Tooltip,
   Typography,
@@ -78,6 +79,12 @@ type ModelModalState = {
   provider?: AIProvider | null;
   editing?: AIModel | null;
 };
+
+interface AiSettingsTabProps {
+  config: Record<string, string>;
+  settingsLoading: boolean;
+  onSave: (values: Record<string, unknown>) => Promise<boolean>;
+}
 
 interface ProviderTemplate {
   key: string;
@@ -259,8 +266,12 @@ interface RemoteModelCandidate extends AIModelPayload {
 
 const { Title, Text } = Typography;
 
-export default function AiSettingsTab() {
+export default function AiSettingsTab({ config, settingsLoading, onSave }: AiSettingsTabProps) {
   const { t } = useI18n();
+  const webSearchEnabled = ['1', 'true', 'yes', 'on'].includes(
+    (config.AGENT_WEB_SEARCH_ENABLED ?? '1').trim().toLowerCase(),
+  );
+  const [savingWebSearch, setSavingWebSearch] = useState<boolean>(false);
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [defaults, setDefaults] = useState<AIDefaultModels>({});
   const [defaultSelections, setDefaultSelections] = useState<AIDefaultAssignments>({});
@@ -975,6 +986,31 @@ export default function AiSettingsTab() {
 
   return (
     <div className="fx-ai-settings">
+      <SettingsSection title={t('Agent Tools')} action={<Tag>{t(webSearchEnabled ? 'Enabled' : 'Disabled')}</Tag>}>
+        <div className="fx-settings-detail-row">
+          <div>
+            <Typography.Text strong>{t('Web search')}</Typography.Text>
+            <Typography.Paragraph type="secondary" className="fx-settings-note">
+              {t('Let the built-in AI agent search the web and answer with source links. Disabling it also removes the tool from the agent.')}
+            </Typography.Paragraph>
+          </div>
+          <Switch
+            checked={webSearchEnabled}
+            loading={savingWebSearch}
+            disabled={settingsLoading}
+            aria-label={t('Web search')}
+            onChange={async (checked) => {
+              setSavingWebSearch(true);
+              try {
+                await onSave({ AGENT_WEB_SEARCH_ENABLED: checked ? '1' : '0' });
+              } finally {
+                setSavingWebSearch(false);
+              }
+            }}
+          />
+        </div>
+      </SettingsSection>
+
       <SettingsSection title={t('LLM Providers & Models')} action={
         <Button icon={<PlusOutlined />} onClick={() => handleOpenProviderModal()}>
           {t('Add Provider')}

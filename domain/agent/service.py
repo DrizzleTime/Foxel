@@ -10,6 +10,7 @@ from fastapi import HTTPException
 
 from domain.ai import AIProviderService, MissingModelError, chat_completion, chat_completion_stream
 from domain.auth import User
+from domain.config import ConfigService
 from domain.permission.execution import ExecutionError, normalize_path
 from models.database import AgentApprovalBatch, AgentApprovalCall
 
@@ -18,6 +19,7 @@ from .mcp import mcp_client_session, mcp_content_to_text
 from .execution import execute_tool
 from .tools import AGENT_ONLY_TOOL_NAMES, mcp_tool_descriptors
 from .tools.base import tool_error, tool_result_to_content
+from .tools.web_search import SEARCH_TOOL_NAME, search_enabled
 from .types import AgentChatRequest
 
 logger = logging.getLogger(__name__)
@@ -26,8 +28,9 @@ logger = logging.getLogger(__name__)
 def _build_system_prompt(current_path: str | None, current_page: str | None = None) -> str:
     text = (
         "你是 Foxel 的 AI 助手。使用提供的 MCP 工具查询、读取、写入、移动、复制、删除文件，"
-        "抓取网页、获取时间、提交处理器任务、创建存储适配器或自动化任务。回答语言跟随用户，尽量简洁。\n"
-        "查询工具可直接执行。web_fetch 的所有 HTTP 方法均免审批，但可能修改外部系统。\n"
+        "搜索网页、抓取网页、获取时间、提交处理器任务、创建存储适配器或自动化任务。回答语言跟随用户，尽量简洁。\n"
+        "查询工具可直接执行。需要当前网页资料但不知道网址时先用 web_search，摘要通常够用；"
+        "只有用户指定网址、需要原文措辞或摘要不足时才用 web_fetch。web_fetch 的所有 HTTP 方法均免审批，但可能修改外部系统。\n"
         "文件写入、创建、删除、移动、复制、重命名、processors_run、adapters_create 和 tasks_create 默认需要用户确认；"
         "开启自动执行时可直接执行。审批不授予路径权限。\n"
         "路径必须是以 / 开头的绝对路径；未提供明确路径时追问，或基于当前文件管理目录补全。\n"
@@ -91,12 +94,19 @@ async def _list_mcp_tools(session) -> list[dict[str, Any]]:
     tools = [{"name": item.name, "description": item.description or "", "input_schema": item.input_schema or {},
               "annotations": item.annotations.model_dump(exclude_none=True) if item.annotations else {},
               "meta": item.meta or {}} for item in result.tools]
+    hidden = await _hidden_agent_tools()
     tools.extend(
         {"name": item.name, "description": item.description, "input_schema": item.input_schema,
          "annotations": item.annotations, "meta": item.meta}
-        for item in mcp_tool_descriptors(include_agent_only=True) if item.name in AGENT_ONLY_TOOL_NAMES
+        for item in mcp_tool_descriptors(include_agent_only=True)
+        if item.name in AGENT_ONLY_TOOL_NAMES and item.name not in hidden
     )
     return tools
+
+
+async def _hidden_agent_tools() -> set[str]:
+    """Agent-only tools an administrator turned off, which the model is then not offered."""
+    return set() if await search_enabled() else {SEARCH_TOOL_NAME}
 
 
 async def _execute_mcp_call(session, name: str, arguments: dict[str, Any]) -> str:

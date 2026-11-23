@@ -63,6 +63,7 @@ async def get_all_config(
 ):
     configs = await ConfigService.get_all()
     configs["MCP_ENABLED"] = await ConfigService.get("MCP_ENABLED", "1")
+    configs["AGENT_WEB_SEARCH_ENABLED"] = await ConfigService.get("AGENT_WEB_SEARCH_ENABLED", "1")
     configs["S3_MAPPING_BUCKETS"] = await ConfigService.get("S3_MAPPING_BUCKETS", "")
     return success(configs)
 

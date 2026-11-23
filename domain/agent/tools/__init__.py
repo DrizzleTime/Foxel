@@ -6,12 +6,13 @@ from .processors import TOOLS as PROCESSOR_TOOLS
 from .time import TOOLS as TIME_TOOLS
 from .vfs import TOOLS as VFS_TOOLS
 from .web_fetch import TOOLS as WEB_FETCH_TOOLS
+from .web_search import TOOLS as WEB_SEARCH_TOOLS
 
 TOOLS: Dict[str, ToolSpec] = {}
-for group in (TIME_TOOLS, WEB_FETCH_TOOLS, PROCESSOR_TOOLS, VFS_TOOLS, MANAGEMENT_TOOLS):
+for group in (TIME_TOOLS, WEB_FETCH_TOOLS, WEB_SEARCH_TOOLS, PROCESSOR_TOOLS, VFS_TOOLS, MANAGEMENT_TOOLS):
     TOOLS.update(group)
 
-AGENT_ONLY_TOOL_NAMES = frozenset({"time", "web_fetch"})
+AGENT_ONLY_TOOL_NAMES = frozenset({"time", "web_fetch", "web_search"})
 
 
 def get_tool(name: str) -> Optional[ToolSpec]:

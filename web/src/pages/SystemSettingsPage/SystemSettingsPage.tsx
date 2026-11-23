@@ -73,6 +73,7 @@ const CONFIG_DEFAULTS: Record<string, string> = {
   EMAIL_CONFIG: '',
   EMAIL_PASSWORD_RESET_TEMPLATE: '',
   MCP_ENABLED: '1',
+  AGENT_WEB_SEARCH_ENABLED: '1',
 };
 
 const stringifyConfigValue = (value: unknown) => String(value ?? '');
@@ -234,6 +235,9 @@ export default function SystemSettingsPage({ onClose }: SystemSettingsPageProps)
               ),
               children: (
                 <AiSettingsTab
+                  config={config}
+                  settingsLoading={loading}
+                  onSave={handleSave}
                 />
               ),
             },
